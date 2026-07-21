@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FoundFlow
 
-## Getting Started
+Human-verified, evidence-linked inventory logging for found-property teams.
 
-First, run the development server:
+FoundFlow helps frontline staff document complex found-property cases. Its guided workflow captures an outer property and each container level, drafts a nested manifest, highlights uncertainty and requires staff approval before finalisation.
+
+## Current state
+
+The repository currently contains the initial Next.js product shell and a deterministic complex-bag intake workflow. The fixture demonstrates nested inventory, confidence states and mandatory human review without sending personal property to a live model provider.
+
+## Run locally
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `http://localhost:3000` — product overview
+- `http://localhost:3000/intake` — interactive complex-bag workflow
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Verify
 
-## Learn More
+```bash
+npm run lint
+npm run build
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Core principles
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- AI drafts; staff decide.
+- Every final item is linked to evidence.
+- Nested relationships such as bag → pouch → contents are first-class data.
+- Uncertain details block finalisation until reviewed.
+- A failed AI request never destroys the case or blocks manual completion.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Challenge direction
 
-## Deploy on Vercel
+FoundFlow is being developed for the Launchpad 2026 AI Challenge. The intended submission includes a reproducible comparison against manual logging using staged simple, nested and difficult property cases.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Singapore context:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- SPF received approximately 50,000 found-property reports in 2024.
+- Changi Airport handled 68.4 million passenger movements in FY2024/25.
+
+Sources:
+
+- [SPF: Lost and Found — The SPF's Tech-Powered Property Detectives](https://www.police.gov.sg/Media-Hub/Police-Life/2025/02/Lost-and-Found-The-SPFs-Tech-Powered-Property-Detectives)
+- [Changi Airport Group annual reports](https://www.changiairport.com/en/corporate/our-media-hub/publications/reports.html)
+- [FindX — Hack for Public Good](https://www.hack.gov.sg/2025/findx/)
+
+## Documentation
+
+`PROJECT_CONTEXT.md` is the canonical product brief for future development.
+
+## License
+
+Copyright remains with the project team. A distribution licence will be selected before public release.

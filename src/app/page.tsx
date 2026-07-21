@@ -1,65 +1,76 @@
-import Image from "next/image";
+import Link from "next/link";
+
+const steps = [
+  ["Capture", "Photograph the outer property and each container level."],
+  ["Structure", "Turn images and spoken notes into a nested inventory draft."],
+  ["Verify", "Review uncertain details and link every item to evidence."],
+  ["Export", "Send an approved manifest to the organisation's existing system."],
+];
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <main>
+      <nav className="shell nav">
+        <Link className="brand" href="/">FoundFlow</Link>
+        <Link className="button button-secondary" href="/intake">Open intake demo</Link>
+      </nav>
+
+      <section className="shell hero">
+        <div>
+          <p className="eyebrow">AI intake copilot for found-property teams</p>
+          <h1>Turn a complex found bag into a verified inventory.</h1>
+          <p className="lede">
+            FoundFlow helps frontline staff capture, structure and review nested property
+            without surrendering human control.
           </p>
+          <div className="actions">
+            <Link className="button" href="/intake">Try the complex-bag workflow</Link>
+            <a className="text-link" href="#workflow">See how it works</a>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className="manifest-card" aria-label="Example nested inventory">
+          <div className="card-heading">
+            <span>Case FF-0241</span>
+            <span className="status">Reviewing</span>
+          </div>
+          <div className="tree">
+            <strong>Black backpack</strong>
+            <div><strong>Brown coin pouch</strong></div>
+            <div className="nested">Singapore currency <span className="verified">Confirmed</span></div>
+            <div className="nested">Malaysian currency <span className="warning">Review</span></div>
+            <div>USB-C cable <span className="verified">Confirmed</span></div>
+            <div>Cardholder <span className="private">Private</span></div>
+          </div>
         </div>
-      </main>
-    </div>
+      </section>
+
+      <section className="evidence-strip">
+        <div className="shell evidence-grid">
+          <div><strong>50,000</strong><span>SPF found-property reports in 2024</span></div>
+          <div><strong>68.4M</strong><span>Changi passenger movements in FY2024/25</span></div>
+          <div><strong>Human-approved</strong><span>No AI draft becomes an official record on its own</span></div>
+        </div>
+      </section>
+
+      <section className="shell section" id="workflow">
+        <p className="eyebrow">Operational workflow</p>
+        <h2>Capture → Structure → Verify → Export</h2>
+        <div className="steps">
+          {steps.map(([title, description], index) => (
+            <article className="step" key={title}>
+              <span>{String(index + 1).padStart(2, "0")}</span>
+              <h3>{title}</h3>
+              <p>{description}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <footer className="shell footer">
+        <span>Built for the Launchpad 2026 AI Challenge.</span>
+        <span>AI drafts. Staff decide.</span>
+      </footer>
+    </main>
   );
 }

@@ -12,7 +12,7 @@ export default function Home() {
     <main>
       <nav className="shell nav">
         <Link className="brand" href="/">FoundFlow</Link>
-        <Link className="button button-secondary" href="/intake">Open intake demo</Link>
+        <Link className="button button-secondary" href="/cases">Open Case Dashboard</Link>
       </nav>
 
       <section className="shell hero">
@@ -24,7 +24,7 @@ export default function Home() {
             without surrendering human control.
           </p>
           <div className="actions">
-            <Link className="button" href="/intake">Try the complex-bag workflow</Link>
+            <Link className="button" href="/cases">Try the complex-bag workflow</Link>
             <a className="text-link" href="#workflow">See how it works</a>
           </div>
         </div>

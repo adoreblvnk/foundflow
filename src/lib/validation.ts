@@ -1,9 +1,29 @@
 import type { Case, ManifestItem } from "./db.ts";
 
 const sensitiveItemPattern = /\b(?:cash|currency|banknotes?|coins?|dollars?|ringgit|passport|identity|id card|credit card|debit card|serial(?: number)?|jewel(?:ry|lery)|watch|valuable)\b/i;
+const currencyItemPattern = /\b(?:cash|currency|banknotes?|coins?|dollars?|cents?|ringgit|sen|sgd|myr|usd|eur|gbp|jpy|cny)\b/i;
+const currencyContainerPattern = /\b(?:pouch|wallet|bag|container|envelope)\b/i;
 
 export function requiresSensitiveReview(label: string, ocrText = "", visibleAttributes = ""): boolean {
   return sensitiveItemPattern.test(`${label} ${ocrText} ${visibleAttributes}`);
+}
+
+export function isCurrencyItem(item: ManifestItem): boolean {
+  if (item.currencyCode || item.denomination != null || item.currencyTotal != null) return true;
+  return currencyItemPattern.test(`${item.label} ${item.ocrText ?? ""} ${item.visibleAttributes ?? ""}`)
+    && !currencyContainerPattern.test(item.label);
+}
+
+export function summarizeCurrency(items: ManifestItem[]): Array<{ currencyCode: string; total: number }> {
+  const totals = new Map<string, number>();
+  for (const item of items) {
+    if (!item.currencyCode || item.currencyTotal == null || !Number.isFinite(item.currencyTotal)) continue;
+    const code = item.currencyCode.toUpperCase();
+    totals.set(code, Math.round(((totals.get(code) ?? 0) + item.currencyTotal) * 100) / 100);
+  }
+  return [...totals.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([currencyCode, total]) => ({ currencyCode, total }));
 }
 
 export function mergeAiDraftWithStaffItems(existing: ManifestItem[], draft: ManifestItem[]): ManifestItem[] {
@@ -105,6 +125,21 @@ export function validateManifestStructure(caseFile: Case): string | null {
     // Confidence check
     if (typeof item.confidence !== "number" || isNaN(item.confidence) || item.confidence < 0 || item.confidence > 1) {
       return `Item "${item.label}" has an invalid confidence level: "${item.confidence}".`;
+    }
+
+    if (isCurrencyItem(item)) {
+      const codeValid = typeof item.currencyCode === "string" && /^[A-Z]{3}$/.test(item.currencyCode);
+      const denominationValid = typeof item.denomination === "number" && Number.isFinite(item.denomination) && item.denomination > 0;
+      const totalValid = typeof item.currencyTotal === "number" && Number.isFinite(item.currencyTotal) && item.currencyTotal >= 0;
+      if (item.status === "confirmed" && (!codeValid || !denominationValid || !totalValid)) {
+        return `Currency item "${item.label}" requires a three-letter currency code, denomination, quantity, and total before confirmation.`;
+      }
+      if (denominationValid && totalValid) {
+        const expectedTotal = item.denomination! * item.quantity;
+        if (Math.abs(expectedTotal - item.currencyTotal!) > 0.005) {
+          return `Currency item "${item.label}" total must equal denomination × quantity (${expectedTotal}).`;
+        }
+      }
     }
 
     // Parent container check

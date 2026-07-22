@@ -37,7 +37,7 @@ import {
 
 import { verifyImageSignature } from "../src/lib/image-utils.ts";
 import { escapeCsvCell } from "../src/lib/csv-utils.ts";
-import { hasCycle, mergeAiDraftWithStaffItems, requiresSensitiveReview, validateManifestStructure } from "../src/lib/validation.ts";
+import { hasCycle, isCurrencyItem, mergeAiDraftWithStaffItems, requiresSensitiveReview, summarizeCurrency, validateManifestStructure } from "../src/lib/validation.ts";
 
 test("Database Layer, Seeding & Isolation", async (t) => {
   await t.test("should start with 0 cases on fresh setup", () => {
@@ -52,8 +52,14 @@ test("Database Layer, Seeding & Isolation", async (t) => {
     assert.strictEqual(demo.uploads.length, 1);
     assert.strictEqual(demo.uploads[0].mimeType, "image/webp");
     assert.ok(fs.existsSync(`${TEST_DIR}/uploads/${demo.uploads[0].filename}`));
-    assert.strictEqual(demo.manifest.length, 9);
+    assert.strictEqual(demo.manifest.length, 11);
     assert.ok(demo.manifest.every((item) => item.evidenceId === demo.uploads[0].id));
+    assert.deepStrictEqual(summarizeCurrency(demo.manifest), [
+      { currencyCode: "MYR", total: 50.4 },
+      { currencyCode: "SGD", total: 104 },
+    ]);
+    assert.strictEqual(demo.manifest.filter(isCurrencyItem).length, 5);
+    assert.ok(demo.manifest.filter(isCurrencyItem).every((item) => item.status === "review"));
     assert.strictEqual(validateManifestStructure(demo), null);
     assert.ok(demo.auditLogs.some((log) => log.action === "demo_seeded" && log.details.includes("no live AI call")));
 
@@ -224,6 +230,18 @@ test("Domain, Cycles & Finalisation Validations", async (t) => {
     };
     const error = validateManifestStructure(mockCase);
     assert.ok(error && error.includes("evidence"));
+  });
+
+  await t.test("requires exact denomination totals before currency confirmation", () => {
+    const demo = getCaseById("FF-0241")!;
+    const currency = demo.manifest.find((item) => item.id === "sgd-1-coins")!;
+    currency.status = "confirmed";
+    currency.currencyCode = null;
+    assert.match(validateManifestStructure(demo) ?? "", /requires a three-letter currency code/);
+
+    currency.currencyCode = "SGD";
+    currency.currencyTotal = 99;
+    assert.match(validateManifestStructure(demo) ?? "", /denomination × quantity/);
   });
 });
 

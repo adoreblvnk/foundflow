@@ -26,6 +26,7 @@ Avoid generic chatbot UI, decorative AI gradients, consumer marketplace styling,
 - Make uncertainty actionable and human approval explicit.
 - Preserve familiar form, review and export affordances.
 - Show provenance through evidence links and audit history.
+- Record notes and coins as separate currency-and-denomination groups; compute exact totals from denomination × quantity and never guess unreadable values.
 - Keep deterministic demo fixtures clearly separate from live AI results.
 
 ## Accessibility & Inclusion

@@ -2,7 +2,7 @@
 
 Human-verified, evidence-linked nested inventory logging for found-property teams.
 
-FoundFlow is a secure, single-server prototype designed to help frontline airport and transit custody staff document complex found-property cases. Its guided, secure workflow captures outer containers and each nesting level (e.g., Backpack → Pouch → Coins), automatically drafts a structured, nested manifest with OCR attributes, highlights high-uncertainty areas for human review, and requires staff approval before finalisation and export.
+FoundFlow is a secure, single-server prototype designed to help frontline airport and transit custody staff document complex found-property cases. Its guided workflow captures outer containers and each nesting level (e.g., Backpack → Pouch → Currency), drafts a structured manifest with OCR attributes and exact denomination × quantity totals for notes and coins, highlights uncertainty for human review, and requires staff approval before finalisation and export.
 
 *Note: This application is a fully functional prototype designed for single-server local deployment and is not called production-ready.*
 
@@ -69,7 +69,7 @@ npm ci
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000), sign in, then select **Load Demo Case** for the complete staged backpack workflow. The deterministic demo includes one synthetic evidence photograph, a nine-record nested manifest, three review decisions, finalisation and JSON / CSV exports. Selecting **Reset Demo Case** restores the fixture for another walkthrough.
+Open [http://localhost:3000](http://localhost:3000), sign in, then select **Load Demo Case** for the complete staged backpack workflow. The deterministic demo includes one synthetic evidence photograph, an eleven-record nested manifest, five denomination-level currency reviews, exact totals of SGD 104.00 and MYR 50.40, finalisation and JSON / CSV exports. Selecting **Reset Demo Case** restores the fixture for another walkthrough.
 
 ### Run Static Typecheck
 ```bash

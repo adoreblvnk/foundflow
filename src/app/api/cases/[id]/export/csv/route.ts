@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAuthenticated, getCurrentUser } from "@/lib/auth";
 import { getCaseById, addAuditLog, runInTransaction } from "@/lib/db";
 import { escapeCsvCell } from "@/lib/csv-utils";
+import { summarizeCurrency } from "@/lib/validation";
 
 export async function GET(
   request: NextRequest,
@@ -41,10 +42,17 @@ export async function GET(
       "Status",
       "Source",
       "Evidence ID",
+      "Currency Code",
+      "Denomination",
+      "Line Currency Total",
+      "Case Currency Total",
       "OCR Text",
       "Visible Attributes",
     ];
     const csvRows = [headers.map(escapeCsvCell).join(",")];
+    const currencyTotals = new Map(
+      summarizeCurrency(caseFile.manifest).map(({ currencyCode, total }) => [currencyCode, total] as const)
+    );
 
     caseFile.manifest.forEach((item) => {
       const row = [
@@ -56,6 +64,10 @@ export async function GET(
         item.status,
         item.source ?? "staff",
         item.evidenceId || "",
+        item.currencyCode || "",
+        item.denomination?.toFixed(2) || "",
+        item.currencyTotal?.toFixed(2) || "",
+        item.currencyCode ? currencyTotals.get(item.currencyCode)?.toFixed(2) || "" : "",
         item.ocrText || "",
         item.visibleAttributes || "",
       ];

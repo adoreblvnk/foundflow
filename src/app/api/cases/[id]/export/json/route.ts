@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthenticated, getCurrentUser } from "@/lib/auth";
 import { getCaseById, addAuditLog, runInTransaction } from "@/lib/db";
+import { summarizeCurrency } from "@/lib/validation";
 
 export async function GET(
   request: NextRequest,
@@ -38,6 +39,7 @@ export async function GET(
       outerItemDescription: caseFile.outerItemDescription,
       finalisedAt: caseFile.finalisedAt,
       finalisedBy: caseFile.finalisedBy,
+      currencySummary: summarizeCurrency(caseFile.manifest),
       manifest: caseFile.manifest.map((item) => ({
         id: item.id,
         label: item.label,
@@ -47,6 +49,9 @@ export async function GET(
         status: item.status,
         source: item.source ?? "staff",
         evidenceId: item.evidenceId,
+        currencyCode: item.currencyCode ?? null,
+        denomination: item.denomination ?? null,
+        currencyTotal: item.currencyTotal ?? null,
         ocrText: item.ocrText || "",
         visibleAttributes: item.visibleAttributes || "",
       })),

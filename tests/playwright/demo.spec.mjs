@@ -20,8 +20,10 @@ test("evidence-backed demo completes the custody workflow", async ({ page }) => 
   await page.getByRole("link", { name: "Open Case File →" }).click();
   await expect(page).toHaveURL(/\/cases\/FF-0241$/);
   await expect(page.getByText("Evidence Gallery (1)", { exact: true })).toBeVisible();
-  await expect(page.getByText("9 records", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Confirm Entry" })).toHaveCount(3);
+  await expect(page.getByText("11 records", { exact: true })).toBeVisible();
+  await expect(page.getByText("SGD 104.00", { exact: true })).toBeVisible();
+  await expect(page.getByText("MYR 50.40", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Confirm Entry" })).toHaveCount(5);
 
   const evidence = page.locator('img[alt="staged-found-property.webp"]');
   await expect(evidence).toBeVisible();
@@ -38,6 +40,14 @@ test("evidence-backed demo completes the custody workflow", async ({ page }) => 
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   await page.setViewportSize({ width: 1280, height: 720 });
+
+  await page.getByRole("button", { name: "Edit Singapore 1-dollar specimen coins" }).click();
+  const currencyDialog = page.getByRole("dialog", { name: "Edit Manifest Record" });
+  await expect(currencyDialog.getByLabel("ISO currency code")).toHaveValue("SGD");
+  await expect(currencyDialog.getByLabel("Currency denomination")).toHaveValue("1");
+  await expect(currencyDialog.getByText("Total: SGD 3.00", { exact: true })).toBeVisible();
+  await currencyDialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(currencyDialog).toBeHidden();
 
   while (await page.getByRole("button", { name: "Confirm Entry" }).count()) {
     await page.getByRole("button", { name: "Confirm Entry" }).first().click();
@@ -63,8 +73,18 @@ test("evidence-backed demo completes the custody workflow", async ({ page }) => 
   });
   expect(exports.jsonStatus).toBe(200);
   expect(exports.csvStatus).toBe(200);
-  expect(exports.json.manifest).toHaveLength(9);
+  expect(exports.json.manifest).toHaveLength(11);
+  expect(exports.json.currencySummary).toEqual([
+    { currencyCode: "MYR", total: 50.4 },
+    { currencyCode: "SGD", total: 104 },
+  ]);
   expect(exports.json.manifest.every((item) => item.evidenceId === "demo-evidence-1")).toBe(true);
+  expect(exports.csv).toContain("Currency Code");
+  expect(exports.csv).toContain("Case Currency Total");
+  expect(exports.csv).toContain("104.00");
+  expect(exports.csv).toContain("50.40");
+  expect(exports.csv).toContain("SGD");
+  expect(exports.csv).toContain("MYR");
   expect(exports.csv).toContain("SAMPLE-0241");
 
   await page.reload();

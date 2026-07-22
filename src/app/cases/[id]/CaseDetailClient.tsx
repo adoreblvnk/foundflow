@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Case, ManifestItem } from "@/lib/db";
+import { summarizeCurrency } from "@/lib/validation";
 import {
   handleUploadEvidence,
   handleAiAnalysis,
@@ -66,6 +67,9 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
     parentId: "outer-item-root",
     quantity: 1,
     status: "confirmed",
+    currencyCode: null,
+    denomination: null,
+    currencyTotal: null,
   });
 
   // Speech Recognition state
@@ -79,6 +83,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
   const unresolved = caseFile.manifest.filter((item) => item.status === "review").length;
   const isFinalised = caseFile.status === "finalised";
   const hasLiveAiDraft = caseFile.manifest.some((item) => item.source === "ai");
+  const currencySummary = summarizeCurrency(caseFile.manifest);
 
   // Refresh case client side from server db
   const refreshCase = useCallback(async () => {
@@ -383,6 +388,11 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
       evidenceId: newItemData.evidenceId || "staff-added",
       ocrText: newItemData.ocrText || "",
       visibleAttributes: newItemData.visibleAttributes || "",
+      currencyCode: newItemData.currencyCode || null,
+      denomination: newItemData.denomination ?? null,
+      currencyTotal: newItemData.currencyCode && newItemData.denomination != null
+        ? Math.round(newItemData.denomination * (newItemData.quantity || 1) * 100) / 100
+        : null,
     });
 
     if (result.error) {
@@ -390,7 +400,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
     } else {
       setSuccessMsg(`Added item "${newItemData.label}" successfully.`);
       setIsAddingItem(false);
-      setNewItemData({ label: "", parentId: "outer-item-root", quantity: 1, status: "confirmed", ocrText: "", visibleAttributes: "", evidenceId: "staff-added" });
+      setNewItemData({ label: "", parentId: "outer-item-root", quantity: 1, status: "confirmed", ocrText: "", visibleAttributes: "", evidenceId: "staff-added", currencyCode: null, denomination: null, currencyTotal: null });
       await refreshCase();
     }
   }
@@ -654,6 +664,20 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
             </div>
           )}
 
+          {currencySummary.length > 0 && (
+            <section aria-labelledby="currency-summary-title" style={{ border: "1px solid var(--line)", borderRadius: "10px", padding: "12px 14px", background: "var(--paper)" }}>
+              <strong id="currency-summary-title" style={{ display: "block", fontSize: "0.82rem", marginBottom: "8px" }}>Currency totals</strong>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                {currencySummary.map(({ currencyCode, total }) => (
+                  <span key={currencyCode} style={{ border: "1px solid var(--line)", borderRadius: "999px", padding: "6px 10px", fontFamily: "monospace", fontWeight: 700 }}>
+                    {currencyCode} {total.toFixed(2)}
+                  </span>
+                ))}
+              </div>
+              <p className="muted" style={{ fontSize: "0.72rem", margin: "8px 0 0" }}>Computed from denomination × quantity. Currency records remain review-gated until staff confirms each value.</p>
+            </section>
+          )}
+
           {/* Notifications */}
           {errorMsg && (
             <div role="alert" style={{ background: "#fdf2f2", border: "1px solid #fbd5d5", color: "#c81e1e", borderRadius: "8px", padding: "12px", fontSize: "0.85rem" }}>
@@ -823,6 +847,11 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                       Confidence {Math.round(item.confidence * 100)}%
                       {item.evidenceId && ` · Evidence: ${item.evidenceId}`}
                     </p>
+                    {(item.currencyCode || item.denomination != null || item.currencyTotal != null) && (
+                      <div style={{ marginTop: "6px", fontSize: "0.76rem", fontFamily: "monospace", fontWeight: 700 }}>
+                        {item.currencyCode ?? "Currency pending"} · {item.denomination != null ? item.denomination.toFixed(2) : "denomination pending"} × {item.quantity} = {item.currencyTotal != null ? item.currencyTotal.toFixed(2) : "total pending"}
+                      </div>
+                    )}
                     {(item.ocrText || item.visibleAttributes) && (
                       <div style={{ marginTop: "4px", fontSize: "0.74rem", color: "var(--muted)", background: "var(--paper)", padding: "4px 8px", borderRadius: "4px", display: "inline-block" }}>
                         {item.ocrText && <div style={{ fontFamily: "monospace" }}>📝 <strong>OCR:</strong> &quot;{item.ocrText}&quot;</div>}
@@ -1065,6 +1094,23 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                 />
               </div>
 
+              <fieldset style={{ border: "1px solid var(--line)", borderRadius: "8px", padding: "12px", display: "grid", gap: "10px" }}>
+                <legend style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0 4px" }}>Currency amount (notes or coins)</legend>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                  <label style={{ fontSize: "0.72rem", display: "grid", gap: "4px" }}>
+                    ISO currency code
+                    <input aria-label="ISO currency code" maxLength={3} value={editingItem.currencyCode || ""} onChange={(e) => setEditingItem({ ...editingItem, currencyCode: e.target.value.toUpperCase() || null })} placeholder="SGD" style={{ height: "36px", borderRadius: "6px", border: "1px solid var(--line)", paddingInline: "10px" }} />
+                  </label>
+                  <label style={{ fontSize: "0.72rem", display: "grid", gap: "4px" }}>
+                    Denomination
+                    <input aria-label="Currency denomination" type="number" min="0.01" step="0.01" value={editingItem.denomination ?? ""} onChange={(e) => setEditingItem({ ...editingItem, denomination: e.target.value ? Number(e.target.value) : null })} placeholder="100.00" style={{ height: "36px", borderRadius: "6px", border: "1px solid var(--line)", paddingInline: "10px" }} />
+                  </label>
+                </div>
+                <output style={{ fontFamily: "monospace", fontSize: "0.78rem", fontWeight: 700 }}>
+                  Total: {editingItem.currencyCode || "—"} {editingItem.denomination != null ? (editingItem.denomination * editingItem.quantity).toFixed(2) : "—"}
+                </output>
+              </fieldset>
+
               {editingItem.id !== "outer-item-root" && (
                 <div style={{ display: "grid", gap: "4px" }}>
                   <label style={{ fontSize: "0.75rem", fontWeight: 700 }}>Parent Container</label>
@@ -1275,6 +1321,23 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                   }}
                 />
               </div>
+
+              <fieldset style={{ border: "1px solid var(--line)", borderRadius: "8px", padding: "12px", display: "grid", gap: "10px" }}>
+                <legend style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0 4px" }}>Currency amount (notes or coins)</legend>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                  <label style={{ fontSize: "0.72rem", display: "grid", gap: "4px" }}>
+                    ISO currency code
+                    <input aria-label="ISO currency code" maxLength={3} value={newItemData.currencyCode || ""} onChange={(e) => setNewItemData({ ...newItemData, currencyCode: e.target.value.toUpperCase() || null })} placeholder="SGD" style={{ height: "36px", borderRadius: "6px", border: "1px solid var(--line)", paddingInline: "10px" }} />
+                  </label>
+                  <label style={{ fontSize: "0.72rem", display: "grid", gap: "4px" }}>
+                    Denomination
+                    <input aria-label="Currency denomination" type="number" min="0.01" step="0.01" value={newItemData.denomination ?? ""} onChange={(e) => setNewItemData({ ...newItemData, denomination: e.target.value ? Number(e.target.value) : null })} placeholder="100.00" style={{ height: "36px", borderRadius: "6px", border: "1px solid var(--line)", paddingInline: "10px" }} />
+                  </label>
+                </div>
+                <output style={{ fontFamily: "monospace", fontSize: "0.78rem", fontWeight: 700 }}>
+                  Total: {newItemData.currencyCode || "—"} {newItemData.denomination != null ? (newItemData.denomination * (newItemData.quantity || 1)).toFixed(2) : "—"}
+                </output>
+              </fieldset>
 
               <div style={{ display: "grid", gap: "4px" }}>
                 <label style={{ fontSize: "0.75rem", fontWeight: 700 }}>Parent Container</label>

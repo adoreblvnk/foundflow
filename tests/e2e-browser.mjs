@@ -77,7 +77,10 @@ try {
   assert.match(postUploadBody, /EVIDENCE GALLERY \(1\)/, "uploaded evidence should refresh in the UI");
 
   await page.getByRole("button", { name: "Live AI Analysis" }).click();
-  await page.getByText(/AI analysis complete/).waitFor({ timeout: 300_000 });
+  const analysisOutcome = page.getByText(/AI analysis complete|AI Analysis failed:/).first();
+  await analysisOutcome.waitFor({ timeout: 300_000 });
+  const analysisOutcomeText = await analysisOutcome.innerText();
+  assert.doesNotMatch(analysisOutcomeText, /AI Analysis failed:/, analysisOutcomeText);
   const postAnalysisBody = await page.locator("body").innerText();
   const recordMatch = postAnalysisBody.match(/Manifest Workspace\s+(\d+)\s+records/);
   assert.ok(recordMatch, "record count should be visible");
@@ -99,16 +102,32 @@ try {
   const extractedText = analyzedCase.body.manifest.map((item) => item.ocrText ?? "").join(" | ");
   assert.match(extractedText, /SPECIMEN|SAMPLE-0241|ZX0000241|MYX0000241/i, "representative OCR should recover staged visible text");
 
+  const currencyItems = analyzedCase.body.manifest.filter((item) => item.currencyCode || item.denomination != null || item.currencyTotal != null);
+  assert.ok(currencyItems.length >= 5, "live analysis should separate every currency and denomination group");
+  for (const item of currencyItems) {
+    assert.match(item.currencyCode ?? "", /^[A-Z]{3}$/);
+    assert.ok(item.denomination > 0, `${item.label} should have an exact denomination`);
+    assert.equal(item.currencyTotal, Math.round(item.denomination * item.quantity * 100) / 100, `${item.label} should have an exact denomination × quantity total`);
+  }
+  const totals = currencyItems.reduce((summary, item) => {
+    summary[item.currencyCode] = Math.round(((summary[item.currencyCode] ?? 0) + item.currencyTotal) * 100) / 100;
+    return summary;
+  }, {});
+  assert.equal(totals.SGD, 104);
+  assert.equal(totals.MYR, 50.4);
+  assert.match(postAnalysisBody, /SGD 104\.00/);
+  assert.match(postAnalysisBody, /MYR 50\.40/);
+
   await page.getByRole("button", { name: "+ Add Item Manually" }).click();
   const addModal = page.getByRole("heading", { name: /Add New Manifest Record/ }).locator("..");
-  await addModal.getByLabel("Item Label").fill("Cash inspection token");
+  await addModal.getByLabel("Item Label").fill("Passport inspection token");
   await addModal.getByRole("button", { name: "Add Item", exact: true }).click();
-  await page.getByText(/Added item "Cash inspection token"/).waitFor();
+  await page.getByText(/Added item "Passport inspection token"/).waitFor();
   const manuallyAddedCase = await page.evaluate(async (id) => {
     const response = await fetch(`/api/cases/${id}`, { cache: "no-store" });
     return response.json();
   }, caseId);
-  const sensitiveManualItem = manuallyAddedCase.manifest.find((item) => item.label === "Cash inspection token");
+  const sensitiveManualItem = manuallyAddedCase.manifest.find((item) => item.label === "Passport inspection token");
   assert.equal(sensitiveManualItem?.status, "review");
   assert.match(sensitiveManualItem?.reviewReason ?? "", /Sensitive item details require staff confirmation/);
   await expectDisabled(page.getByRole("button", { name: "Approve and Finalise" }));

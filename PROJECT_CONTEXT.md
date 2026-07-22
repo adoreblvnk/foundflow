@@ -25,6 +25,7 @@ Existing systems can store and search lost-property records. FoundFlow improves 
 - AI drafts; authorised staff make the final decision.
 - Every final item must link to captured evidence or be explicitly added by a staff member.
 - Nested container relationships must survive extraction, correction and export.
+- Notes and coins must be separated by currency and denomination, with exact denomination × quantity totals; unreadable values remain unresolved and cannot be guessed.
 - Uncertain quantities, currencies and identifiers require explicit review.
 - The challenge dataset must use staged property and synthetic identifiers, not real passenger data.
 - Live-provider failure must not destroy a case or prevent manual completion.

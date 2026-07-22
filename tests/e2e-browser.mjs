@@ -101,10 +101,16 @@ try {
 
   await page.getByRole("button", { name: "+ Add Item Manually" }).click();
   const addModal = page.getByRole("heading", { name: /Add New Manifest Record/ }).locator("..");
-  await addModal.locator('input[type="text"]').first().fill("Unclear inspection token");
-  await addModal.locator("select").last().selectOption("review");
+  await addModal.getByLabel("Item Label").fill("Cash inspection token");
   await addModal.getByRole("button", { name: "Add Item", exact: true }).click();
-  await page.getByText(/Added item "Unclear inspection token"/).waitFor();
+  await page.getByText(/Added item "Cash inspection token"/).waitFor();
+  const manuallyAddedCase = await page.evaluate(async (id) => {
+    const response = await fetch(`/api/cases/${id}`, { cache: "no-store" });
+    return response.json();
+  }, caseId);
+  const sensitiveManualItem = manuallyAddedCase.manifest.find((item) => item.label === "Cash inspection token");
+  assert.equal(sensitiveManualItem?.status, "review");
+  assert.match(sensitiveManualItem?.reviewReason ?? "", /Sensitive item details require staff confirmation/);
   await expectDisabled(page.getByRole("button", { name: "Approve and Finalise" }));
 
   while (await page.getByRole("button", { name: "Confirm Entry" }).count()) {
@@ -147,8 +153,9 @@ try {
   assert.match(csvExport.contentType, /text\/csv/);
   assert.match(csvExport.body, /Orange luggage tag/i);
 
+  await page.reload();
   const auditText = await page.locator("body").innerText();
-  for (const event of ["EVIDENCE UPLOADED", "AI ANALYSIS TRIGGERED", "ITEM ADDED", "ITEM CONFIRMED", "CASE FINALISED"]) {
+  for (const event of ["EVIDENCE UPLOADED", "AI ANALYSIS TRIGGERED", "ITEM ADDED", "ITEM CONFIRMED", "CASE FINALISED", "MANIFEST EXPORTED"]) {
     assert.match(auditText, new RegExp(event));
   }
 

@@ -301,6 +301,13 @@ Respond strictly in the requested structured schema.`
       let reviewReason = item.reviewReason;
       let status = item.status;
 
+      if (item.parentId && !idMap[item.parentId]) {
+        status = "review";
+        reviewReason = reviewReason
+          ? `${reviewReason}; Unknown parent container resolved to the outer item`
+          : "Unknown parent container resolved to the outer item";
+      }
+
       // Validate every AI evidenceId against the actual uploaded IDs; reject/flag unsupported IDs
       if (!validUploadIds.has(item.evidenceId)) {
         evidenceId = "unsupported-evidence-id";
@@ -386,7 +393,12 @@ Respond strictly in the requested structured schema.`
       });
     }
 
-    caseFile.manifest = mergeAiDraftWithStaffItems(caseFile.manifest, mappedItems);
+    const mergedManifest = mergeAiDraftWithStaffItems(caseFile.manifest, mappedItems);
+    const validationError = validateManifestStructure({ ...caseFile, manifest: mergedManifest });
+    if (validationError) {
+      return { error: `AI draft rejected: ${validationError}` };
+    }
+    caseFile.manifest = mergedManifest;
 
     runInTransaction(() => {
       updateCase(caseId, caseFile);
@@ -398,7 +410,7 @@ Respond strictly in the requested structured schema.`
       );
     });
 
-    return { success: true, manifest: mappedItems };
+    return { success: true, manifest: mergedManifest };
   } catch (error: unknown) {
     console.error("AI Analysis failed:", error);
     const message = error instanceof Error ? error.message : "An unknown provider error occurred.";
@@ -462,6 +474,13 @@ export async function handleUpdateItem(caseId: string, updatedItem: ManifestItem
     });
 
     const originalItem = caseFile.manifest[itemIndex];
+    const becameSensitive =
+      !requiresSensitiveReview(originalItem.label, originalItem.ocrText, originalItem.visibleAttributes) &&
+      requiresSensitiveReview(parsed.label, parsed.ocrText, parsed.visibleAttributes);
+    if (becameSensitive) {
+      parsed.status = "review";
+      parsed.reviewReason = parsed.reviewReason || "Sensitive item details require staff confirmation";
+    }
 
     // Enforce root protections
     if (updatedItem.id === "outer-item-root") {
@@ -563,6 +582,11 @@ export async function handleAddItem(caseId: string, itemData: Omit<ManifestItem,
     // Ensure parent container exists in DB
     if (!caseFile.manifest.some((p) => p.id === parsed.parentId)) {
       return { error: `Parent container ID "${parsed.parentId}" does not exist.` };
+    }
+
+    if (requiresSensitiveReview(parsed.label, parsed.ocrText, parsed.visibleAttributes)) {
+      parsed.status = "review";
+      parsed.reviewReason = parsed.reviewReason || "Sensitive item details require staff confirmation";
     }
 
     // Cryptographically secure item ID generation

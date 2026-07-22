@@ -250,6 +250,23 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
     }
   }, []);
 
+  useEffect(() => {
+    if (!editingItem && !isAddingItem) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setEditingItem(null);
+        setIsAddingItem(false);
+      }
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [editingItem, isAddingItem]);
+
   function startListening() {
     if (isFinalised) return;
     if (recognitionRef.current) {
@@ -416,14 +433,16 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
 
   // Build the indented tree structure
   function getIndentDepth(item: ManifestItem): number {
-    if (item.parentId === null) return 0;
-    if (item.parentId === "outer-item-root") return 1;
+    let depth = 0;
+    let current: ManifestItem | undefined = item;
+    const visited = new Set<string>();
 
-    // Check if parent's parent is null
-    const parent = caseFile.manifest.find(i => i.id === item.parentId);
-    if (!parent) return 1;
-    if (parent.parentId === null) return 1;
-    return 2; // Maximum depth 2 for pouch-level content (bag -> pouch -> content)
+    while (current?.parentId && !visited.has(current.id)) {
+      visited.add(current.id);
+      depth += 1;
+      current = caseFile.manifest.find((candidate) => candidate.id === current?.parentId);
+    }
+    return depth;
   }
 
   // Sort manifest items to keep children adjacent to parents
@@ -637,12 +656,12 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
 
           {/* Notifications */}
           {errorMsg && (
-            <div style={{ background: "#fdf2f2", border: "1px solid #fbd5d5", color: "#c81e1e", borderRadius: "8px", padding: "12px", fontSize: "0.85rem" }}>
+            <div role="alert" style={{ background: "#fdf2f2", border: "1px solid #fbd5d5", color: "#c81e1e", borderRadius: "8px", padding: "12px", fontSize: "0.85rem" }}>
               ⚠️ {errorMsg}
             </div>
           )}
           {successMsg && (
-            <div style={{ background: "#f3faf5", border: "1px solid #def7ec", color: "var(--green)", borderRadius: "8px", padding: "12px", fontSize: "0.85rem" }}>
+            <div role="status" aria-live="polite" style={{ background: "#f3faf5", border: "1px solid #def7ec", color: "var(--green)", borderRadius: "8px", padding: "12px", fontSize: "0.85rem" }}>
               ✅ {successMsg}
             </div>
           )}
@@ -836,6 +855,8 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                     {!isFinalised && (
                       <>
                         <button
+                          type="button"
+                          aria-label={`Edit ${item.label}`}
                           onClick={() => setEditingItem(item)}
                           style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: "0.85rem" }}
                           title="Edit Item"
@@ -844,6 +865,8 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                         </button>
                         {item.id !== "outer-item-root" && (
                           <button
+                            type="button"
+                            aria-label={`Delete ${item.label}`}
                             onClick={() => { void deleteItemDirect(item.id); }}
                             style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: "0.85rem" }}
                             title="Delete Item"
@@ -945,33 +968,38 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
 
       {/* MODAL 1: Edit Item Form Overlay */}
       {editingItem && (
-        <div style={{
+        <div className="modal-backdrop" style={{
           position: "fixed",
-          top: 0,
-          left: 0,
-          width: "100%",
-          height: "100%",
+          inset: 0,
           background: "rgba(0,0,0,0.4)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           zIndex: 1000
         }}>
-          <div style={{
-            background: "var(--panel)",
-            border: "1px solid var(--line)",
-            borderRadius: "12px",
-            padding: "24px",
-            width: "100%",
-            maxWidth: "480px",
-            boxShadow: "0 20px 40px rgba(0,0,0,0.15)"
-          }}>
-            <h3 style={{ fontSize: "1.25rem", margin: "0 0 16px" }}>✏️ Edit Manifest Record</h3>
+          <div
+            className="modal-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-item-title"
+            style={{
+              background: "var(--panel)",
+              border: "1px solid var(--line)",
+              borderRadius: "12px",
+              padding: "24px",
+              width: "100%",
+              maxWidth: "480px",
+              boxShadow: "0 8px 16px rgba(0,0,0,0.15)"
+            }}
+          >
+            <h3 id="edit-item-title" style={{ fontSize: "1.25rem", margin: "0 0 16px" }}>Edit Manifest Record</h3>
             <form onSubmit={(e) => { void submitEditItem(e); }} style={{ display: "grid", gap: "16px" }}>
               <div style={{ display: "grid", gap: "4px" }}>
                 <label style={{ fontSize: "0.75rem", fontWeight: 700 }}>Item Label</label>
                 <input
                   type="text"
+                  aria-label="Item Label"
+                  autoFocus
                   value={editingItem.label}
                   onChange={(e) => setEditingItem({ ...editingItem, label: e.target.value })}
                   required
@@ -1148,7 +1176,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
 
       {/* MODAL 2: Add Manual Item Overlay */}
       {isAddingItem && (
-        <div style={{
+        <div className="modal-backdrop" style={{
           position: "fixed",
           top: 0,
           left: 0,
@@ -1160,21 +1188,28 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
           justifyContent: "center",
           zIndex: 1000
         }}>
-          <div style={{
-            background: "var(--panel)",
-            border: "1px solid var(--line)",
-            borderRadius: "12px",
-            padding: "24px",
-            width: "100%",
-            maxWidth: "480px",
-            boxShadow: "0 20px 40px rgba(0,0,0,0.15)"
-          }}>
-            <h3 style={{ fontSize: "1.25rem", margin: "0 0 16px" }}>➕ Add New Manifest Record</h3>
+          <div
+            className="modal-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-item-title"
+            style={{
+              background: "var(--panel)",
+              border: "1px solid var(--line)",
+              borderRadius: "12px",
+              padding: "24px",
+              width: "100%",
+              maxWidth: "480px",
+              boxShadow: "0 8px 16px rgba(0,0,0,0.15)"
+            }}>
+            <h3 id="add-item-title" style={{ fontSize: "1.25rem", margin: "0 0 16px" }}>Add New Manifest Record</h3>
             <form onSubmit={(e) => { void submitAddItem(e); }} style={{ display: "grid", gap: "16px" }}>
               <div style={{ display: "grid", gap: "4px" }}>
                 <label style={{ fontSize: "0.75rem", fontWeight: 700 }}>Item Label</label>
                 <input
                   type="text"
+                  aria-label="Item Label"
+                  autoFocus
                   placeholder="e.g. Leather wallet, Gold Ring"
                   value={newItemData.label}
                   onChange={(e) => setNewItemData({ ...newItemData, label: e.target.value })}

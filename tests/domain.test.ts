@@ -263,6 +263,17 @@ test("Sensitive Item Review Policy", async (t) => {
     const merged = mergeAiDraftWithStaffItems([root, staff, staleAi], [root, freshAi, duplicateStaffLabel]);
     assert.deepStrictEqual(merged.map((item) => item.id), ["outer-item-root", "ai-new", "staff-1"]);
   });
+
+  await t.test("remaps fresh AI children to preserved staff-owned containers", () => {
+    const root: ManifestItem = { id: "outer-item-root", label: "Bag", parentId: null, quantity: 1, status: "confirmed", confidence: 1, reviewReason: null, evidenceId: "manual-creation", source: "system" };
+    const preservedPouch: ManifestItem = { id: "staff-pouch", label: "Brown pouch", parentId: "outer-item-root", quantity: 1, status: "confirmed", confidence: 1, reviewReason: null, evidenceId: "staff-added", source: "staff" };
+    const freshPouch: ManifestItem = { ...preservedPouch, id: "fresh-pouch", evidenceId: "evidence-1", source: "ai" };
+    const freshCoin: ManifestItem = { id: "fresh-coin", label: "Coin", parentId: "fresh-pouch", quantity: 1, status: "review", confidence: 0.8, reviewReason: "Verify denomination", evidenceId: "evidence-1", source: "ai" };
+
+    const merged = mergeAiDraftWithStaffItems([root, preservedPouch], [root, freshPouch, freshCoin]);
+    assert.deepStrictEqual(merged.map((item) => item.id), ["outer-item-root", "fresh-coin", "staff-pouch"]);
+    assert.strictEqual(merged.find((item) => item.id === "fresh-coin")?.parentId, "staff-pouch");
+  });
 });
 
 // Clean up test databases

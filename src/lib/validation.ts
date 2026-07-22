@@ -10,10 +10,24 @@ export function mergeAiDraftWithStaffItems(existing: ManifestItem[], draft: Mani
   const preservedStaffItems = existing.filter(
     (item) => item.id !== "outer-item-root" && (item.source ?? "staff") === "staff"
   );
-  const preservedLabels = new Set(preservedStaffItems.map((item) => item.label.trim().toLowerCase()));
-  const freshDraftItems = draft.filter(
-    (item) => item.id === "outer-item-root" || !preservedLabels.has(item.label.trim().toLowerCase())
+  const preservedByLabel = new Map(
+    preservedStaffItems.map((item) => [item.label.trim().toLowerCase(), item] as const)
   );
+  const replacementIds = new Map<string, string>();
+
+  for (const item of draft) {
+    if (item.id === "outer-item-root") continue;
+    const preserved = preservedByLabel.get(item.label.trim().toLowerCase());
+    if (preserved) replacementIds.set(item.id, preserved.id);
+  }
+
+  const freshDraftItems = draft
+    .filter((item) => item.id === "outer-item-root" || !replacementIds.has(item.id))
+    .map((item) => ({
+      ...item,
+      parentId: item.parentId ? (replacementIds.get(item.parentId) ?? item.parentId) : null,
+    }));
+
   return [...freshDraftItems, ...preservedStaffItems];
 }
 

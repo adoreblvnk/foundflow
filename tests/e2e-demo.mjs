@@ -62,6 +62,15 @@ try {
   assert.equal(await page.getByRole("button", { name: "Confirm Entry" }).count(), 3);
   assert.equal(await page.getByRole("button", { name: "Approve and Finalise" }).isDisabled(), true);
 
+  await page.setViewportSize({ width: 375, height: 500 });
+  await page.getByRole("button", { name: "+ Add Item Manually" }).click();
+  const mobileDialog = page.getByRole("dialog", { name: "Add New Manifest Record" });
+  const mobileDialogBox = await mobileDialog.boundingBox();
+  assert.ok(mobileDialogBox && mobileDialogBox.y >= 0 && mobileDialogBox.y + mobileDialogBox.height <= 500, "mobile dialog should remain inside the viewport");
+  await page.keyboard.press("Escape");
+  await mobileDialog.waitFor({ state: "hidden" });
+  await page.setViewportSize({ width: 1280, height: 720 });
+
   while (await page.getByRole("button", { name: "Confirm Entry" }).count()) {
     await page.getByRole("button", { name: "Confirm Entry" }).first().click();
     await page.getByText(/Item confirmed/).waitFor();
@@ -92,8 +101,9 @@ try {
   assert.ok(exported.json.manifest.every((item) => item.evidenceId === "demo-evidence-1"));
   assert.match(exported.csv, /SAMPLE-0241/);
 
+  await page.reload();
   const body = await page.locator("body").innerText();
-  for (const event of ["EVIDENCE UPLOADED", "DEMO SEEDED", "ITEM CONFIRMED", "CASE FINALISED"]) {
+  for (const event of ["EVIDENCE UPLOADED", "DEMO SEEDED", "ITEM CONFIRMED", "CASE FINALISED", "MANIFEST EXPORTED"]) {
     assert.match(body, new RegExp(event));
   }
 

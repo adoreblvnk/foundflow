@@ -23,7 +23,12 @@ export default async function CasesPage() {
             Officer Portal · Active Session: <strong>{currentUser?.username}</strong>
           </p>
         </div>
-        <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <form action={handleSeedDemo}>
+            <button className="button button-secondary" type="submit" style={{ minHeight: "40px" }}>
+              {cases.some((caseFile) => caseFile.isDemo) ? "Reset Demo Case" : "Load Demo Case"}
+            </button>
+          </form>
           <Link className="button" href="/cases/new" style={{ minHeight: "40px" }}>
             + Create New Case
           </Link>
@@ -56,18 +61,11 @@ export default async function CasesPage() {
           }}>
             <h2 style={{ fontSize: "1.5rem", fontWeight: 700, marginBottom: "12px" }}>No Cases Found</h2>
             <p className="muted" style={{ fontSize: "0.95rem", marginBottom: "24px", lineHeight: 1.5 }}>
-              The database is currently clean and empty. You can create a brand new case, or seed the pre-populated demo sample case to explore the verification and approval features.
+              Create a new custody case, or use <strong>Load Demo Case</strong> in the toolbar for the complete staged backpack workflow.
             </p>
-            <div style={{ display: "flex", gap: "16px", justifyContent: "center" }}>
-              <Link href="/cases/new" className="button">
-                + Create New Case
-              </Link>
-              <form action={handleSeedDemo}>
-                <button type="submit" className="button button-secondary" style={{ minHeight: "40px" }}>
-                  📥 Load Demo Case (FF-0241)
-                </button>
-              </form>
-            </div>
+            <Link href="/cases/new" className="button">
+              + Create New Case
+            </Link>
           </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "24px" }}>

@@ -1,14 +1,27 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { chromium } from "playwright";
 
 const baseURL = process.env.BASE_URL ?? "http://127.0.0.1:3101";
 const username = process.env.E2E_USERNAME;
 const password = process.env.E2E_PASSWORD;
-const evidencePath = process.env.E2E_EVIDENCE_PATH;
-const invalidEvidencePath = process.env.E2E_INVALID_EVIDENCE_PATH;
+if (!username || !password) {
+  throw new Error("E2E_USERNAME and E2E_PASSWORD are required");
+}
 
-if (!username || !password || !evidencePath || !invalidEvidencePath) {
-  throw new Error("E2E_USERNAME, E2E_PASSWORD, E2E_EVIDENCE_PATH, and E2E_INVALID_EVIDENCE_PATH are required");
+const evidencePath = process.env.E2E_EVIDENCE_PATH ?? path.resolve("public/demo/found-property-evidence.webp");
+if (!fs.existsSync(evidencePath)) {
+  throw new Error(`E2E evidence fixture not found: ${evidencePath}`);
+}
+
+const temporaryInvalidDir = process.env.E2E_INVALID_EVIDENCE_PATH
+  ? null
+  : fs.mkdtempSync(path.join(os.tmpdir(), "foundflow-invalid-evidence-"));
+const invalidEvidencePath = process.env.E2E_INVALID_EVIDENCE_PATH ?? path.join(temporaryInvalidDir, "invalid-image.png");
+if (temporaryInvalidDir) {
+  fs.writeFileSync(invalidEvidencePath, "This is deliberately not a valid image.");
 }
 
 const browser = await chromium.launch({
@@ -53,6 +66,7 @@ try {
   await fileInput.setInputFiles(evidencePath);
   await page.getByRole("button", { name: "Upload & Associate" }).click();
   await page.getByText(/Evidence photo uploaded successfully/).waitFor();
+  await page.getByText("Evidence Gallery (1)", { exact: true }).waitFor();
   const postUploadBody = await page.locator("body").innerText();
   const postUploadCase = await page.evaluate(async (id) => {
     const response = await fetch(`/api/cases/${id}`, { cache: "no-store" });
@@ -68,6 +82,22 @@ try {
   const recordMatch = postAnalysisBody.match(/Manifest Workspace\s+(\d+)\s+records/);
   assert.ok(recordMatch, "record count should be visible");
   assert.ok(Number(recordMatch[1]) > 1, "live image analysis should identify at least one item beyond the root");
+
+  const analyzedCase = await page.evaluate(async (id) => {
+    const response = await fetch(`/api/cases/${id}`, { cache: "no-store" });
+    return { status: response.status, body: await response.json() };
+  }, caseId);
+  assert.equal(analyzedCase.status, 200);
+  const analyzedLabels = analyzedCase.body.manifest.map((item) => item.label).join(" | ");
+  for (const expected of [/pouch/i, /cable/i, /notebook|notepad/i, /tag/i, /currency|banknote|bank note|cash|dollar|ringgit/i]) {
+    assert.match(analyzedLabels, expected, `representative evidence should produce ${expected}`);
+  }
+  assert.ok(
+    analyzedCase.body.manifest.some((item) => item.parentId && item.parentId !== "outer-item-root"),
+    "live analysis should preserve at least one nested container relationship"
+  );
+  const extractedText = analyzedCase.body.manifest.map((item) => item.ocrText ?? "").join(" | ");
+  assert.match(extractedText, /SPECIMEN|SAMPLE-0241|ZX0000241|MYX0000241/i, "representative OCR should recover staged visible text");
 
   await page.getByRole("button", { name: "+ Add Item Manually" }).click();
   const addModal = page.getByRole("heading", { name: /Add New Manifest Record/ }).locator("..");
@@ -125,6 +155,9 @@ try {
   console.log(JSON.stringify({ caseId, records: Number(recordMatch[1]), status: "passed" }));
 } finally {
   await browser.close();
+  if (temporaryInvalidDir) {
+    fs.rmSync(temporaryInvalidDir, { recursive: true, force: true });
+  }
 }
 
 async function expectDisabled(locator) {

@@ -62,14 +62,14 @@ DATA_DIR=./data
 ### Install Dependencies
 FoundFlow uses **AI SDK v6** and the compatible **1.x** Codex CLI provider:
 ```bash
-npm install
+npm ci
 ```
 
 ### Run Locally (Development)
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) to access the landing page.
+Open [http://localhost:3000](http://localhost:3000), sign in, then select **Load Demo Case** for the complete staged backpack workflow. The deterministic demo includes one synthetic evidence photograph, a nine-record nested manifest, three review decisions, finalisation and JSON / CSV exports. Selecting **Reset Demo Case** restores the fixture for another walkthrough.
 
 ### Run Static Typecheck
 ```bash
@@ -93,17 +93,22 @@ Verifies Codex CLI connectivity and structured multimodal responses using harmle
 npm run test:ai
 ```
 
-### Run Browser End-to-End Verification
-With a built server running, exercises authentication, rejected and accepted uploads, live vision/OCR, review gating, text/voice correction handling, finalisation, exports, and audit records in headless Chrome:
+### Run Deterministic Production Demo Verification
+Builds the production app, starts an isolated server, signs in, loads the evidence-backed fixture, resolves all reviews, finalises the case and verifies both exports:
+```bash
+npm run test:e2e:demo
+```
+This path requires no model call and is the reliable presentation fallback.
+
+### Run Live-AI Browser Verification
+With a production server running, exercises authentication, rejected and accepted uploads, representative object detection and OCR, nested relationships, review gating, correction handling, finalisation, exports and audit records:
 ```bash
 BASE_URL=http://127.0.0.1:3000 \
 E2E_USERNAME="$LOGIN_USERNAME" \
 E2E_PASSWORD="$LOGIN_PASSWORD" \
-E2E_EVIDENCE_PATH=/absolute/path/to/staged-evidence.png \
-E2E_INVALID_EVIDENCE_PATH=/absolute/path/to/invalid-image.png \
 npm run test:e2e
 ```
-Use staged or synthetic evidence only; do not place real passenger records in the repository.
+The test uses `public/demo/found-property-evidence.webp` by default. Override `E2E_EVIDENCE_PATH` only when validating another staged image. Use staged or synthetic evidence only; do not place real passenger records in the repository.
 
 ### Compile Production Build
 ```bash
@@ -113,16 +118,16 @@ npm run build
 ---
 
 ## 🤖 Codex CLI Vision Setup
-FoundFlow invokes a signed-in **Codex CLI** process from the local server. The application and evidence storage are local, but model inference may use the configured hosted Codex service; review your provider's data-handling terms before processing real records.
+FoundFlow invokes `ai-sdk-provider-codex-cli` from the local Node.js server and authenticates through the existing `codex login` ChatGPT session, so no OpenAI API key is required. Application data and evidence storage stay local, but model inference uses the configured hosted Codex service; review its data-handling terms before processing real records.
 
-1. Ensure Codex CLI (0.142.5+) is installed.
-2. Authenticate Codex by running:
+1. Run `npm ci`; the provider installs its compatible Codex CLI `0.144.x` optional dependency.
+2. Authenticate your ChatGPT subscription:
    ```bash
    codex login
    ```
-3. Test connectivity:
+3. Verify provider connectivity:
    ```bash
-   codex --version
+   npm run test:ai
    ```
 
 ---

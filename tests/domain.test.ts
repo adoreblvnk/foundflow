@@ -45,11 +45,17 @@ test("Database Layer, Seeding & Isolation", async (t) => {
     assert.strictEqual(cases.length, 0);
   });
 
-  await t.test("should explicitly seed and retrieve the demo case", () => {
+  await t.test("should explicitly seed a complete evidence-backed demo case", () => {
     const demo = seedDemoCase();
     assert.strictEqual(demo.id, "FF-0241");
     assert.strictEqual(demo.isDemo, true);
-    assert.strictEqual(demo.uploads.length, 0); // Correctly pruned nonexistent files
+    assert.strictEqual(demo.uploads.length, 1);
+    assert.strictEqual(demo.uploads[0].mimeType, "image/webp");
+    assert.ok(fs.existsSync(`${TEST_DIR}/uploads/${demo.uploads[0].filename}`));
+    assert.strictEqual(demo.manifest.length, 9);
+    assert.ok(demo.manifest.every((item) => item.evidenceId === demo.uploads[0].id));
+    assert.strictEqual(validateManifestStructure(demo), null);
+    assert.ok(demo.auditLogs.some((log) => log.action === "demo_seeded" && log.details.includes("no live AI call")));
 
     const cases = getCases();
     assert.strictEqual(cases.length, 1);
@@ -263,12 +269,7 @@ test("Sensitive Item Review Policy", async (t) => {
 test.after(() => {
   closeDb();
   try {
-    if (fs.existsSync(TEST_DB)) {
-      fs.unlinkSync(TEST_DB);
-    }
-    if (fs.existsSync(TEST_DIR)) {
-      fs.rmdirSync(TEST_DIR);
-    }
+    fs.rmSync(TEST_DIR, { recursive: true, force: true });
   } catch (err) {
     console.error("Cleanup failed", err);
   }

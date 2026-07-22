@@ -78,6 +78,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
 
   const unresolved = caseFile.manifest.filter((item) => item.status === "review").length;
   const isFinalised = caseFile.status === "finalised";
+  const hasLiveAiDraft = caseFile.manifest.some((item) => item.source === "ai");
 
   // Refresh case client side from server db
   const refreshCase = useCallback(async () => {
@@ -491,7 +492,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
               📅 <strong>Found Time:</strong> {new Date(caseFile.foundTime).toLocaleString("en-SG", { timeZone: "Asia/Singapore" })}
             </p>
             {caseFile.notes && (
-              <div style={{ background: "var(--paper)", padding: "12px", borderRadius: "8px", fontSize: "0.85rem", color: "var(--muted)", borderLeft: "3px solid var(--green)" }}>
+              <div style={{ background: "var(--paper)", padding: "12px", borderRadius: "8px", fontSize: "0.85rem", color: "var(--muted)", border: "1px solid var(--line)" }}>
                 <strong>Staff Notes:</strong> {caseFile.notes}
               </div>
             )}
@@ -625,6 +626,15 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
             <span style={{ fontSize: "0.95rem" }}>{caseFile.manifest.length} records</span>
           </div>
 
+          {caseFile.isDemo && (
+            <div style={{ background: "#edf4ef", border: "1px solid var(--line)", borderRadius: "10px", padding: "12px 14px", fontSize: "0.8rem", lineHeight: 1.5 }}>
+              <strong>{hasLiveAiDraft ? "Live AI draft active." : "Deterministic demo fixture."}</strong>{" "}
+              {hasLiveAiDraft
+                ? "Review the fresh extraction below before approval."
+                : "The staged image and sample inventory are ready for a reliable walkthrough; run image analysis to replace the sample with a fresh extraction."}
+            </div>
+          )}
+
           {/* Notifications */}
           {errorMsg && (
             <div style={{ background: "#fdf2f2", border: "1px solid #fbd5d5", color: "#c81e1e", borderRadius: "8px", padding: "12px", fontSize: "0.85rem" }}>
@@ -639,7 +649,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
 
           {/* Live AI triggering control */}
           {!isFinalised && (
-            <div style={{
+            <div className="ai-analysis-panel" style={{
               background: "#f4f8f5",
               border: "1px solid var(--line)",
               borderRadius: "12px",
@@ -650,9 +660,9 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
               gap: "16px"
             }}>
               <div style={{ flex: 1 }}>
-                <strong style={{ fontSize: "0.88rem", display: "block" }}>🤖 Generate Manifest with Live AI Vision</strong>
+                <strong style={{ fontSize: "0.88rem", display: "block" }}>Generate a Fresh Inventory Draft</strong>
                 <p className="muted" style={{ fontSize: "0.78rem", margin: "4px 0 0", lineHeight: 1.4 }}>
-                  Trigger Codex CLI computer vision to run object recognition and OCR over all uploaded images.
+                  Analyze every uploaded image for objects, visible text and nested container relationships.
                 </p>
               </div>
               <button
@@ -857,7 +867,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
 
           {/* Finalisation Control & Download Exports Panel */}
           <div className="finalise-row" style={{ borderTop: "1px solid var(--line)", paddingTop: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div className="finalise-actions" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ flex: 1 }}>
                 {isFinalised ? (
                   <>

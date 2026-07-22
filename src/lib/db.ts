@@ -430,79 +430,108 @@ export function addAuditLog(id: string, userId: string, action: string, details:
   `).run(logId, id, timestamp, userId, action, details);
 }
 
-// Explicitly controlled seeding for the demo case
+// Explicitly controlled seeding for the deterministic demo case.
 export function seedDemoCase(): Case {
   const db = getDbInstance();
   const id = "FF-0241";
-
-  // Check if already seeded
-  const existing = db.prepare("SELECT 1 FROM cases WHERE id = ?").get(id);
-  if (existing) {
-    const c = getCaseById(id);
-    if (c) return c;
-  }
-
   const createdAt = "2026-07-21T09:30:00.000Z";
+  const evidenceId = "demo-evidence-1";
+  const evidenceFilename = "ff-0241-staged-evidence.webp";
+  const sourcePath = path.join(process.cwd(), "public", "demo", "found-property-evidence.webp");
+  const uploadsDir = path.join(process.env.DATA_DIR || "./data", "uploads");
+  const destinationPath = path.join(uploadsDir, evidenceFilename);
+  const existing = db.prepare("SELECT isDemo FROM cases WHERE id = ?").get(id) as { isDemo: number } | undefined;
+
+  if (existing && !existing.isDemo) {
+    throw new Error(`Cannot replace non-demo case ${id}`);
+  }
+  if (!fs.existsSync(sourcePath)) {
+    throw new Error(`Demo evidence fixture is missing: ${sourcePath}`);
+  }
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  fs.copyFileSync(sourcePath, destinationPath);
+  const evidenceSize = fs.statSync(destinationPath).size;
 
   runInTransaction(() => {
+    if (existing) {
+      db.prepare("DELETE FROM cases WHERE id = ?").run(id);
+    }
+
     db.prepare(`
       INSERT INTO cases (id, isDemo, location, foundTime, outerItemDescription, notes, status, finalisedAt, finalisedBy, createdAt)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
-      1, // isDemo = true
+      1,
       "Changi Airport Terminal 3 Arrivals",
-      "2026-07-21T09:30:00.000Z",
+      createdAt,
       "Black backpack",
-      "Found unattended near Belt 48. Guidance: Check for inner currency pouches.",
+      "Staged synthetic property for the FoundFlow demonstration. No passenger data is present.",
       "reviewing",
       null,
       null,
       createdAt
     );
 
-    // Initial root plus some pre-seeded items (no fake/fabricated files in uploads)
+    db.prepare(`
+      INSERT INTO uploads (id, caseId, filename, originalName, mimeType, size, uploadedAt, containerContext)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      evidenceId,
+      id,
+      evidenceFilename,
+      "staged-found-property.webp",
+      "image/webp",
+      evidenceSize,
+      "2026-07-21T09:31:00.000Z",
+      "bag-contents"
+    );
+
     const items = [
-      { id: "outer-item-root", label: "Black backpack", parentId: null, quantity: 1, confidence: 1.0, status: "confirmed", reviewReason: null, evidenceId: "manual-creation", ocrText: null, visibleAttributes: "Color: Black, Brand: Swissgear, Condition: Slightly worn" },
-      { id: "pouch", label: "Brown coin pouch", parentId: "outer-item-root", quantity: 1, confidence: 0.96, status: "confirmed", reviewReason: null, evidenceId: "staff-added", ocrText: null, visibleAttributes: "Color: Brown, Material: Leather" },
-      { id: "sgd", label: "Singapore currency (SGD 50 note)", parentId: "pouch", quantity: 1, confidence: 0.94, status: "confirmed", reviewReason: null, evidenceId: "staff-added", ocrText: "MAS $50", visibleAttributes: "Serial: CC123456" },
-      { id: "myr", label: "Possible Malaysian currency", parentId: "pouch", quantity: 1, confidence: 0.63, status: "review", reviewReason: "Unclear bill markings in image", evidenceId: "staff-added", ocrText: "BANK NEGARA", visibleAttributes: "Denomination: Unclear" },
-      { id: "cable", label: "USB-C charging cable", parentId: "outer-item-root", quantity: 1, confidence: 0.91, status: "confirmed", reviewReason: null, evidenceId: "staff-added", ocrText: null, visibleAttributes: "Length: 1m" },
-      { id: "cardholder", label: "Leather Cardholder", parentId: "outer-item-root", quantity: 1, confidence: 0.89, status: "confirmed", reviewReason: null, evidenceId: "staff-added", ocrText: null, visibleAttributes: "Brand: Montblanc" },
-    ];
+      { id: "outer-item-root", label: "Black backpack", parentId: null, quantity: 1, confidence: 1.0, status: "confirmed", reviewReason: null, ocrText: null, visibleAttributes: "Colour: black; condition: clean; main compartment open", source: "system" },
+      { id: "pouch", label: "Brown coin pouch", parentId: "outer-item-root", quantity: 1, confidence: 0.98, status: "confirmed", reviewReason: null, ocrText: null, visibleAttributes: "Brown leather; zip closure; open", source: "system" },
+      { id: "coins", label: "Mixed coins", parentId: "pouch", quantity: 6, confidence: 0.86, status: "review", reviewReason: "Staff must verify the count and denominations.", ocrText: "", visibleAttributes: "Six metallic coins in mixed sizes and colours", source: "system" },
+      { id: "sgd", label: "Singapore specimen note", parentId: "pouch", quantity: 1, confidence: 0.97, status: "review", reviewReason: "Currency requires staff confirmation before custody approval.", ocrText: "SPECIMEN · SINGAPORE · 100 · ZX0000241", visibleAttributes: "Orange specimen note", source: "system" },
+      { id: "myr", label: "Malaysian specimen note", parentId: "pouch", quantity: 1, confidence: 0.96, status: "review", reviewReason: "Currency requires staff confirmation before custody approval.", ocrText: "SPECIMEN · BANK NEGARA MALAYSIA · 50 · MYX0000241", visibleAttributes: "Blue-green specimen note", source: "system" },
+      { id: "cable", label: "White USB-C charging cable", parentId: "outer-item-root", quantity: 1, confidence: 0.99, status: "confirmed", reviewReason: null, ocrText: "", visibleAttributes: "White; coiled; USB-C connectors", source: "system" },
+      { id: "cardholder", label: "Black leather cardholder", parentId: "outer-item-root", quantity: 1, confidence: 0.98, status: "confirmed", reviewReason: null, ocrText: "", visibleAttributes: "Black leather; empty card slots", source: "system" },
+      { id: "notebook", label: "Plain kraft notebook", parentId: "outer-item-root", quantity: 1, confidence: 0.97, status: "confirmed", reviewReason: null, ocrText: "", visibleAttributes: "Plain brown cover; no visible writing", source: "system" },
+      { id: "tag", label: "Orange luggage tag", parentId: "outer-item-root", quantity: 1, confidence: 0.99, status: "confirmed", reviewReason: null, ocrText: "SAMPLE-0241", visibleAttributes: "Orange synthetic demo tag", source: "system" },
+    ] as const;
 
     const insertItem = db.prepare(`
-      INSERT INTO manifest_items (id, caseId, label, parentId, quantity, status, confidence, reviewReason, evidenceId, ocrText, visibleAttributes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO manifest_items (id, caseId, label, parentId, quantity, status, confidence, reviewReason, evidenceId, ocrText, visibleAttributes, source)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    for (const m of items) {
+    for (const item of items) {
       insertItem.run(
-        m.id,
+        item.id,
         id,
-        m.label,
-        m.parentId,
-        m.quantity,
-        m.status,
-        m.confidence,
-        m.reviewReason,
-        m.evidenceId,
-        m.ocrText,
-        m.visibleAttributes
+        item.label,
+        item.parentId,
+        item.quantity,
+        item.status,
+        item.confidence,
+        item.reviewReason,
+        evidenceId,
+        item.ocrText,
+        item.visibleAttributes,
+        item.source
       );
     }
 
-    // Authentic demo seeding audit logs (honest about demo state, no fake AI live processed claim)
     const logs = [
-      { id: "log-1", timestamp: "2026-07-21T09:30:00.000Z", userId: "demo-staff", action: "case_created", details: "Case created via manual intake template" },
-      { id: "log-2", timestamp: "2026-07-21T09:36:00.000Z", userId: "demo-staff", action: "demo_seeded", details: "Sample demo case seeded with initial mock items" },
+      { id: "log-1", timestamp: createdAt, userId: "demo-staff", action: "case_created", details: "Demo case created from a staged synthetic found-property set" },
+      { id: "log-2", timestamp: "2026-07-21T09:31:00.000Z", userId: "demo-staff", action: "evidence_uploaded", details: "Staged synthetic evidence linked to the bag-contents level" },
+      { id: "log-3", timestamp: "2026-07-21T09:32:00.000Z", userId: "demo-staff", action: "demo_seeded", details: "Deterministic sample manifest loaded; no live AI call was made" },
     ];
 
     const insertLog = db.prepare(`
       INSERT INTO audit_logs (id, caseId, timestamp, userId, action, details)
       VALUES (?, ?, ?, ?, ?, ?)
     `);
-    for (const l of logs) {
-      insertLog.run(l.id, id, l.timestamp, l.userId, l.action, l.details);
+    for (const log of logs) {
+      insertLog.run(log.id, id, log.timestamp, log.userId, log.action, log.details);
     }
   });
 

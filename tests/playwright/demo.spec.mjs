@@ -54,6 +54,18 @@ test("evidence-backed demo completes the custody workflow", async ({ page }) => 
     await expect(page.getByText(/Item confirmed/)).toBeVisible();
   }
 
+  await page.getByRole("button", { name: "Edit Singapore 1-dollar specimen coins" }).click();
+  await page.getByRole("dialog", { name: "Edit Manifest Record" }).getByLabel("Quantity").fill("4");
+  await page.getByRole("dialog", { name: "Edit Manifest Record" }).getByRole("button", { name: "Save Changes" }).click();
+  await expect(page.getByRole("button", { name: "Confirm Entry" })).toHaveCount(1);
+  await expect(page.getByText("SGD 105.00", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Edit Singapore 1-dollar specimen coins" }).click();
+  await page.getByRole("dialog", { name: "Edit Manifest Record" }).getByLabel("Quantity").fill("3");
+  await page.getByRole("dialog", { name: "Edit Manifest Record" }).getByRole("button", { name: "Save Changes" }).click();
+  await expect(page.getByText("SGD 104.00", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Confirm Entry" }).click();
+
   const finalise = page.getByRole("button", { name: "Approve and Finalise" });
   await expect(finalise).toBeEnabled();
   await finalise.click();
@@ -75,10 +87,17 @@ test("evidence-backed demo completes the custody workflow", async ({ page }) => 
   expect(exports.csvStatus).toBe(200);
   expect(exports.json.manifest).toHaveLength(11);
   expect(exports.json.currencySummary).toEqual([
-    { currencyCode: "MYR", total: 50.4 },
-    { currencyCode: "SGD", total: 104 },
+    { currencyCode: "MYR", total: "50.4" },
+    { currencyCode: "SGD", total: "104" },
   ]);
   expect(exports.json.manifest.every((item) => item.evidenceId === "demo-evidence-1")).toBe(true);
+  expect(exports.json.manifest.filter((item) => item.itemType === "currency").map((item) => ({ code: item.currencyCode, denomination: item.denomination, quantity: item.quantity, total: item.currencyTotal }))).toEqual([
+    { code: "SGD", denomination: "100", quantity: 1, total: "100" },
+    { code: "SGD", denomination: "1", quantity: 3, total: "3" },
+    { code: "SGD", denomination: "0.5", quantity: 2, total: "1" },
+    { code: "MYR", denomination: "50", quantity: 1, total: "50" },
+    { code: "MYR", denomination: "0.2", quantity: 2, total: "0.4" },
+  ]);
   expect(exports.csv).toContain("Currency Code");
   expect(exports.csv).toContain("Case Currency Total");
   expect(exports.csv).toContain("104.00");

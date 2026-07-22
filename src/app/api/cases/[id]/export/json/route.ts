@@ -45,6 +45,8 @@ export async function GET(
         label: item.label,
         parentId: item.parentId,
         quantity: item.quantity,
+        quantityKnown: item.quantityKnown ?? true,
+        itemType: item.itemType ?? "property",
         confidence: item.confidence,
         status: item.status,
         source: item.source ?? "staff",

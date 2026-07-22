@@ -38,6 +38,7 @@ import {
 import { verifyImageSignature } from "../src/lib/image-utils.ts";
 import { escapeCsvCell } from "../src/lib/csv-utils.ts";
 import { hasCycle, isCurrencyItem, mergeAiDraftWithStaffItems, requiresSensitiveReview, summarizeCurrency, validateManifestStructure } from "../src/lib/validation.ts";
+import { addDecimals, isValidCurrencyCode, multiplyDecimal, normalizeDecimal } from "../src/lib/currency.ts";
 
 test("Database Layer, Seeding & Isolation", async (t) => {
   await t.test("should start with 0 cases on fresh setup", () => {
@@ -55,8 +56,8 @@ test("Database Layer, Seeding & Isolation", async (t) => {
     assert.strictEqual(demo.manifest.length, 11);
     assert.ok(demo.manifest.every((item) => item.evidenceId === demo.uploads[0].id));
     assert.deepStrictEqual(summarizeCurrency(demo.manifest), [
-      { currencyCode: "MYR", total: 50.4 },
-      { currencyCode: "SGD", total: 104 },
+      { currencyCode: "MYR", total: "50.4" },
+      { currencyCode: "SGD", total: "104" },
     ]);
     assert.strictEqual(demo.manifest.filter(isCurrencyItem).length, 5);
     assert.ok(demo.manifest.filter(isCurrencyItem).every((item) => item.status === "review"));
@@ -237,11 +238,50 @@ test("Domain, Cycles & Finalisation Validations", async (t) => {
     const currency = demo.manifest.find((item) => item.id === "sgd-1-coins")!;
     currency.status = "confirmed";
     currency.currencyCode = null;
-    assert.match(validateManifestStructure(demo) ?? "", /requires a three-letter currency code/);
+    assert.match(validateManifestStructure(demo) ?? "", /requires a valid ISO 4217 currency code/);
 
     currency.currencyCode = "SGD";
-    currency.currencyTotal = 99;
+    currency.currencyTotal = "99";
     assert.match(validateManifestStructure(demo) ?? "", /denomination × quantity/);
+  });
+});
+
+test("Exact Currency Arithmetic & Review Boundaries", async (t) => {
+  await t.test("uses canonical decimal arithmetic without cent rounding", () => {
+    assert.strictEqual(normalizeDecimal("000.0010"), null);
+    assert.strictEqual(normalizeDecimal("0.0010"), "0.001");
+    assert.strictEqual(multiplyDecimal("0.001", 3), "0.003");
+    assert.strictEqual(addDecimals("50", "0.4"), "50.4");
+    assert.deepStrictEqual(summarizeCurrency([
+      { id: "kwd", label: "Kuwaiti coin", parentId: "outer-item-root", quantity: 3, quantityKnown: true, itemType: "currency", status: "review", confidence: 1, reviewReason: null, evidenceId: "staff-added", currencyCode: "KWD", denomination: "0.001", currencyTotal: "0.003" },
+    ]), [{ currencyCode: "KWD", total: "0.003" }]);
+  });
+
+  await t.test("recognizes generic currency wording even when amount fields are unreadable", () => {
+    const item: ManifestItem = { id: "note", label: "Singapore note", parentId: "outer-item-root", quantity: 1, quantityKnown: false, status: "confirmed", confidence: 0.5, reviewReason: null, evidenceId: "demo-evidence-1" };
+    assert.strictEqual(isCurrencyItem(item), true);
+    const demo = getCaseById("FF-0241")!;
+    demo.manifest.push(item);
+    assert.match(validateManifestStructure(demo) ?? "", /valid ISO 4217 currency code/);
+  });
+
+  await t.test("blocks confirmation when the observed count is unknown", () => {
+    const demo = getCaseById("FF-0241")!;
+    const item = demo.manifest.find((candidate) => candidate.id === "sgd-100")!;
+    item.status = "confirmed";
+    item.quantityKnown = false;
+    item.currencyTotal = null;
+    assert.match(validateManifestStructure(demo) ?? "", /known quantity/);
+  });
+
+  await t.test("rejects invented three-letter currency codes", () => {
+    assert.strictEqual(isValidCurrencyCode("SGD"), true);
+    assert.strictEqual(isValidCurrencyCode("ZZZ"), false);
+    const demo = getCaseById("FF-0241")!;
+    const item = demo.manifest.find((candidate) => candidate.id === "sgd-100")!;
+    item.status = "confirmed";
+    item.currencyCode = "ZZZ";
+    assert.match(validateManifestStructure(demo) ?? "", /valid ISO 4217 currency code/);
   });
 });
 

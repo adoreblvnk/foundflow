@@ -3,6 +3,7 @@ import { isAuthenticated, getCurrentUser } from "@/lib/auth";
 import { getCaseById, addAuditLog, runInTransaction } from "@/lib/db";
 import { escapeCsvCell } from "@/lib/csv-utils";
 import { summarizeCurrency } from "@/lib/validation";
+import { formatDecimal } from "@/lib/currency";
 
 export async function GET(
   request: NextRequest,
@@ -38,6 +39,8 @@ export async function GET(
       "Label",
       "Parent ID",
       "Quantity",
+      "Quantity Known",
+      "Item Type",
       "Confidence %",
       "Status",
       "Source",
@@ -60,14 +63,16 @@ export async function GET(
         item.label,
         item.parentId || "",
         item.quantity.toString(),
+        (item.quantityKnown ?? true).toString(),
+        item.itemType ?? "property",
         Math.round(item.confidence * 100).toString(),
         item.status,
         item.source ?? "staff",
         item.evidenceId || "",
         item.currencyCode || "",
-        item.denomination?.toFixed(2) || "",
-        item.currencyTotal?.toFixed(2) || "",
-        item.currencyCode ? currencyTotals.get(item.currencyCode)?.toFixed(2) || "" : "",
+        item.denomination ? formatDecimal(item.denomination) : "",
+        item.currencyTotal ? formatDecimal(item.currencyTotal) : "",
+        item.currencyCode && currencyTotals.get(item.currencyCode) ? formatDecimal(currencyTotals.get(item.currencyCode)!) : "",
         item.ocrText || "",
         item.visibleAttributes || "",
       ];

@@ -2,6 +2,7 @@ import { DatabaseSync } from "node:sqlite";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
+import { normalizeDecimal } from "./currency.ts";
 
 export interface EvidenceUpload {
   id: string;
@@ -18,6 +19,8 @@ export interface ManifestItem {
   label: string;
   parentId: string | null;
   quantity: number;
+  quantityKnown?: boolean;
+  itemType?: "property" | "currency";
   status: "confirmed" | "review";
   confidence: number;
   reviewReason: string | null;
@@ -25,8 +28,8 @@ export interface ManifestItem {
   ocrText?: string;
   visibleAttributes?: string;
   currencyCode?: string | null;
-  denomination?: number | null;
-  currencyTotal?: number | null;
+  denomination?: string | null;
+  currencyTotal?: string | null;
   source?: "ai" | "staff" | "system";
 }
 
@@ -105,6 +108,8 @@ export function getDbInstance(): DatabaseSync {
       label TEXT NOT NULL,
       parentId TEXT,
       quantity INTEGER NOT NULL,
+      quantityKnown INTEGER NOT NULL DEFAULT 1,
+      itemType TEXT NOT NULL DEFAULT 'property',
       status TEXT NOT NULL,
       confidence REAL NOT NULL,
       reviewReason TEXT,
@@ -112,8 +117,8 @@ export function getDbInstance(): DatabaseSync {
       ocrText TEXT,
       visibleAttributes TEXT,
       currencyCode TEXT,
-      denomination REAL,
-      currencyTotal REAL,
+      denomination TEXT,
+      currencyTotal TEXT,
       source TEXT NOT NULL DEFAULT 'staff',
       PRIMARY KEY (id, caseId),
       FOREIGN KEY (caseId) REFERENCES cases(id) ON DELETE CASCADE
@@ -130,20 +135,43 @@ export function getDbInstance(): DatabaseSync {
     );
   `);
 
-  const manifestColumns = dbInstance.prepare("PRAGMA table_info(manifest_items)").all() as unknown as Array<{ name: string }>;
+  let manifestColumns = dbInstance.prepare("PRAGMA table_info(manifest_items)").all() as unknown as Array<{ name: string; type: string }>;
+  const refreshManifestColumns = () => {
+    manifestColumns = dbInstance!.prepare("PRAGMA table_info(manifest_items)").all() as unknown as Array<{ name: string; type: string }>;
+  };
+  const addColumn = (name: string, definition: string) => {
+    if (!manifestColumns.some((column) => column.name === name)) {
+      dbInstance!.exec(`ALTER TABLE manifest_items ADD COLUMN ${name} ${definition}`);
+      refreshManifestColumns();
+    }
+  };
+
   if (!manifestColumns.some((column) => column.name === "source")) {
     dbInstance.exec("ALTER TABLE manifest_items ADD COLUMN source TEXT NOT NULL DEFAULT 'staff'");
     dbInstance.exec("UPDATE manifest_items SET source = 'system' WHERE id = 'outer-item-root'");
+    refreshManifestColumns();
   }
-  for (const [name, type] of [
-    ["currencyCode", "TEXT"],
-    ["denomination", "REAL"],
-    ["currencyTotal", "REAL"],
-  ] as const) {
-    if (!manifestColumns.some((column) => column.name === name)) {
-      dbInstance.exec(`ALTER TABLE manifest_items ADD COLUMN ${name} ${type}`);
+  addColumn("quantityKnown", "INTEGER NOT NULL DEFAULT 1");
+  addColumn("itemType", "TEXT NOT NULL DEFAULT 'property'");
+  addColumn("currencyCode", "TEXT");
+
+  for (const name of ["denomination", "currencyTotal"] as const) {
+    const column = manifestColumns.find((candidate) => candidate.name === name);
+    if (!column) {
+      addColumn(name, "TEXT");
+    } else if (column.type.toUpperCase() !== "TEXT") {
+      const legacyName = `${name}Legacy`;
+      dbInstance.exec(`ALTER TABLE manifest_items RENAME COLUMN ${name} TO ${legacyName}`);
+      dbInstance.exec(`ALTER TABLE manifest_items ADD COLUMN ${name} TEXT`);
+      dbInstance.exec(`UPDATE manifest_items SET ${name} = CAST(${legacyName} AS TEXT) WHERE ${legacyName} IS NOT NULL`);
+      refreshManifestColumns();
     }
   }
+  dbInstance.exec(`
+    UPDATE manifest_items
+    SET itemType = 'currency'
+    WHERE currencyCode IS NOT NULL OR denomination IS NOT NULL OR currencyTotal IS NOT NULL
+  `);
 
   return dbInstance;
 }
@@ -207,6 +235,8 @@ interface ManifestItemRow {
   label: string;
   parentId: string | null;
   quantity: number;
+  quantityKnown: number;
+  itemType: string;
   status: string;
   confidence: number;
   reviewReason: string | null;
@@ -214,8 +244,8 @@ interface ManifestItemRow {
   ocrText: string | null;
   visibleAttributes: string | null;
   currencyCode: string | null;
-  denomination: number | null;
-  currencyTotal: number | null;
+  denomination: string | number | null;
+  currencyTotal: string | number | null;
   source: string;
 }
 
@@ -262,6 +292,8 @@ export function getCaseById(id: string): Case | undefined {
     label: m.label,
     parentId: m.parentId || null,
     quantity: Number(m.quantity),
+    quantityKnown: Boolean(m.quantityKnown),
+    itemType: m.itemType === "currency" ? "currency" : "property",
     status: m.status as "confirmed" | "review",
     confidence: Number(m.confidence),
     reviewReason: m.reviewReason || null,
@@ -269,8 +301,8 @@ export function getCaseById(id: string): Case | undefined {
     ocrText: m.ocrText || undefined,
     visibleAttributes: m.visibleAttributes || undefined,
     currencyCode: m.currencyCode || null,
-    denomination: m.denomination === null ? null : Number(m.denomination),
-    currencyTotal: m.currencyTotal === null ? null : Number(m.currencyTotal),
+    denomination: normalizeDecimal(m.denomination),
+    currencyTotal: normalizeDecimal(m.currencyTotal),
     source: m.source === "ai" || m.source === "system" ? m.source : "staff",
   }));
 
@@ -409,8 +441,8 @@ export function updateCase(id: string, updatedCase: Case): Case {
     // Re-sync manifest items (audit logs are completely untouched and append-only)
     db.prepare("DELETE FROM manifest_items WHERE caseId = ?").run(id);
     const insertItem = db.prepare(`
-      INSERT INTO manifest_items (id, caseId, label, parentId, quantity, status, confidence, reviewReason, evidenceId, ocrText, visibleAttributes, currencyCode, denomination, currencyTotal, source)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO manifest_items (id, caseId, label, parentId, quantity, quantityKnown, itemType, status, confidence, reviewReason, evidenceId, ocrText, visibleAttributes, currencyCode, denomination, currencyTotal, source)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     for (const m of updatedCase.manifest) {
       insertItem.run(
@@ -419,6 +451,8 @@ export function updateCase(id: string, updatedCase: Case): Case {
         m.label,
         m.parentId,
         m.quantity,
+        m.quantityKnown === false ? 0 : 1,
+        m.itemType ?? "property",
         m.status,
         m.confidence,
         m.reviewReason,
@@ -514,11 +548,11 @@ export function seedDemoCase(): Case {
     const items: ManifestItem[] = [
       { id: "outer-item-root", label: "Black backpack", parentId: null, quantity: 1, confidence: 1.0, status: "confirmed", reviewReason: null, evidenceId, ocrText: "", visibleAttributes: "Colour: black; condition: clean; main compartment open", source: "system" },
       { id: "pouch", label: "Brown coin pouch", parentId: "outer-item-root", quantity: 1, confidence: 0.98, status: "confirmed", reviewReason: null, evidenceId, ocrText: "", visibleAttributes: "Brown leather; zip closure; open", source: "system" },
-      { id: "sgd-100", label: "Singapore 100-dollar specimen note", parentId: "pouch", quantity: 1, confidence: 0.99, status: "review", reviewReason: "Currency amount requires staff confirmation before custody approval.", evidenceId, ocrText: "SPECIMEN · SINGAPORE · 100 · ZX0000241", visibleAttributes: "Orange specimen note", currencyCode: "SGD", denomination: 100, currencyTotal: 100, source: "system" },
-      { id: "sgd-1-coins", label: "Singapore 1-dollar specimen coins", parentId: "pouch", quantity: 3, confidence: 0.98, status: "review", reviewReason: "Coin count and denomination require staff confirmation.", evidenceId, ocrText: "SGD 1", visibleAttributes: "Three gold-colour synthetic coins marked SGD 1", currencyCode: "SGD", denomination: 1, currencyTotal: 3, source: "system" },
-      { id: "sgd-050-coins", label: "Singapore 50-cent specimen coins", parentId: "pouch", quantity: 2, confidence: 0.98, status: "review", reviewReason: "Coin count and denomination require staff confirmation.", evidenceId, ocrText: "SGD 0.50", visibleAttributes: "Two silver-colour synthetic coins marked SGD 0.50", currencyCode: "SGD", denomination: 0.5, currencyTotal: 1, source: "system" },
-      { id: "myr-50", label: "Malaysian 50-ringgit specimen note", parentId: "pouch", quantity: 1, confidence: 0.99, status: "review", reviewReason: "Currency amount requires staff confirmation before custody approval.", evidenceId, ocrText: "SPECIMEN · BANK NEGARA MALAYSIA · 50 · MYX0000241", visibleAttributes: "Blue-green specimen note", currencyCode: "MYR", denomination: 50, currencyTotal: 50, source: "system" },
-      { id: "myr-020-coins", label: "Malaysian 20-sen specimen coins", parentId: "pouch", quantity: 2, confidence: 0.98, status: "review", reviewReason: "Coin count and denomination require staff confirmation.", evidenceId, ocrText: "MYR 0.20", visibleAttributes: "Two gold-colour synthetic coins marked MYR 0.20", currencyCode: "MYR", denomination: 0.2, currencyTotal: 0.4, source: "system" },
+      { id: "sgd-100", label: "Singapore 100-dollar specimen note", parentId: "pouch", quantity: 1, quantityKnown: true, itemType: "currency", confidence: 0.99, status: "review", reviewReason: "Currency amount requires staff confirmation before custody approval.", evidenceId, ocrText: "SPECIMEN · SINGAPORE · 100 · ZX0000241", visibleAttributes: "Orange specimen note", currencyCode: "SGD", denomination: "100", currencyTotal: "100", source: "system" },
+      { id: "sgd-1-coins", label: "Singapore 1-dollar specimen coins", parentId: "pouch", quantity: 3, quantityKnown: true, itemType: "currency", confidence: 0.98, status: "review", reviewReason: "Coin count and denomination require staff confirmation.", evidenceId, ocrText: "SGD 1", visibleAttributes: "Three gold-colour synthetic coins marked SGD 1", currencyCode: "SGD", denomination: "1", currencyTotal: "3", source: "system" },
+      { id: "sgd-050-coins", label: "Singapore 50-cent specimen coins", parentId: "pouch", quantity: 2, quantityKnown: true, itemType: "currency", confidence: 0.98, status: "review", reviewReason: "Coin count and denomination require staff confirmation.", evidenceId, ocrText: "SGD 0.50", visibleAttributes: "Two silver-colour synthetic coins marked SGD 0.50", currencyCode: "SGD", denomination: "0.5", currencyTotal: "1", source: "system" },
+      { id: "myr-50", label: "Malaysian 50-ringgit specimen note", parentId: "pouch", quantity: 1, quantityKnown: true, itemType: "currency", confidence: 0.99, status: "review", reviewReason: "Currency amount requires staff confirmation before custody approval.", evidenceId, ocrText: "SPECIMEN · BANK NEGARA MALAYSIA · 50 · MYX0000241", visibleAttributes: "Blue-green specimen note", currencyCode: "MYR", denomination: "50", currencyTotal: "50", source: "system" },
+      { id: "myr-020-coins", label: "Malaysian 20-sen specimen coins", parentId: "pouch", quantity: 2, quantityKnown: true, itemType: "currency", confidence: 0.98, status: "review", reviewReason: "Coin count and denomination require staff confirmation.", evidenceId, ocrText: "MYR 0.20", visibleAttributes: "Two gold-colour synthetic coins marked MYR 0.20", currencyCode: "MYR", denomination: "0.2", currencyTotal: "0.4", source: "system" },
       { id: "cable", label: "White USB-C charging cable", parentId: "outer-item-root", quantity: 1, confidence: 0.99, status: "confirmed", reviewReason: null, evidenceId, ocrText: "", visibleAttributes: "White; coiled; USB-C connectors", source: "system" },
       { id: "cardholder", label: "Black leather cardholder", parentId: "outer-item-root", quantity: 1, confidence: 0.98, status: "confirmed", reviewReason: null, evidenceId, ocrText: "", visibleAttributes: "Black leather; empty card slots", source: "system" },
       { id: "notebook", label: "Plain kraft notebook", parentId: "outer-item-root", quantity: 1, confidence: 0.97, status: "confirmed", reviewReason: null, evidenceId, ocrText: "", visibleAttributes: "Plain brown cover; no visible writing", source: "system" },
@@ -526,8 +560,8 @@ export function seedDemoCase(): Case {
     ];
 
     const insertItem = db.prepare(`
-      INSERT INTO manifest_items (id, caseId, label, parentId, quantity, status, confidence, reviewReason, evidenceId, ocrText, visibleAttributes, currencyCode, denomination, currencyTotal, source)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO manifest_items (id, caseId, label, parentId, quantity, quantityKnown, itemType, status, confidence, reviewReason, evidenceId, ocrText, visibleAttributes, currencyCode, denomination, currencyTotal, source)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     for (const item of items) {
       insertItem.run(
@@ -536,6 +570,8 @@ export function seedDemoCase(): Case {
         item.label,
         item.parentId,
         item.quantity,
+        item.quantityKnown === false ? 0 : 1,
+        item.itemType ?? "property",
         item.status,
         item.confidence,
         item.reviewReason,

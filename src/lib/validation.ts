@@ -1,7 +1,8 @@
 import type { Case, ManifestItem } from "./db.ts";
+import { addDecimals, isValidCurrencyCode, multiplyDecimal, normalizeDecimal } from "./currency.ts";
 
-const sensitiveItemPattern = /\b(?:cash|currency|banknotes?|coins?|dollars?|ringgit|passport|identity|id card|credit card|debit card|serial(?: number)?|jewel(?:ry|lery)|watch|valuable)\b/i;
-const currencyItemPattern = /\b(?:cash|currency|banknotes?|coins?|dollars?|cents?|ringgit|sen|sgd|myr|usd|eur|gbp|jpy|cny)\b/i;
+const sensitiveItemPattern = /\b(?:cash|money|currency|banknotes?|notes?|coins?|dollars?|ringgit|passport|identity|id card|credit card|debit card|serial(?: number)?|jewel(?:ry|lery)|watch|valuable)\b/i;
+const currencyItemPattern = /(?:[$€£¥₹₩₽₺₫฿₱]|\b(?:cash|money|currency|banknotes?|specimen\s+notes?|coins?|dollars?|cents?|ringgit|sen|singapore\s+notes?|malaysian?\s+notes?|sgd|myr|usd|eur|gbp|jpy|cny)\b)/i;
 const currencyContainerPattern = /\b(?:pouch|wallet|bag|container|envelope)\b/i;
 
 export function requiresSensitiveReview(label: string, ocrText = "", visibleAttributes = ""): boolean {
@@ -9,17 +10,19 @@ export function requiresSensitiveReview(label: string, ocrText = "", visibleAttr
 }
 
 export function isCurrencyItem(item: ManifestItem): boolean {
+  if (item.itemType === "currency") return true;
   if (item.currencyCode || item.denomination != null || item.currencyTotal != null) return true;
   return currencyItemPattern.test(`${item.label} ${item.ocrText ?? ""} ${item.visibleAttributes ?? ""}`)
     && !currencyContainerPattern.test(item.label);
 }
 
-export function summarizeCurrency(items: ManifestItem[]): Array<{ currencyCode: string; total: number }> {
-  const totals = new Map<string, number>();
+export function summarizeCurrency(items: ManifestItem[]): Array<{ currencyCode: string; total: string }> {
+  const totals = new Map<string, string>();
   for (const item of items) {
-    if (!item.currencyCode || item.currencyTotal == null || !Number.isFinite(item.currencyTotal)) continue;
+    const total = normalizeDecimal(item.currencyTotal);
+    if (!isValidCurrencyCode(item.currencyCode) || total == null) continue;
     const code = item.currencyCode.toUpperCase();
-    totals.set(code, Math.round(((totals.get(code) ?? 0) + item.currencyTotal) * 100) / 100);
+    totals.set(code, addDecimals(totals.get(code) ?? "0", total));
   }
   return [...totals.entries()]
     .sort(([left], [right]) => left.localeCompare(right))
@@ -128,15 +131,17 @@ export function validateManifestStructure(caseFile: Case): string | null {
     }
 
     if (isCurrencyItem(item)) {
-      const codeValid = typeof item.currencyCode === "string" && /^[A-Z]{3}$/.test(item.currencyCode);
-      const denominationValid = typeof item.denomination === "number" && Number.isFinite(item.denomination) && item.denomination > 0;
-      const totalValid = typeof item.currencyTotal === "number" && Number.isFinite(item.currencyTotal) && item.currencyTotal >= 0;
-      if (item.status === "confirmed" && (!codeValid || !denominationValid || !totalValid)) {
-        return `Currency item "${item.label}" requires a three-letter currency code, denomination, quantity, and total before confirmation.`;
+      const codeValid = isValidCurrencyCode(item.currencyCode) && item.currencyCode === item.currencyCode.toUpperCase();
+      const denomination = normalizeDecimal(item.denomination);
+      const total = normalizeDecimal(item.currencyTotal);
+      const denominationValid = denomination != null && denomination !== "0";
+      const countValid = item.quantityKnown !== false && Number.isInteger(item.quantity) && item.quantity > 0;
+      if (item.status === "confirmed" && (!codeValid || !denominationValid || !countValid || total == null)) {
+        return `Currency item "${item.label}" requires a valid ISO 4217 currency code, denomination, known quantity, and exact total before confirmation.`;
       }
-      if (denominationValid && totalValid) {
-        const expectedTotal = item.denomination! * item.quantity;
-        if (Math.abs(expectedTotal - item.currencyTotal!) > 0.005) {
+      if (denominationValid && countValid && total != null) {
+        const expectedTotal = multiplyDecimal(denomination, item.quantity);
+        if (expectedTotal !== total) {
           return `Currency item "${item.label}" total must equal denomination × quantity (${expectedTotal}).`;
         }
       }

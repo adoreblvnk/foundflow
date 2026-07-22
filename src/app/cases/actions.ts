@@ -12,21 +12,24 @@ import crypto from "crypto";
 
 import { verifyImageSignature } from "@/lib/image-utils";
 import { hasCycle, isCurrencyItem, mergeAiDraftWithStaffItems, requiresSensitiveReview, validateManifestStructure } from "@/lib/validation";
+import { isValidCurrencyCode, multiplyDecimal, normalizeDecimal } from "@/lib/currency";
 
 // Schema for manual add/edit validations
 const manualItemInputSchema = z.object({
   label: z.string().min(1, "Label is required").max(100),
   parentId: z.string().max(128).nullable(),
-  quantity: z.number().int().positive("Quantity must be a positive integer"),
+  quantity: z.number().int().positive(),
+  quantityKnown: z.boolean().optional(),
+  itemType: z.enum(["property", "currency"]).optional(),
   status: z.enum(["confirmed", "review"]),
   confidence: z.number().min(0).max(1),
   reviewReason: z.string().max(500).nullable(),
   evidenceId: z.string().max(128).nullable(),
   ocrText: z.string().max(2000).optional(),
   visibleAttributes: z.string().max(2000).optional(),
-  currencyCode: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/).nullable().optional(),
-  denomination: z.number().positive().nullable().optional(),
-  currencyTotal: z.number().nonnegative().nullable().optional(),
+  currencyCode: z.string().trim().toUpperCase().refine(isValidCurrencyCode, "Valid ISO 4217 currency code required").nullable().optional(),
+  denomination: z.string().regex(/^(?:0|[1-9]\d*)(?:\.\d+)?$/).nullable().optional(),
+  currencyTotal: z.string().regex(/^(?:0|[1-9]\d*)(?:\.\d+)?$/).nullable().optional(),
 });
 
 const createCaseInputSchema = z.object({
@@ -174,16 +177,17 @@ const aiManifestItemSchema = z.object({
   tempId: z.string().min(1).max(64).describe("A temporary unique identifier for this item, e.g., 'item_01', 'item_02'"),
   label: z.string().min(1).max(160).describe("Descriptive label of the detected property item"),
   parentId: z.string().max(64).nullable().describe("The tempId of its parent container, or null if it's placed directly in the outer item (outer-item-root)"),
-  quantity: z.number().int().positive().max(10000).describe("The quantity of this item"),
+  quantity: z.number().int().positive().max(10000).nullable().describe("Exact visible count, or null when the count cannot be determined without guessing"),
+  itemType: z.enum(["property", "currency"]).describe("Use currency for every banknote, note, coin, cash, or money record"),
   confidence: z.number().min(0).max(1).describe("Estimated confidence level between 0 and 1"),
   status: z.enum(["confirmed", "review"]).describe("Set to 'review' if quantity is uncertain, currency details are ambiguous, or low confidence. Otherwise 'confirmed'"),
   reviewReason: z.string().max(500).nullable().describe("Reason for review if status is 'review', otherwise null"),
   evidenceId: z.string().min(1).max(128).describe("The exact evidence ID (e.g. 'ev-xxxx') of the image containing this item"),
   ocrText: z.string().max(2000).describe("Any text, serial numbers, bank names, or printed identifiers visible on the item (e.g. 'CC123456', 'MAS $50'), or empty string if none"),
   visibleAttributes: z.string().max(2000).describe("Visible characteristics of the item such as color, brand, condition, material, or specific markings, or empty string if none"),
-  currencyCode: z.string().length(3).nullable().describe("ISO 4217 code such as SGD or MYR for a currency denomination group; null for non-currency or unreadable currency"),
-  denomination: z.number().positive().nullable().describe("Face value of one note or coin in major currency units, e.g. 0.5 for 50 cents; null if non-currency or unreadable"),
-  currencyTotal: z.number().nonnegative().nullable().describe("Exact denomination multiplied by quantity; null if non-currency or any amount detail is unreadable"),
+  currencyCode: z.string().length(3).nullable().describe("ISO 4217 code such as SGD or MYR for a currency denomination group; null when unreadable"),
+  denomination: z.string().regex(/^(?:0|[1-9]\d*)(?:\.\d+)?$/).nullable().describe("Exact face value as a decimal string in major currency units, e.g. '0.5'; null when unreadable"),
+  currencyTotal: z.string().regex(/^(?:0|[1-9]\d*)(?:\.\d+)?$/).nullable().describe("Exact denomination multiplied by quantity as a decimal string; null when any amount detail is unreadable"),
 });
 
 const aiManifestSchema = z.object({
@@ -226,11 +230,11 @@ Express nested parent-child relationships clearly using 'parentId' referring to 
 Any item contained inside the "${caseFile.outerItemDescription}" should have its parentId pointing to 'outer-item-root' or to its inner container (e.g., if you detect a pouch inside the bag, the pouch parentId is 'outer-item-root', and items inside the pouch have their parentId pointing to the pouch).
 
 Currency rules are mandatory:
-- Create one item per currency and denomination group. Never combine mixed currencies or mixed denominations in one item.
-- For each banknote or coin group, set currencyCode to the ISO 4217 code, denomination to one unit's face value in major units (for example 0.50 for 50 cents), quantity to the exact count, and currencyTotal to denomination × quantity.
+- Create one item per currency and denomination group. Never combine mixed currencies or mixed denominations in one item, and set itemType to currency even when its details are unreadable.
+- For each banknote or coin group, set currencyCode to the ISO 4217 code, denomination to one unit's exact decimal-string face value in major units (for example "0.50" for 50 cents), quantity to the exact count, and currencyTotal to the exact decimal-string result of denomination × quantity.
 - Read both notes and coins. Use visible country/currency markings, face values, and OCR evidence. Never infer an unreadable amount from colour or appearance.
-- If currency, denomination, or count is not fully readable, keep unknown fields null, set status to review, and explain exactly what staff must verify. Do not guess.
-- Non-currency items must set currencyCode, denomination, and currencyTotal to null.
+- If currency, denomination, or count is not fully readable, set quantity and other unknown fields to null, set status to review, and explain exactly what staff must verify. Do not guess or use a placeholder as an observed count.
+- Non-currency items must set itemType to property and currencyCode, denomination, and currencyTotal to null.
 
 Here is the list of uploaded evidence images, which you MUST map your items to. Each item you detect must specify its 'evidenceId' matching one of these:
 ${caseFile.uploads.map((u, i) => `- Image ${i + 1}: ID "${u.id}", Original Name "${u.originalName}", Container Context Context "${u.containerContext}"`).join("\n")}
@@ -337,17 +341,27 @@ Respond strictly in the requested structured schema.`
           : "Sensitive item details require staff confirmation";
       }
 
+      const quantityKnown = item.quantity != null;
+      const quantity = item.quantity ?? 1;
+      if (!quantityKnown) {
+        status = "review";
+        reviewReason = reviewReason
+          ? `${reviewReason}; Exact quantity requires staff verification`
+          : "Exact quantity requires staff verification";
+      }
       const currencyCode = item.currencyCode?.trim().toUpperCase() ?? null;
-      const denomination = item.denomination ?? null;
-      const currencyTotal = currencyCode && denomination != null
-        ? Math.round(denomination * item.quantity * 100) / 100
+      const denomination = normalizeDecimal(item.denomination);
+      const currencyTotal = item.itemType === "currency" && currencyCode && denomination && quantityKnown
+        ? multiplyDecimal(denomination, quantity)
         : null;
 
       const mappedItem: ManifestItem = {
         id: idMap[item.tempId],
         label: item.label,
         parentId,
-        quantity: item.quantity,
+        quantity,
+        quantityKnown,
+        itemType: item.itemType,
         status: status as "confirmed" | "review",
         confidence: item.confidence,
         reviewReason,
@@ -381,6 +395,8 @@ Respond strictly in the requested structured schema.`
       label: caseFile.outerItemDescription,
       parentId: null,
       quantity: 1,
+      quantityKnown: true,
+      itemType: "property",
       status: "confirmed",
       confidence: 1.0,
       reviewReason: null,
@@ -501,6 +517,8 @@ export async function handleUpdateItem(caseId: string, updatedItem: ManifestItem
       label: updatedItem.label,
       parentId: updatedItem.parentId,
       quantity: updatedItem.quantity,
+      quantityKnown: updatedItem.quantityKnown ?? true,
+      itemType: updatedItem.itemType ?? "property",
       status: updatedItem.status,
       confidence: updatedItem.confidence ?? 1.0,
       reviewReason: updatedItem.reviewReason ?? null,
@@ -511,16 +529,29 @@ export async function handleUpdateItem(caseId: string, updatedItem: ManifestItem
       denomination: updatedItem.denomination ?? null,
       currencyTotal: updatedItem.currencyTotal ?? null,
     });
-    parsed.currencyTotal = parsed.currencyCode && parsed.denomination != null
-      ? Math.round(parsed.denomination * parsed.quantity * 100) / 100
+    parsed.denomination = normalizeDecimal(parsed.denomination);
+    parsed.currencyTotal = parsed.itemType === "currency" && parsed.currencyCode && parsed.denomination && parsed.quantityKnown !== false
+      ? multiplyDecimal(parsed.denomination, parsed.quantity)
       : null;
 
     const originalItem = caseFile.manifest[itemIndex];
     const parsedItem: ManifestItem = { ...originalItem, ...parsed, id: updatedItem.id, source: "staff" };
+    if (isCurrencyItem(parsedItem)) {
+      parsed.itemType = "currency";
+      parsed.currencyTotal = parsed.currencyCode && parsed.denomination && parsed.quantityKnown !== false
+        ? multiplyDecimal(parsed.denomination, parsed.quantity)
+        : null;
+    }
     const becameCurrency = !isCurrencyItem(originalItem) && isCurrencyItem(parsedItem);
-    if (becameCurrency) {
+    const currencyAmountChanged = isCurrencyItem(originalItem) && isCurrencyItem(parsedItem) && (
+      originalItem.currencyCode !== parsed.currencyCode
+      || normalizeDecimal(originalItem.denomination) !== parsed.denomination
+      || originalItem.quantity !== parsed.quantity
+      || (originalItem.quantityKnown ?? true) !== (parsed.quantityKnown ?? true)
+    );
+    if (becameCurrency || currencyAmountChanged) {
       parsed.status = "review";
-      parsed.reviewReason = parsed.reviewReason || "Currency amount requires staff confirmation";
+      parsed.reviewReason = "Currency amount changed and requires staff confirmation";
     }
     const becameSensitive =
       !requiresSensitiveReview(originalItem.label, originalItem.ocrText, originalItem.visibleAttributes) &&
@@ -537,6 +568,8 @@ export async function handleUpdateItem(caseId: string, updatedItem: ManifestItem
         label: caseFile.outerItemDescription, // Locked to original description
         parentId: null,
         quantity: 1,
+        quantityKnown: true,
+        itemType: "property",
         status: "confirmed",
         confidence: 1.0,
         reviewReason: null,
@@ -566,6 +599,8 @@ export async function handleUpdateItem(caseId: string, updatedItem: ManifestItem
         label: parsed.label,
         parentId: parsed.parentId,
         quantity: parsed.quantity,
+        quantityKnown: parsed.quantityKnown ?? true,
+        itemType: parsed.itemType ?? "property",
         status: parsed.status,
         confidence: parsed.confidence,
         reviewReason: parsed.reviewReason,
@@ -617,6 +652,8 @@ export async function handleAddItem(caseId: string, itemData: Omit<ManifestItem,
       label: itemData.label,
       parentId: itemData.parentId,
       quantity: itemData.quantity,
+      quantityKnown: itemData.quantityKnown ?? true,
+      itemType: itemData.itemType ?? "property",
       status: itemData.status,
       confidence: itemData.confidence ?? 1.0,
       reviewReason: itemData.reviewReason ?? null,
@@ -627,8 +664,9 @@ export async function handleAddItem(caseId: string, itemData: Omit<ManifestItem,
       denomination: itemData.denomination ?? null,
       currencyTotal: itemData.currencyTotal ?? null,
     });
-    parsed.currencyTotal = parsed.currencyCode && parsed.denomination != null
-      ? Math.round(parsed.denomination * parsed.quantity * 100) / 100
+    parsed.denomination = normalizeDecimal(parsed.denomination);
+    parsed.currencyTotal = parsed.itemType === "currency" && parsed.currencyCode && parsed.denomination && parsed.quantityKnown !== false
+      ? multiplyDecimal(parsed.denomination, parsed.quantity)
       : null;
 
     if (parsed.parentId === null) {
@@ -652,6 +690,8 @@ export async function handleAddItem(caseId: string, itemData: Omit<ManifestItem,
       label: parsed.label,
       parentId: parsed.parentId,
       quantity: parsed.quantity,
+      quantityKnown: parsed.quantityKnown ?? true,
+      itemType: parsed.itemType ?? "property",
       status: parsed.status,
       confidence: parsed.confidence,
       reviewReason: parsed.reviewReason,
@@ -664,6 +704,10 @@ export async function handleAddItem(caseId: string, itemData: Omit<ManifestItem,
       source: "staff",
     };
     if (isCurrencyItem(newItem)) {
+      newItem.itemType = "currency";
+      newItem.currencyTotal = newItem.currencyCode && newItem.denomination && newItem.quantityKnown !== false
+        ? multiplyDecimal(newItem.denomination, newItem.quantity)
+        : null;
       newItem.status = "review";
       newItem.reviewReason = newItem.reviewReason || "Currency amount requires staff confirmation";
     }

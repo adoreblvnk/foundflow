@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "DATA_DIR=./data-test node --experimental-strip-types tests/domain.test.ts",
     "test:ai": "node --experimental-strip-types tests/smoke-test-ai.ts",
-    "test:e2e:demo": "npm run build && node tests/e2e-demo.mjs",
+    "test:e2e:playwright": "npm run build && playwright test --config=playwright.config.mjs",
     "test:e2e": "node tests/e2e-browser.mjs"
   },
   "dependencies": {

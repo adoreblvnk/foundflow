@@ -93,10 +93,10 @@ Verifies Codex CLI connectivity and structured multimodal responses using harmle
 npm run test:ai
 ```
 
-### Run Deterministic Production Demo Verification
-Builds the production app, starts an isolated server, signs in, loads the evidence-backed fixture, resolves all reviews, finalises the case and verifies both exports:
+### Run Playwright CLI Production Demo Verification
+Builds the production app, starts an isolated server through Playwright CLI, signs in, loads the evidence-backed fixture, checks the 375×500 mobile dialog, resolves all reviews, finalises the case and verifies both exports and their audit events:
 ```bash
-npm run test:e2e:demo
+npm run test:e2e:playwright
 ```
 This path requires no model call and is the reliable presentation fallback.
 

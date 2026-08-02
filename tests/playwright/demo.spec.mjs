@@ -17,7 +17,18 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   await expect(page.getByRole("link", { name: /Open Cases/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /Search Items/ })).toBeVisible();
   await expect(page.getByText(/Photograph\. Scan\. Verify\./)).toHaveCount(0);
+  await expect(page.getByText("Staff Operations", { exact: true })).toHaveCount(0);
   await expect(page.getByText(/Kiosk Mode/)).toHaveCount(0);
+
+  await page.setViewportSize({ width: 900, height: 900 });
+  await page.goto("/search");
+  const searchCard = await page.locator(".search-filter-card").boundingBox();
+  const searchControls = await page.locator(".search-filter-card input, .search-filter-card select").all();
+  for (const control of searchControls) {
+    const box = await control.boundingBox();
+    expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual((searchCard?.x ?? 0) + (searchCard?.width ?? 0));
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
 
   await page.goto("/kiosk");
   await expect(page.getByRole("heading", { name: "404" })).toBeVisible();
@@ -31,6 +42,7 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   await expect(page).toHaveURL(/\/cases$/);
 
   await expect(page.getByRole("heading", { name: "Cases" })).toBeVisible();
+  await expect(page.getByText("Staff Operations", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Step-by-Step Intake Process", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Load Demo|Reset Demo/ })).toHaveCount(0);
 

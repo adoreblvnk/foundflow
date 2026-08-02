@@ -88,19 +88,18 @@ export default function SearchPage() {
         </p>
 
         {/* Filters */}
-        <div style={{
-          background: "var(--panel)",
-          border: "1px solid var(--line)",
-          borderRadius: "14px",
+        <div className="search-filter-card" style={{
           padding: "20px",
           display: "grid",
           gap: "14px",
         }}>
           {/* Row 1: Location + Category */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-            <div style={{ display: "grid", gap: "4px" }}>
-              <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)" }}>Location</label>
+          <div className="search-filter-row search-filter-row-two">
+            <div className="search-filter-field">
+              <label htmlFor="search-location" style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)" }}>Location</label>
               <select
+                id="search-location"
+                name="location"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 style={{
@@ -118,9 +117,11 @@ export default function SearchPage() {
                 ))}
               </select>
             </div>
-            <div style={{ display: "grid", gap: "4px" }}>
-              <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)" }}>Item Type</label>
+            <div className="search-filter-field">
+              <label htmlFor="search-category" style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)" }}>Item Type</label>
               <select
+                id="search-category"
+                name="category"
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 style={{
@@ -141,10 +142,12 @@ export default function SearchPage() {
           </div>
 
           {/* Row 2: Date range + Found By */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
-            <div style={{ display: "grid", gap: "4px" }}>
-              <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)" }}>Date From</label>
+          <div className="search-filter-row search-filter-row-three">
+            <div className="search-filter-field">
+              <label htmlFor="search-date-from" style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)" }}>Date From</label>
               <input
+                id="search-date-from"
+                name="dateFrom"
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
@@ -158,9 +161,11 @@ export default function SearchPage() {
                 }}
               />
             </div>
-            <div style={{ display: "grid", gap: "4px" }}>
-              <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)" }}>Date To</label>
+            <div className="search-filter-field">
+              <label htmlFor="search-date-to" style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)" }}>Date To</label>
               <input
+                id="search-date-to"
+                name="dateTo"
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
@@ -174,13 +179,16 @@ export default function SearchPage() {
                 }}
               />
             </div>
-            <div style={{ display: "grid", gap: "4px" }}>
-              <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)" }}>Found By</label>
+            <div className="search-filter-field">
+              <label htmlFor="search-found-by" style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)" }}>Found By</label>
               <input
+                id="search-found-by"
+                name="foundBy"
                 type="text"
+                autoComplete="off"
                 value={foundBy}
                 onChange={(e) => setFoundBy(e.target.value)}
-                placeholder="Staff name..."
+                placeholder="Staff name…"
                 style={{
                   height: "40px",
                   borderRadius: "6px",
@@ -194,9 +202,9 @@ export default function SearchPage() {
           </div>
 
           {/* Row 3: Free text / AI query */}
-          <div style={{ display: "grid", gap: "4px" }}>
+          <div className="search-filter-field">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)" }}>Description (optional)</label>
+              <label htmlFor="search-description" style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)" }}>Description (optional)</label>
               <div style={{ display: "flex", gap: "4px" }}>
                 <button
                   type="button"
@@ -233,12 +241,15 @@ export default function SearchPage() {
               </div>
             </div>
             <input
+              id="search-description"
+              name="description"
               type="text"
+              autoComplete="off"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") void runSearch(); }}
               placeholder={searchMode === "text"
-                ? "e.g. USB cable, leather wallet, SGD..."
+                ? "e.g. USB cable, leather wallet, SGD…"
                 : "e.g. black bag with Malaysian money found near Terminal 3 last week"
               }
               style={{

@@ -12,9 +12,6 @@ export default async function CasesPage() {
       <header className="shell nav" style={{ borderBottom: "1px solid var(--line)" }}>
         <div>
           <Link className="brand" href="/">FoundFlow</Link>
-          <p className="muted" style={{ margin: "4px 0 0", fontSize: "0.82rem" }}>
-            Staff Operations
-          </p>
         </div>
         <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
           <Link className="button" href="/cases/new" style={{ minHeight: "40px" }}>

@@ -17,7 +17,6 @@ export default function Home() {
         marginInline: "auto",
         paddingBlock: "56px",
       }}>
-        <p className="eyebrow">Staff Operations</p>
         <h1 style={{ fontSize: "2.25rem", letterSpacing: "-0.04em", margin: "0 0 28px" }}>
           Found property
         </h1>

@@ -58,6 +58,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
 
   const unresolved = caseFile.manifest.filter((item) => item.status === "review").length;
   const isFinalised = caseFile.status === "finalised";
@@ -219,6 +220,10 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
   async function onUploadSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (isFinalised) return;
+    if (!fileInputRef.current?.files?.[0]) {
+      setErrorMsg("Choose an image before uploading.");
+      return;
+    }
     setIsUploading(true);
     setErrorMsg(null);
     setSuccessMsg(null);
@@ -233,6 +238,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
       } else if (res.success) {
         setSuccessMsg("Item photo uploaded successfully.");
         form.reset();
+        setSelectedFileName(null);
         await refreshCase();
       }
     } catch (err: unknown) {
@@ -500,7 +506,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
           {/* Evidence Upload Form */}
           {!isFinalised && (
             <div style={{ border: "1px solid var(--line)", borderRadius: "12px", padding: "16px", background: "var(--panel)" }}>
-              <strong style={{ fontSize: "0.88rem", display: "block", marginBottom: "12px" }}>📸 Add Item Photo</strong>
+              <strong style={{ fontSize: "0.88rem", display: "block", marginBottom: "12px" }}>Add Item Photo</strong>
               <form onSubmit={onUploadSubmit} style={{ display: "grid", gap: "12px" }}>
                 <div style={{ display: "grid", gap: "4px" }}>
                   <label htmlFor="file" style={{ fontSize: "0.75rem", fontWeight: 700 }}>Select JPG / PNG / WebP</label>
@@ -510,9 +516,23 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                     name="file"
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
-                    required
-                    style={{ fontSize: "0.8rem" }}
+                    onChange={(event) => setSelectedFileName(event.target.files?.[0]?.name ?? null)}
+                    style={{ display: "none" }}
                   />
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <button
+                      type="button"
+                      className="button button-secondary"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading}
+                      style={{ minHeight: "36px", whiteSpace: "nowrap" }}
+                    >
+                      Choose Image
+                    </button>
+                    <span aria-live="polite" style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "0.78rem", color: "var(--muted)" }}>
+                      {selectedFileName ?? "No image selected"}
+                    </span>
+                  </div>
                 </div>
 
                 <div style={{ display: "grid", gap: "4px" }}>
@@ -538,10 +558,10 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                 <button
                   className="button full-width"
                   type="submit"
-                  disabled={isUploading}
+                  disabled={isUploading || !selectedFileName}
                   style={{ minHeight: "36px", fontSize: "0.85rem" }}
                 >
-                  {isUploading ? "Uploading file..." : "Upload & Associate"}
+                  {isUploading ? "Uploading image..." : "Upload Photo"}
                 </button>
               </form>
             </div>

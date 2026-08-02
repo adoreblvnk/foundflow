@@ -87,7 +87,7 @@ export default function UploadPage() {
               disabled={isUploading}
               style={{ width: "100%", minHeight: "50px", fontSize: "0.95rem" }}
             >
-              {isUploading ? "Uploading..." : "📷 Take Photo / Upload Image"}
+              {isUploading ? "Uploading..." : "Choose Image or Take Photo"}
             </button>
           </div>
 

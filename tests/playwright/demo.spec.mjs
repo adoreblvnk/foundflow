@@ -37,6 +37,22 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   await expect(page.getByText("MYR 50.40", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /Confirm$/ })).toHaveCount(5);
 
+  const chooseImage = page.getByRole("button", { name: "Choose Image" });
+  const uploadPhoto = page.getByRole("button", { name: "Upload Photo" });
+  await expect(chooseImage).toBeVisible();
+  await expect(uploadPhoto).toBeDisabled();
+  const photoInput = page.getByLabel("Select JPG / PNG / WebP");
+  await photoInput.setInputFiles("public/demo/found-property-evidence.webp");
+  await expect(page.getByText("found-property-evidence.webp", { exact: true })).toBeVisible();
+  await expect(uploadPhoto).toBeEnabled();
+  await photoInput.setInputFiles([]);
+  await expect(page.getByText("No image selected", { exact: true })).toBeVisible();
+  await expect(uploadPhoto).toBeDisabled();
+
+  await page.goto("/cases/CT3A-20260721-DEMO/upload");
+  await expect(page.getByRole("button", { name: "Choose Image or Take Photo" })).toBeVisible();
+  await page.goto("/cases/CT3A-20260721-DEMO");
+
   const openCaseSearch = await page.evaluate(async () => {
     const response = await fetch("/api/search", {
       method: "POST",

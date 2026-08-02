@@ -20,7 +20,7 @@ FoundFlow helps airport and transit staff document complex found-property cases.
   - Apply quick text commands to manage the item list.
   - Edit items, manage parent nesting, and assign source photos.
   - Complete confirmed cases while blocking unresolved items or invalid structures.
-  - Require two staff checks for money, identification documents, and perishable items.
+  - Require one explicit staff confirmation for review items, including money, identification documents, and perishables.
 - **Collection Claim (`/cases/[id]/claim`)**: Records report-backed or walk-in claims, requires independent ownership-evidence groups, masks identity references, and atomically records the staff decision and handover.
 - **Private Photos (`/api/uploads/[id]`)**: Application endpoint for stored item photos.
 - **Confirmed Exports (`/api/cases/[id]/export/json` and `/api/cases/[id]/export/csv`)**: Completed item lists with parent relationships, OCR text, and attributes, protected against CSV formula injection.

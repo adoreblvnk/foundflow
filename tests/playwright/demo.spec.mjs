@@ -32,9 +32,11 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   await expect(page).toHaveURL(/\/cases\/CT3A-20260721-DEMO$/);
   await expect(page.getByText("Item Photos (1)", { exact: true })).toBeVisible();
   await expect(page.getByText("11 records", { exact: true })).toBeVisible();
+  await expect(page.getByText(/second check/i)).toHaveCount(0);
+  await expect(page.getByText("Demo case created from a staged synthetic found-property set", { exact: true })).toHaveCount(0);
   await expect(page.getByText("SGD 104.00", { exact: true })).toBeVisible();
   await expect(page.getByText("MYR 50.40", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "First Check" })).toHaveCount(5);
+  await expect(page.getByRole("button", { name: "Confirm", exact: true })).toHaveCount(5);
   await expect(page.getByRole("region", { name: "Match records to the photo" })).toBeVisible();
   await expect(page.getByText("15/15 listed objects boxed", { exact: true })).toBeVisible();
   await expect(page.locator(".photo-region")).toHaveCount(15);
@@ -67,7 +69,7 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   await page.getByRole("button", { name: "Remove box" }).click();
   await expect(page.getByRole("button", { name: /Plain kraft notebook, region/ })).toHaveCount(1);
   await page.locator("article").filter({ hasText: "Plain kraft notebook" }).getByRole("button", { name: "Confirm" }).click();
-  await expect(page.getByRole("button", { name: "First Check" })).toHaveCount(5);
+  await expect(page.getByRole("button", { name: "Confirm", exact: true })).toHaveCount(5);
 
   await expect(page.getByRole("button", { name: /Singapore 1-dollar specimen coins, region/ })).toHaveCount(3);
   await page.getByRole("button", { name: "Show Singapore 1-dollar specimen coins on source photo" }).click();
@@ -149,7 +151,18 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
     await expect(addDialog).toBeHidden();
   }
   await expect(page.getByText("13 records", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "First Check" })).toHaveCount(7);
+  await expect(page.getByRole("button", { name: "Confirm", exact: true })).toHaveCount(7);
+
+  await page.getByRole("button", { name: "+ Add Item", exact: true }).click();
+  const unknownCoinDialog = page.getByRole("dialog", { name: "Add Item" });
+  await unknownCoinDialog.getByLabel("Item Label").fill("coin");
+  await unknownCoinDialog.getByRole("button", { name: "Add Item" }).click();
+  const unknownCoin = page.locator("article").filter({ has: page.getByText("coin", { exact: true }) });
+  await unknownCoin.getByRole("button", { name: "Confirm", exact: true }).click();
+  await expect(page.getByText(/requires a valid ISO 4217 currency code/)).toHaveCount(0);
+  page.once("dialog", (dialog) => dialog.accept());
+  await unknownCoin.getByRole("button", { name: "Delete coin" }).click();
+  await expect(page.getByText("13 records", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Edit Singapore 1-dollar specimen coins" }).click();
   const currencyDialog = page.getByRole("dialog", { name: "Edit Item" });
@@ -159,33 +172,24 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   await currencyDialog.getByRole("button", { name: "Cancel" }).click();
   await expect(currencyDialog).toBeHidden();
 
-  const firstChecks = page.getByRole("button", { name: "First Check" });
-  while (await firstChecks.count()) {
-    const remaining = await firstChecks.count();
-    await firstChecks.first().click();
-    await expect(firstChecks).toHaveCount(remaining - 1);
-  }
-  const secondChecks = page.getByRole("button", { name: "Second Check" });
-  await expect(secondChecks).toHaveCount(7);
-  while (await secondChecks.count()) {
-    const remaining = await secondChecks.count();
-    await secondChecks.first().click();
-    await expect(secondChecks).toHaveCount(remaining - 1);
+  const confirmations = page.getByRole("button", { name: "Confirm", exact: true });
+  while (await confirmations.count()) {
+    const remaining = await confirmations.count();
+    await confirmations.first().click();
+    await expect(confirmations).toHaveCount(remaining - 1);
   }
 
   await page.getByRole("button", { name: "Edit Singapore 1-dollar specimen coins" }).click();
   await page.getByRole("dialog", { name: "Edit Item" }).getByLabel("Quantity").fill("4");
   await page.getByRole("dialog", { name: "Edit Item" }).getByRole("button", { name: "Save Changes" }).click();
-  await expect(page.getByRole("button", { name: "First Check" })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Confirm", exact: true })).toHaveCount(1);
   await expect(page.getByText("SGD 105.00", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Edit Singapore 1-dollar specimen coins" }).click();
   await page.getByRole("dialog", { name: "Edit Item" }).getByLabel("Quantity").fill("3");
   await page.getByRole("dialog", { name: "Edit Item" }).getByRole("button", { name: "Save Changes" }).click();
   await expect(page.getByText("SGD 104.00", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "First Check" }).click();
-  await expect(page.getByRole("button", { name: "Second Check" })).toHaveCount(1);
-  await page.getByRole("button", { name: "Second Check" }).click();
+  await page.getByRole("button", { name: "Confirm", exact: true }).click();
 
   const finalise = page.getByRole("button", { name: "Confirm & Complete" });
   await expect(finalise).toBeEnabled();

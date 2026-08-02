@@ -4,9 +4,7 @@ import { addDecimals, isValidCurrencyCode, multiplyDecimal, normalizeDecimal } f
 const sensitiveItemPattern = /\b(?:cash|money|currency|banknotes?|notes?|coins?|dollars?|ringgit|passport|identity|identification|id card|credit card|debit card|serial(?: number)?|jewel(?:ry|lery)|watch|valuable|perishable|food|meal|sandwich|fruit|vegetable|meat|dairy)\b/i;
 const currencyItemPattern = /(?:[$€£¥₹₩₽₺₫฿₱]|\b(?:cash|money|currency|banknotes?|specimen\s+notes?|coins?|dollars?|cents?|ringgit|sen|singapore\s+notes?|malaysian?\s+notes?|sgd|myr|usd|eur|gbp|jpy|cny)\b)/i;
 const currencyContainerPattern = /\b(?:pouch|wallet|bag|container|envelope)\b/i;
-const doubleCheckItemPattern = /\b(?:cash|money|currency|banknotes?|notes?|coins?|dollars?|ringgit|passport|identity|identification|id card|national id|driving licen[cs]e|perishable|food|meal|sandwich|fruit|vegetable|meat|dairy)\b/i;
 
-export const FIRST_STAFF_CHECK_PREFIX = "First staff check completed";
 
 export function buildDetectedItemLabel(label: string, brand: string | null, model: string | null): string {
   const cleanBrand = brand?.trim() ?? "";
@@ -45,15 +43,6 @@ export function isCurrencyItem(item: ManifestItem): boolean {
     && !currencyContainerPattern.test(item.label);
 }
 
-export function requiresDoubleStaffCheck(item: ManifestItem): boolean {
-  if (isCurrencyItem(item)) return true;
-  if (["cash", "documents", "food"].includes(item.category ?? "")) return true;
-  return doubleCheckItemPattern.test(`${item.label} ${item.ocrText ?? ""} ${item.visibleAttributes ?? ""}`);
-}
-
-export function hasFirstStaffCheck(item: ManifestItem): boolean {
-  return item.status === "review" && Boolean(item.reviewReason?.startsWith(FIRST_STAFF_CHECK_PREFIX));
-}
 
 export function summarizeCurrency(items: ManifestItem[]): Array<{ currencyCode: string; total: string }> {
   const totals = new Map<string, string>();
@@ -185,10 +174,7 @@ export function validateManifestStructure(caseFile: Case): string | null {
       const total = normalizeDecimal(item.currencyTotal);
       const denominationValid = denomination != null && denomination !== "0";
       const countValid = item.quantityKnown !== false && Number.isInteger(item.quantity) && item.quantity > 0;
-      if (item.status === "confirmed" && (!codeValid || !denominationValid || !countValid || total == null)) {
-        return `Currency item "${item.label}" requires a valid ISO 4217 currency code, denomination, known quantity, and exact total before confirmation.`;
-      }
-      if (denominationValid && countValid && total != null) {
+      if (codeValid && denominationValid && countValid && total != null) {
         const expectedTotal = multiplyDecimal(denomination, item.quantity);
         if (expectedTotal !== total) {
           return `Currency item "${item.label}" total must equal denomination × quantity (${expectedTotal}).`;

@@ -41,7 +41,7 @@ import {
 
 import { verifyImageSignature } from "../src/lib/image-utils.ts";
 import { escapeCsvCell } from "../src/lib/csv-utils.ts";
-import { buildDetectedItemLabel, FIRST_STAFF_CHECK_PREFIX, hasCycle, hasFirstStaffCheck, isCurrencyItem, isValidImageRegion, mergeAiDraftWithStaffItems, requiresDoubleStaffCheck, requiresSensitiveReview, summarizeCurrency, validateManifestStructure } from "../src/lib/validation.ts";
+import { buildDetectedItemLabel, hasCycle, isCurrencyItem, isValidImageRegion, mergeAiDraftWithStaffItems, requiresSensitiveReview, summarizeCurrency, validateManifestStructure } from "../src/lib/validation.ts";
 import { addDecimals, isValidCurrencyCode, multiplyDecimal, normalizeDecimal } from "../src/lib/currency.ts";
 import { buildConfirmedSearchItems } from "../src/lib/search.ts";
 import { caseContainsIdentityEvidence, evaluateClaimVerification } from "../src/lib/claim-policy.ts";
@@ -438,12 +438,12 @@ test("Domain, Cycles & Finalisation Validations", async (t) => {
     assert.ok(error && error.includes("photo"));
   });
 
-  await t.test("requires exact denomination totals before currency confirmation", async () => {
+  await t.test("allows incomplete currency details but rejects inconsistent known totals", async () => {
     const demo = (await getCaseById("CT3A-20260721-DEMO"))!;
     const currency = demo.manifest.find((item) => item.id === "sgd-1-coins")!;
     currency.status = "confirmed";
     currency.currencyCode = null;
-    assert.match(validateManifestStructure(demo) ?? "", /requires a valid ISO 4217 currency code/);
+    assert.strictEqual(validateManifestStructure(demo), null);
 
     currency.currencyCode = "SGD";
     currency.currencyTotal = "99";
@@ -467,26 +467,26 @@ test("Exact Currency Arithmetic & Review Boundaries", async (t) => {
     assert.strictEqual(isCurrencyItem(item), true);
     const demo = (await getCaseById("CT3A-20260721-DEMO"))!;
     demo.manifest.push(item);
-    assert.match(validateManifestStructure(demo) ?? "", /valid ISO 4217 currency code/);
+    assert.strictEqual(validateManifestStructure(demo), null);
   });
 
-  await t.test("blocks confirmation when the observed count is unknown", async () => {
+  await t.test("allows staff confirmation when the observed currency count is unknown", async () => {
     const demo = (await getCaseById("CT3A-20260721-DEMO"))!;
     const item = demo.manifest.find((candidate) => candidate.id === "sgd-100")!;
     item.status = "confirmed";
     item.quantityKnown = false;
     item.currencyTotal = null;
-    assert.match(validateManifestStructure(demo) ?? "", /known quantity/);
+    assert.strictEqual(validateManifestStructure(demo), null);
   });
 
-  await t.test("rejects invented three-letter currency codes", async () => {
+  await t.test("recognizes ISO codes without blocking staff confirmation", async () => {
     assert.strictEqual(isValidCurrencyCode("SGD"), true);
     assert.strictEqual(isValidCurrencyCode("ZZZ"), false);
     const demo = (await getCaseById("CT3A-20260721-DEMO"))!;
     const item = demo.manifest.find((candidate) => candidate.id === "sgd-100")!;
     item.status = "confirmed";
     item.currencyCode = "ZZZ";
-    assert.match(validateManifestStructure(demo) ?? "", /valid ISO 4217 currency code/);
+    assert.strictEqual(validateManifestStructure(demo), null);
   });
 });
 
@@ -506,34 +506,6 @@ test("CSV Injection Protection (OWASP)", async (t) => {
 });
 
 test("Sensitive Item Review Policy", async (t) => {
-  const item = (label: string, category = "other", itemType: "property" | "currency" = "property"): ManifestItem => ({
-    id: `test-${label}`,
-    label,
-    parentId: "outer-item-root",
-    quantity: 1,
-    itemType,
-    category,
-    status: "review",
-    confidence: 1,
-    reviewReason: null,
-    evidenceId: "test-photo",
-  });
-
-  await t.test("requires two staff checks for money, identification documents, and perishables", () => {
-    assert.strictEqual(requiresDoubleStaffCheck(item("SGD 50 note", "cash", "currency")), true);
-    assert.strictEqual(requiresDoubleStaffCheck(item("Identification card", "documents")), true);
-    assert.strictEqual(requiresDoubleStaffCheck(item("Chicken sandwich", "food")), true);
-    assert.strictEqual(requiresDoubleStaffCheck(item("USB-C cable", "electronics")), false);
-  });
-
-  await t.test("recognizes the persisted first staff check marker", () => {
-    const checked = item("Passport", "documents");
-    checked.reviewReason = `${FIRST_STAFF_CHECK_PREFIX} by test-staff. Second staff check required.`;
-    assert.strictEqual(hasFirstStaffCheck(checked), true);
-    checked.status = "confirmed";
-    assert.strictEqual(hasFirstStaffCheck(checked), false);
-  });
-
   await t.test("flags money, identity documents, and serial identifiers", () => {
     assert.strictEqual(requiresSensitiveReview("Singapore $50 banknotes"), true);
     assert.strictEqual(requiresSensitiveReview("Leather holder", "PASSPORT S1234567A"), true);

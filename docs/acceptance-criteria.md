@@ -23,8 +23,8 @@ FoundFlow's challenge MVP is accepted only when all criteria below pass using st
 - [x] A visible outer property updates the existing root record with a proposed region instead of creating a duplicate item.
 - [x] Invalid photo IDs, invalid parents, duplicate temporary IDs, cycles, and sensitive categories are rejected, normalised, or forced into review without being silently trusted.
 - [x] Cash, currency, identity documents, valuables, and serial identifiers cannot be finalised without staff confirmation.
-- [x] Money, identification documents, and perishable items require two explicit staff checks before confirmation.
-- [x] Notes and coins are separated by ISO currency and denomination, use exact decimal arithmetic, and leave unreadable counts or values unresolved rather than guessed.
+- [x] Money, identification documents, and perishable items require one explicit staff confirmation before completion.
+- [x] Notes and coins use exact decimal arithmetic when currency, denomination, and count are known; unreadable values may be staff-confirmed without contributing to currency totals.
 - [x] Rerunning AI analysis preserves records that staff added, confirmed, or corrected.
 - [x] Empty or unsupported inference never falls back to fabricated fixture output.
 

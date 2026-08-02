@@ -9,7 +9,7 @@ import { z } from "zod";
 import crypto from "crypto";
 
 import { verifyImageSignature } from "@/lib/image-utils";
-import { buildDetectedItemLabel, FIRST_STAFF_CHECK_PREFIX, hasCycle, hasFirstStaffCheck, isCurrencyItem, isValidImageRegion, mergeAiDraftWithStaffItems, requiresDoubleStaffCheck, requiresSensitiveReview, validateManifestStructure } from "@/lib/validation";
+import { buildDetectedItemLabel, hasCycle, isCurrencyItem, isValidImageRegion, mergeAiDraftWithStaffItems, requiresSensitiveReview, validateManifestStructure } from "@/lib/validation";
 import { isValidCurrencyCode, multiplyDecimal, normalizeDecimal } from "@/lib/currency";
 import { deleteEvidence, readEvidence, writeEvidence } from "@/lib/evidence-storage";
 import { PHOTO_CONTEXT_VALUES } from "@/lib/photo-context";
@@ -576,17 +576,6 @@ export async function handleConfirmItem(caseId: string, itemId: string) {
   const item = caseFile.manifest[itemIndex];
   if (item.status === "confirmed") return { success: true, manifest: caseFile.manifest };
 
-  if (requiresDoubleStaffCheck(item) && !hasFirstStaffCheck(item)) {
-    item.reviewReason = `${FIRST_STAFF_CHECK_PREFIX} by ${user.username}. Second staff check required.`;
-    item.confidence = 1.0;
-    markStaffLineage(caseFile, item.id);
-
-    const validationError = validateManifestStructure(caseFile);
-    if (validationError) return { error: `Validation failed: ${validationError}` };
-
-    await updateCaseWithAudit(caseId, caseFile, user.username, "sensitive_item_first_check", `Completed first staff check for "${item.label}"`);
-    return { success: true, manifest: caseFile.manifest, requiresSecondCheck: true };
-  }
 
   item.status = "confirmed";
   item.reviewReason = null;
@@ -665,10 +654,7 @@ export async function handleUpdateItem(caseId: string, updatedItem: ManifestItem
       parsed.status = "review";
       parsed.reviewReason = parsed.reviewReason || "Sensitive item details require staff confirmation";
     }
-    if (requiresDoubleStaffCheck(parsedItem) && originalItem.status !== "confirmed") {
-      parsed.status = "review";
-      parsed.reviewReason = "Two staff checks required for money, identification documents, and perishable items";
-    }
+
 
     // Enforce root protections
     if (updatedItem.id === "outer-item-root") {
@@ -823,10 +809,6 @@ export async function handleAddItem(caseId: string, itemData: Omit<ManifestItem,
         : null;
       newItem.status = "review";
       newItem.reviewReason = newItem.reviewReason || "Currency amount requires staff confirmation";
-    }
-    if (requiresDoubleStaffCheck(newItem)) {
-      newItem.status = "review";
-      newItem.reviewReason = "Two staff checks required for money, identification documents, and perishable items";
     }
 
     caseFile.manifest.push(newItem);

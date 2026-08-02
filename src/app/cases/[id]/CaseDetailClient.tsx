@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Case, ManifestItem } from "@/lib/db";
-import { hasFirstStaffCheck, isCurrencyItem, requiresDoubleStaffCheck, summarizeCurrency } from "@/lib/validation";
+import { isCurrencyItem, summarizeCurrency } from "@/lib/validation";
 import { formatDecimal, multiplyDecimal, normalizeDecimal } from "@/lib/currency";
 import PhotoRegionVerifier, { RegionCrops } from "./PhotoRegionVerifier";
 import { formatPhotoContext, PHOTO_CONTEXT_OPTIONS } from "@/lib/photo-context";
@@ -32,10 +32,8 @@ function displayCurrencyTotal(item: Pick<ManifestItem, "itemType" | "denominatio
 }
 
 function conciseReviewWarning(item: ManifestItem): string {
-  if (hasFirstStaffCheck(item)) return "Second check required.";
   if (/region|photo box/i.test(item.reviewReason ?? "")) return "Fix photo boxes.";
   if (isCurrencyItem(item)) return "Verify currency, value and count.";
-  if (requiresDoubleStaffCheck(item)) return "Staff verification required.";
   if (/quantity|count/i.test(item.reviewReason ?? "")) return "Verify quantity.";
   return "Staff review required.";
 }
@@ -43,7 +41,7 @@ function conciseReviewWarning(item: ManifestItem): string {
 const activityLabels: Record<string, string> = {
   evidence_uploaded: "PHOTO ADDED",
   ai_analysis_complete: "PHOTO SCAN COMPLETE",
-  sensitive_item_first_check: "FIRST STAFF CHECK",
+
   case_finalised: "CASE COMPLETED",
   manifest_exported: "ITEM LIST EXPORTED",
   claim_created: "CLAIM CREATED",
@@ -53,13 +51,6 @@ const activityLabels: Record<string, string> = {
   claim_escalated: "CLAIM ESCALATED",
 };
 
-function formatActivityDetails(details: string): string {
-  return details
-    .replace(/\bevidence\b/gi, "item photo")
-    .replace(/\bmanifest\b/gi, "item list")
-    .replace(/\bcustody\b/gi, "property handling")
-    .replace(/\bofficer\b/gi, "staff member");
-}
 
 export default function CaseDetailClient({ initialCase, currentUser }: CaseDetailClientProps) {
   const [caseFile, setCaseFile] = useState<Case>(initialCase);
@@ -210,7 +201,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
         const result = await handleConfirmItem(caseFile.id, matched.id);
         if (result.success && result.manifest) {
           setCaseFile(prev => ({ ...prev, manifest: result.manifest! }));
-          setSuccessMsg(result.requiresSecondCheck ? `First check completed for "${matched.label}". A second check is required.` : `Confirmed "${matched.label}"`);
+          setSuccessMsg(`Confirmed "${matched.label}"`);
           await refreshCase();
         } else {
           setErrorMsg("Failed to confirm item.");
@@ -331,7 +322,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
     if (result.error) {
       setErrorMsg(result.error);
     } else {
-      setSuccessMsg(result.requiresSecondCheck ? "First staff check completed. A second check is required." : "Item confirmed.");
+      setSuccessMsg("Item confirmed.");
       await refreshCase();
     }
   }
@@ -641,7 +632,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                       {new Date(log.timestamp).toLocaleString("en-SG", { timeZone: "Asia/Singapore" })} by <strong>{log.userId}</strong>
                     </span>
                     <span style={{ color: "var(--ink)", fontWeight: 550 }}>
-                      {activityLabels[log.action] ?? log.action.replaceAll("_", " ").toUpperCase()}: {formatActivityDetails(log.details)}
+                      {activityLabels[log.action] ?? log.action.replaceAll("_", " ").toUpperCase()}
                     </span>
                   </div>
                 </div>
@@ -805,7 +796,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                       )}
                       {item.status === "review" && (
                         <span style={{ fontSize: "0.68rem", background: "#fff3cd", color: "#856404", padding: "1px 6px", borderRadius: "4px", fontWeight: 600 }}>
-                          {hasFirstStaffCheck(item) ? "First Check Complete" : "Needs Review"}
+                          Needs Review
                         </span>
                       )}
                     </div>
@@ -825,7 +816,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                         type="button"
                         style={{ padding: "4px 8px", fontSize: "0.74rem" }}
                       >
-                        {hasFirstStaffCheck(item) ? "Second Check" : requiresDoubleStaffCheck(item) ? "First Check" : "Confirm"}
+                        Confirm
                       </button>
                     )}
 

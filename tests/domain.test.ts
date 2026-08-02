@@ -38,7 +38,7 @@ import {
 
 import { verifyImageSignature } from "../src/lib/image-utils.ts";
 import { escapeCsvCell } from "../src/lib/csv-utils.ts";
-import { hasCycle, isCurrencyItem, mergeAiDraftWithStaffItems, requiresSensitiveReview, summarizeCurrency, validateManifestStructure } from "../src/lib/validation.ts";
+import { FIRST_STAFF_CHECK_PREFIX, hasCycle, hasFirstStaffCheck, isCurrencyItem, mergeAiDraftWithStaffItems, requiresDoubleStaffCheck, requiresSensitiveReview, summarizeCurrency, validateManifestStructure } from "../src/lib/validation.ts";
 import { addDecimals, isValidCurrencyCode, multiplyDecimal, normalizeDecimal } from "../src/lib/currency.ts";
 import { buildConfirmedSearchItems } from "../src/lib/search.ts";
 
@@ -359,6 +359,34 @@ test("CSV Injection Protection (OWASP)", async (t) => {
 });
 
 test("Sensitive Item Review Policy", async (t) => {
+  const item = (label: string, category = "other", itemType: "property" | "currency" = "property"): ManifestItem => ({
+    id: `test-${label}`,
+    label,
+    parentId: "outer-item-root",
+    quantity: 1,
+    itemType,
+    category,
+    status: "review",
+    confidence: 1,
+    reviewReason: null,
+    evidenceId: "test-photo",
+  });
+
+  await t.test("requires two staff checks for money, identification documents, and perishables", () => {
+    assert.strictEqual(requiresDoubleStaffCheck(item("SGD 50 note", "cash", "currency")), true);
+    assert.strictEqual(requiresDoubleStaffCheck(item("Identification card", "documents")), true);
+    assert.strictEqual(requiresDoubleStaffCheck(item("Chicken sandwich", "food")), true);
+    assert.strictEqual(requiresDoubleStaffCheck(item("USB-C cable", "electronics")), false);
+  });
+
+  await t.test("recognizes the persisted first staff check marker", () => {
+    const checked = item("Passport", "documents");
+    checked.reviewReason = `${FIRST_STAFF_CHECK_PREFIX} by test-staff. Second staff check required.`;
+    assert.strictEqual(hasFirstStaffCheck(checked), true);
+    checked.status = "confirmed";
+    assert.strictEqual(hasFirstStaffCheck(checked), false);
+  });
+
   await t.test("flags money, identity documents, and serial identifiers", () => {
     assert.strictEqual(requiresSensitiveReview("Singapore $50 banknotes"), true);
     assert.strictEqual(requiresSensitiveReview("Leather holder", "PASSPORT S1234567A"), true);

@@ -9,7 +9,7 @@ import { z } from "zod";
 import crypto from "crypto";
 
 import { verifyImageSignature } from "@/lib/image-utils";
-import { hasCycle, isCurrencyItem, mergeAiDraftWithStaffItems, requiresSensitiveReview, validateManifestStructure } from "@/lib/validation";
+import { FIRST_STAFF_CHECK_PREFIX, hasCycle, hasFirstStaffCheck, isCurrencyItem, mergeAiDraftWithStaffItems, requiresDoubleStaffCheck, requiresSensitiveReview, validateManifestStructure } from "@/lib/validation";
 import { isValidCurrencyCode, multiplyDecimal, normalizeDecimal } from "@/lib/currency";
 import { deleteEvidence, readEvidence, writeEvidence } from "@/lib/evidence-storage";
 
@@ -26,6 +26,7 @@ const manualItemInputSchema = z.object({
   evidenceId: z.string().max(128).nullable(),
   ocrText: z.string().max(2000).optional(),
   visibleAttributes: z.string().max(2000).optional(),
+  category: z.string().max(50).optional(),
   currencyCode: z.string().trim().toUpperCase().refine(isValidCurrencyCode, "Valid ISO 4217 currency code required").nullable().optional(),
   denomination: z.string().regex(/^(?:0|[1-9]\d*)(?:\.\d+)?$/).nullable().optional(),
   currencyTotal: z.string().regex(/^(?:0|[1-9]\d*)(?:\.\d+)?$/).nullable().optional(),
@@ -466,6 +467,20 @@ export async function handleConfirmItem(caseId: string, itemId: string) {
   if (itemIndex === -1) return { error: "Item not found" };
 
   const item = caseFile.manifest[itemIndex];
+  if (item.status === "confirmed") return { success: true, manifest: caseFile.manifest };
+
+  if (requiresDoubleStaffCheck(item) && !hasFirstStaffCheck(item)) {
+    item.reviewReason = `${FIRST_STAFF_CHECK_PREFIX} by ${user.username}. Second staff check required.`;
+    item.confidence = 1.0;
+    markStaffLineage(caseFile, item.id);
+
+    const validationError = validateManifestStructure(caseFile);
+    if (validationError) return { error: `Validation failed: ${validationError}` };
+
+    await updateCaseWithAudit(caseId, caseFile, user.username, "sensitive_item_first_check", `Completed first staff check for "${item.label}"`);
+    return { success: true, manifest: caseFile.manifest, requiresSecondCheck: true };
+  }
+
   item.status = "confirmed";
   item.reviewReason = null;
   item.confidence = 1.0;
@@ -506,6 +521,7 @@ export async function handleUpdateItem(caseId: string, updatedItem: ManifestItem
       evidenceId: updatedItem.evidenceId ?? null,
       ocrText: updatedItem.ocrText ?? "",
       visibleAttributes: updatedItem.visibleAttributes ?? "",
+      category: updatedItem.category ?? "other",
       currencyCode: updatedItem.currencyCode ?? null,
       denomination: updatedItem.denomination ?? null,
       currencyTotal: updatedItem.currencyTotal ?? null,
@@ -540,6 +556,10 @@ export async function handleUpdateItem(caseId: string, updatedItem: ManifestItem
     if (becameSensitive) {
       parsed.status = "review";
       parsed.reviewReason = parsed.reviewReason || "Sensitive item details require staff confirmation";
+    }
+    if (requiresDoubleStaffCheck(parsedItem) && originalItem.status !== "confirmed") {
+      parsed.status = "review";
+      parsed.reviewReason = "Two staff checks required for money, identification documents, and perishable items";
     }
 
     // Enforce root protections
@@ -588,6 +608,7 @@ export async function handleUpdateItem(caseId: string, updatedItem: ManifestItem
         evidenceId: parsed.evidenceId,
         ocrText: parsed.ocrText,
         visibleAttributes: parsed.visibleAttributes,
+        category: parsed.category ?? originalItem.category ?? "other",
         currencyCode: parsed.currencyCode ?? null,
         denomination: parsed.denomination ?? null,
         currencyTotal: parsed.currencyTotal ?? null,
@@ -639,6 +660,7 @@ export async function handleAddItem(caseId: string, itemData: Omit<ManifestItem,
       evidenceId: itemData.evidenceId ?? null,
       ocrText: itemData.ocrText ?? "",
       visibleAttributes: itemData.visibleAttributes ?? "",
+      category: itemData.category ?? "other",
       currencyCode: itemData.currencyCode ?? null,
       denomination: itemData.denomination ?? null,
       currencyTotal: itemData.currencyTotal ?? null,
@@ -677,6 +699,7 @@ export async function handleAddItem(caseId: string, itemData: Omit<ManifestItem,
       evidenceId: parsed.evidenceId,
       ocrText: parsed.ocrText,
       visibleAttributes: parsed.visibleAttributes,
+      category: parsed.category ?? "other",
       currencyCode: parsed.currencyCode ?? null,
       denomination: parsed.denomination ?? null,
       currencyTotal: parsed.currencyTotal ?? null,
@@ -689,6 +712,10 @@ export async function handleAddItem(caseId: string, itemData: Omit<ManifestItem,
         : null;
       newItem.status = "review";
       newItem.reviewReason = newItem.reviewReason || "Currency amount requires staff confirmation";
+    }
+    if (requiresDoubleStaffCheck(newItem)) {
+      newItem.status = "review";
+      newItem.reviewReason = "Two staff checks required for money, identification documents, and perishable items";
     }
 
     caseFile.manifest.push(newItem);

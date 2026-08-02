@@ -6,6 +6,7 @@ import LayoutGuide from "@/components/LayoutGuide";
 import { handleUploadEvidence, handleAiAnalysis, handleFinaliseCase, handleConfirmItem } from "@/app/cases/actions";
 import type { Case } from "@/lib/db";
 import { formatDecimal } from "@/lib/currency";
+import { hasFirstStaffCheck } from "@/lib/validation";
 
 export default function KioskPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -262,7 +263,7 @@ export default function KioskPage() {
                     )}
                   </div>
                   <span style={{ fontSize: "0.7rem", color: item.status === "confirmed" ? "#4caf50" : "#ffc107" }}>
-                    {item.status === "confirmed" ? "Confirmed" : "Review"}
+                    {item.status === "confirmed" ? "Confirmed" : hasFirstStaffCheck(item) ? "First Check Complete" : "Review"}
                   </span>
                 </div>
               ))}
@@ -273,7 +274,7 @@ export default function KioskPage() {
               <div style={{ marginTop: "20px", display: "grid", gap: "8px" }}>
                 {unresolved > 0 && (
                   <button type="button" className="button" onClick={confirmAll} style={{ width: "100%", minHeight: "40px", fontSize: "0.82rem" }}>
-                    Confirm All ({unresolved})
+                    Run Staff Checks ({unresolved})
                   </button>
                 )}
                 {unresolved === 0 && (

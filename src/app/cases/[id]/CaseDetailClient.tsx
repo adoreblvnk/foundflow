@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Case, ManifestItem } from "@/lib/db";
-import { summarizeCurrency } from "@/lib/validation";
+import { hasFirstStaffCheck, requiresDoubleStaffCheck, summarizeCurrency } from "@/lib/validation";
 import { formatDecimal, multiplyDecimal, normalizeDecimal } from "@/lib/currency";
 import {
   handleUploadEvidence,
@@ -31,6 +31,7 @@ function displayCurrencyTotal(item: Pick<ManifestItem, "itemType" | "denominatio
 const activityLabels: Record<string, string> = {
   evidence_uploaded: "PHOTO ADDED",
   ai_analysis_complete: "PHOTO SCAN COMPLETE",
+  sensitive_item_first_check: "FIRST STAFF CHECK",
   case_finalised: "CASE COMPLETED",
   manifest_exported: "ITEM LIST EXPORTED",
 };
@@ -168,7 +169,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
         const result = await handleConfirmItem(caseFile.id, matched.id);
         if (result.success && result.manifest) {
           setCaseFile(prev => ({ ...prev, manifest: result.manifest! }));
-          setSuccessMsg(`Confirmed "${matched.label}"`);
+          setSuccessMsg(result.requiresSecondCheck ? `First check completed for "${matched.label}". A second check is required.` : `Confirmed "${matched.label}"`);
           await refreshCase();
         } else {
           setErrorMsg("Failed to confirm item.");
@@ -289,7 +290,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
     if (result.error) {
       setErrorMsg(result.error);
     } else {
-      setSuccessMsg("Item confirmed.");
+      setSuccessMsg(result.requiresSecondCheck ? "First staff check completed. A second check is required." : "Item confirmed.");
       await refreshCase();
     }
   }
@@ -781,7 +782,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                       )}
                       {item.status === "review" && (
                         <span style={{ fontSize: "0.68rem", background: "#fff3cd", color: "#856404", padding: "1px 6px", borderRadius: "4px", fontWeight: 600 }}>
-                          Needs Review
+                          {hasFirstStaffCheck(item) ? "First Check Complete" : "Needs Review"}
                         </span>
                       )}
                     </div>
@@ -800,7 +801,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                         type="button"
                         style={{ padding: "4px 8px", fontSize: "0.74rem" }}
                       >
-                        ✓ Confirm
+                        {hasFirstStaffCheck(item) ? "Second Check" : requiresDoubleStaffCheck(item) ? "First Check" : "Confirm"}
                       </button>
                     )}
 

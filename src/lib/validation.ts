@@ -1,9 +1,12 @@
 import type { Case, ManifestItem } from "./db.ts";
 import { addDecimals, isValidCurrencyCode, multiplyDecimal, normalizeDecimal } from "./currency.ts";
 
-const sensitiveItemPattern = /\b(?:cash|money|currency|banknotes?|notes?|coins?|dollars?|ringgit|passport|identity|id card|credit card|debit card|serial(?: number)?|jewel(?:ry|lery)|watch|valuable)\b/i;
+const sensitiveItemPattern = /\b(?:cash|money|currency|banknotes?|notes?|coins?|dollars?|ringgit|passport|identity|identification|id card|credit card|debit card|serial(?: number)?|jewel(?:ry|lery)|watch|valuable|perishable|food|meal|sandwich|fruit|vegetable|meat|dairy)\b/i;
 const currencyItemPattern = /(?:[$€£¥₹₩₽₺₫฿₱]|\b(?:cash|money|currency|banknotes?|specimen\s+notes?|coins?|dollars?|cents?|ringgit|sen|singapore\s+notes?|malaysian?\s+notes?|sgd|myr|usd|eur|gbp|jpy|cny)\b)/i;
 const currencyContainerPattern = /\b(?:pouch|wallet|bag|container|envelope)\b/i;
+const doubleCheckItemPattern = /\b(?:cash|money|currency|banknotes?|notes?|coins?|dollars?|ringgit|passport|identity|identification|id card|national id|driving licen[cs]e|perishable|food|meal|sandwich|fruit|vegetable|meat|dairy)\b/i;
+
+export const FIRST_STAFF_CHECK_PREFIX = "First staff check completed";
 
 export function requiresSensitiveReview(label: string, ocrText = "", visibleAttributes = ""): boolean {
   return sensitiveItemPattern.test(`${label} ${ocrText} ${visibleAttributes}`);
@@ -14,6 +17,16 @@ export function isCurrencyItem(item: ManifestItem): boolean {
   if (item.currencyCode || item.denomination != null || item.currencyTotal != null) return true;
   return currencyItemPattern.test(`${item.label} ${item.ocrText ?? ""} ${item.visibleAttributes ?? ""}`)
     && !currencyContainerPattern.test(item.label);
+}
+
+export function requiresDoubleStaffCheck(item: ManifestItem): boolean {
+  if (isCurrencyItem(item)) return true;
+  if (["cash", "documents", "food"].includes(item.category ?? "")) return true;
+  return doubleCheckItemPattern.test(`${item.label} ${item.ocrText ?? ""} ${item.visibleAttributes ?? ""}`);
+}
+
+export function hasFirstStaffCheck(item: ManifestItem): boolean {
+  return item.status === "review" && Boolean(item.reviewReason?.startsWith(FIRST_STAFF_CHECK_PREFIX));
 }
 
 export function summarizeCurrency(items: ManifestItem[]): Array<{ currencyCode: string; total: string }> {

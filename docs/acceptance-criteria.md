@@ -17,6 +17,7 @@ FoundFlow's challenge MVP is accepted only when all criteria below pass using st
 - [x] OCR text, visible attributes, confidence, review reason, parent relationship, quantity, and photo ID are retained.
 - [x] Invalid photo IDs, invalid parents, duplicate temporary IDs, cycles, and sensitive categories are rejected, normalised, or forced into review without being silently trusted.
 - [x] Cash, currency, identity documents, valuables, and serial identifiers cannot be finalised without staff confirmation.
+- [x] Money, identification documents, and perishable items require two explicit staff checks before confirmation.
 - [x] Notes and coins are separated by ISO currency and denomination, use exact decimal arithmetic, and leave unreadable counts or values unresolved rather than guessed.
 - [x] Rerunning AI analysis preserves records that staff added, confirmed, or corrected.
 - [x] Empty or unsupported inference never falls back to fabricated fixture output.

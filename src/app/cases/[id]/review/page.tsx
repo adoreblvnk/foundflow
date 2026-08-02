@@ -12,6 +12,7 @@ import {
 } from "@/app/cases/actions";
 import type { Case, ManifestItem } from "@/lib/db";
 import { formatDecimal } from "@/lib/currency";
+import { hasFirstStaffCheck, requiresDoubleStaffCheck } from "@/lib/validation";
 
 export default function ReviewPage() {
   const params = useParams();
@@ -54,7 +55,12 @@ export default function ReviewPage() {
 
   async function confirmItem(itemId: string) {
     const result = await handleConfirmItem(caseId, itemId);
-    if (result.success) await loadCase();
+    if (result.success) {
+      setSuccess(result.requiresSecondCheck ? "First staff check completed. A second check is required." : "Item confirmed.");
+      await loadCase();
+    } else if (result.error) {
+      setError(result.error);
+    }
   }
 
   async function deleteItem(itemId: string) {
@@ -86,7 +92,7 @@ export default function ReviewPage() {
       else setError("Failed to add item.");
     } else if (cmd.startsWith("confirm ")) {
       const matched = findItem(cmd.slice(8));
-      if (matched) { await confirmItem(matched.id); setSuccess(`Confirmed "${matched.label}"`); }
+      if (matched) await confirmItem(matched.id);
       else setError(`No match for "${cmd.slice(8)}"`);
     } else if (cmd.startsWith("delete ") || cmd.startsWith("remove ")) {
       const label = cmd.replace(/^(delete|remove)\s+/, "");
@@ -185,7 +191,7 @@ export default function ReviewPage() {
                         </span>
                       )}
                       {item.status === "review" && (
-                        <span style={{ fontSize: "0.65rem", background: "#fff3cd", color: "#856404", padding: "1px 5px", borderRadius: "4px", fontWeight: 600 }}>Review</span>
+                        <span style={{ fontSize: "0.65rem", background: "#fff3cd", color: "#856404", padding: "1px 5px", borderRadius: "4px", fontWeight: 600 }}>{hasFirstStaffCheck(item) ? "First Check Complete" : "Review"}</span>
                       )}
                     </div>
                     {item.reviewReason && (
@@ -200,7 +206,7 @@ export default function ReviewPage() {
                         onClick={() => void confirmItem(item.id)}
                         style={{ padding: "3px 8px", fontSize: "0.72rem", borderRadius: "6px", border: "1px solid #d4a34f", background: "#fff7e8", color: "#744400", fontWeight: 700, cursor: "pointer" }}
                       >
-                        ✓ Confirm
+                        {hasFirstStaffCheck(item) ? "Second Check" : requiresDoubleStaffCheck(item) ? "First Check" : "Confirm"}
                       </button>
                     )}
                     {item.status === "confirmed" && (

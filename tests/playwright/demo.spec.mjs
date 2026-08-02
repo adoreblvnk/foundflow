@@ -36,23 +36,22 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   await expect(page.getByText("MYR 50.40", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "First Check" })).toHaveCount(5);
   await expect(page.getByRole("region", { name: "Match records to the photo" })).toBeVisible();
-  await expect(page.getByText("15 of 15 listed instances marked", { exact: true })).toBeVisible();
+  await expect(page.getByText("15/15 listed objects boxed", { exact: true })).toBeVisible();
   await expect(page.locator(".photo-region")).toHaveCount(15);
   const verifierBox = await page.getByRole("region", { name: "Match records to the photo" }).boundingBox();
   const capturePanelBox = await page.locator(".capture-panel").boundingBox();
   const reviewPanelBox = await page.locator(".review-panel").boundingBox();
   expect(verifierBox?.x).toBeGreaterThanOrEqual(reviewPanelBox?.x ?? Number.MAX_SAFE_INTEGER);
   expect(verifierBox?.width).toBeGreaterThan(capturePanelBox?.width ?? Number.MAX_SAFE_INTEGER);
-  await expect(page.locator(".capture-panel").getByRole("button", { name: "Scan Item Photos" })).toBeVisible();
+  const scanButton = page.locator(".capture-panel").getByRole("button", { name: "Scan Item Photos" });
+  await expect(scanButton).toBeVisible();
   await expect(page.locator(".review-panel").getByRole("button", { name: "Scan Item Photos" })).toHaveCount(0);
-
-  const insightSection = page.getByRole("region", { name: "Owner context and handling advice" });
-  const currencySection = page.getByRole("region", { name: "Currency totals" });
-  await expect(insightSection.getByRole("button", { name: "Generate insight" })).toBeVisible();
-  await expect(insightSection.getByText("It cannot identify an owner, verify a claimant, or justify release.", { exact: false })).toBeVisible();
-  const insightBox = await insightSection.boundingBox();
-  const currencyBox = await currencySection.boundingBox();
-  expect(currencyBox?.y).toBeGreaterThan(insightBox?.y ?? Number.MAX_SAFE_INTEGER);
+  const photosBox = await page.locator(".item-photos-section").boundingBox();
+  const scanBox = await scanButton.boundingBox();
+  const uploadBox = await page.locator(".item-photo-upload").boundingBox();
+  expect(scanBox?.y).toBeGreaterThan((photosBox?.y ?? 0) + (photosBox?.height ?? Number.MAX_SAFE_INTEGER));
+  expect((scanBox?.y ?? Number.MAX_SAFE_INTEGER) + (scanBox?.height ?? 0)).toBeLessThan(uploadBox?.y ?? 0);
+  await expect(page.getByRole("region", { name: "Owner context and handling advice" })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Show Plain kraft notebook on source photo" }).click();
   await page.getByRole("button", { name: "+ Draw region" }).click();

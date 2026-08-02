@@ -152,11 +152,11 @@ export default function PhotoRegionVerifier({ uploads, items, selectedItemId, re
         )}
       </div>
       <p className="muted region-help">
-        Select an item row or box. {readOnly ? "Boxes show the reviewed source regions." : "To correct the AI, select an item then drag around each visible instance."}
+        {readOnly ? "Reviewed source boxes." : "Select a row. Draw one box per object."}
       </p>
       <div className={visibleRegions.length === expectedInstances ? "region-coverage complete" : "region-coverage incomplete"} role="status">
-        <strong>{visibleRegions.length} of {expectedInstances} listed instances marked</strong>
-        <span>{visibleRegions.length === expectedInstances ? "All listed instances boxed; inspect for omissions" : `${Math.max(0, expectedInstances - visibleRegions.length)} box${expectedInstances - visibleRegions.length === 1 ? "" : "es"} still required`}</span>
+        <strong>{visibleRegions.length}/{expectedInstances} listed objects boxed</strong>
+        <span>{visibleRegions.length === expectedInstances ? "Check for missed objects." : `${Math.max(0, expectedInstances - visibleRegions.length)} box${expectedInstances - visibleRegions.length === 1 ? "" : "es"} missing.`}</span>
       </div>
 
       {uploads.length > 1 && (

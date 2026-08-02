@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Case, ManifestItem } from "@/lib/db";
-import { hasFirstStaffCheck, requiresDoubleStaffCheck, summarizeCurrency } from "@/lib/validation";
+import { hasFirstStaffCheck, isCurrencyItem, requiresDoubleStaffCheck, summarizeCurrency } from "@/lib/validation";
 import { formatDecimal, multiplyDecimal, normalizeDecimal } from "@/lib/currency";
 import PhotoRegionVerifier, { RegionCrops } from "./PhotoRegionVerifier";
 import { formatPhotoContext, PHOTO_CONTEXT_OPTIONS } from "@/lib/photo-context";
@@ -15,7 +15,6 @@ import {
   handleAddItem,
   handleDeleteItem,
   handleReassignPhotoRegion,
-  handleGenerateCaseInsight,
   handleFinaliseCase
 } from "../actions";
 
@@ -26,16 +25,19 @@ interface CaseDetailClientProps {
   currentUser: { username: string };
 }
 
-interface CaseInsight {
-  possibleOwnerContext: string | null;
-  handlingAdvice: string[];
-  limitation: string;
-}
-
 function displayCurrencyTotal(item: Pick<ManifestItem, "itemType" | "denomination" | "quantity" | "quantityKnown">): string {
   const denomination = normalizeDecimal(item.denomination);
   if (item.itemType !== "currency" || !denomination || item.quantityKnown === false) return "-";
   return formatDecimal(multiplyDecimal(denomination, item.quantity));
+}
+
+function conciseReviewWarning(item: ManifestItem): string {
+  if (hasFirstStaffCheck(item)) return "Second check required.";
+  if (/region|photo box/i.test(item.reviewReason ?? "")) return "Fix photo boxes.";
+  if (isCurrencyItem(item)) return "Verify currency, value and count.";
+  if (requiresDoubleStaffCheck(item)) return "Staff verification required.";
+  if (/quantity|count/i.test(item.reviewReason ?? "")) return "Verify quantity.";
+  return "Staff review required.";
 }
 
 const activityLabels: Record<string, string> = {
@@ -66,8 +68,6 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const [caseInsight, setCaseInsight] = useState<CaseInsight | null>(null);
-  const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
 
   // Modal / Form state for item editing/adding
   const [editingItem, setEditingItem] = useState<ManifestItem | null>(null);
@@ -322,23 +322,6 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
     }
   }
 
-  async function generateCaseInsight() {
-    setIsGeneratingInsight(true);
-    setErrorMsg(null);
-    try {
-      const result = await handleGenerateCaseInsight(caseFile.id);
-      if (result.error || !result.insight) {
-        setErrorMsg(result.error || "Could not generate an AI insight.");
-        return;
-      }
-      setCaseInsight(result.insight);
-    } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "Could not generate an AI insight.");
-    } finally {
-      setIsGeneratingInsight(false);
-    }
-  }
-
   // Handle manual item confirmations
   async function confirmItemDirect(id: string) {
     if (isFinalised) return;
@@ -529,7 +512,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
           </div>
 
           {/* Private Evidence Gallery */}
-          <div>
+          <div className="item-photos-section">
             <p className="eyebrow" style={{ marginBottom: "12px" }}>Item Photos ({caseFile.uploads.length})</p>
             {caseFile.uploads.length === 0 ? (
               <div style={{ padding: "30px", border: "1px dashed var(--line)", borderRadius: "12px", textAlign: "center", color: "var(--muted)", background: "var(--paper)" }}>
@@ -570,9 +553,21 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
             )}
           </div>
 
+          {!isFinalised && (
+            <button
+              type="button"
+              className="button full-width"
+              onClick={triggerAI}
+              disabled={isAnalyzing || caseFile.uploads.length === 0}
+              style={{ minHeight: "42px", whiteSpace: "nowrap", background: "var(--green-dark)" }}
+            >
+              {isAnalyzing ? "Scanning..." : "Scan Item Photos"}
+            </button>
+          )}
+
           {/* Evidence Upload Form */}
           {!isFinalised && (
-            <div style={{ border: "1px solid var(--line)", borderRadius: "12px", padding: "16px", background: "var(--panel)" }}>
+            <div className="item-photo-upload" style={{ border: "1px solid var(--line)", borderRadius: "12px", padding: "16px", background: "var(--panel)" }}>
               <strong style={{ fontSize: "0.88rem", display: "block", marginBottom: "12px" }}>Add Item Photo</strong>
               <form onSubmit={onUploadSubmit} style={{ display: "grid", gap: "12px" }}>
                 <div style={{ display: "grid", gap: "4px" }}>
@@ -631,23 +626,6 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                   {isUploading ? "Uploading image..." : "Upload Photo"}
                 </button>
               </form>
-              <div className="photo-scan-panel" style={{ borderTop: "1px solid var(--line)", marginTop: "14px", paddingTop: "14px", display: "grid", gap: "10px" }}>
-                <div>
-                  <strong style={{ fontSize: "0.82rem", display: "block" }}>Scan uploaded photos</strong>
-                  <p className="muted" style={{ fontSize: "0.74rem", margin: "3px 0 0", lineHeight: 1.4 }}>
-                    Draft the item list after all relevant photos are added.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="button full-width"
-                  onClick={triggerAI}
-                  disabled={isAnalyzing || caseFile.uploads.length === 0}
-                  style={{ minHeight: "38px", whiteSpace: "nowrap", background: "var(--green-dark)" }}
-                >
-                  {isAnalyzing ? "Scanning..." : "Scan Item Photos"}
-                </button>
-              </div>
             </div>
           )}
 
@@ -787,7 +765,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
 
             {!isFinalised && unresolved > 0 && (
               <div style={{ fontSize: "0.75rem", color: "var(--amber)", fontWeight: 600, marginBottom: "10px", padding: "6px 10px", background: "#fffdf5", borderRadius: "6px", border: "1px solid #f5e6c8" }}>
-                ⚠️ {unresolved} item{unresolved !== 1 ? "s" : ""} need review before finalising.
+                ⚠️ {unresolved} require review.
               </div>
             )}
 
@@ -833,7 +811,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                     </div>
                     {item.reviewReason && (
                       <div style={{ fontSize: "0.72rem", color: "var(--amber)", marginTop: "3px" }}>
-                        ⚠️ {item.reviewReason}
+                        <span title={item.reviewReason}>⚠️ {conciseReviewWarning(item)}</span>
                       </div>
                     )}
                     <RegionCrops item={item} selected={selectedItemId === item.id} onSelect={() => setSelectedItemId(item.id)} />
@@ -891,44 +869,6 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
             )}
           </div>
 
-          <section aria-labelledby="case-insight-title" style={{ border: "1px solid var(--line)", borderRadius: "12px", padding: "16px", background: "#f4f8f5", display: "grid", gap: "12px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-              <div>
-                <p className="eyebrow" style={{ marginBottom: "3px" }}>Optional AI insight</p>
-                <strong id="case-insight-title">Owner context and handling advice</strong>
-              </div>
-              <button
-                type="button"
-                className="button button-secondary"
-                onClick={() => { void generateCaseInsight(); }}
-                disabled={isGeneratingInsight || caseFile.manifest.length === 0}
-                style={{ minHeight: "36px", fontSize: "0.78rem" }}
-              >
-                {isGeneratingInsight ? "Generating..." : caseInsight ? "Refresh insight" : "Generate insight"}
-              </button>
-            </div>
-            <p className="muted" style={{ margin: 0, fontSize: "0.74rem", lineHeight: 1.5 }}>
-              Optional guidance only. It cannot identify an owner, verify a claimant, or justify release.
-            </p>
-            {caseInsight && (
-              <div style={{ display: "grid", gap: "10px", fontSize: "0.8rem", lineHeight: 1.5 }}>
-                {caseInsight.possibleOwnerContext && (
-                  <div>
-                    <strong style={{ display: "block", marginBottom: "2px" }}>Possible context</strong>
-                    <span>{caseInsight.possibleOwnerContext}</span>
-                  </div>
-                )}
-                <div>
-                  <strong style={{ display: "block", marginBottom: "3px" }}>Suggested handling</strong>
-                  <ul style={{ margin: 0, paddingLeft: "18px" }}>
-                    {caseInsight.handlingAdvice.map((advice) => <li key={advice}>{advice}</li>)}
-                  </ul>
-                </div>
-                <small className="muted">{caseInsight.limitation}</small>
-              </div>
-            )}
-          </section>
-
           {currencySummary.length > 0 && (
             <section aria-labelledby="currency-summary-title" style={{ border: "1px solid var(--line)", borderRadius: "10px", padding: "12px 14px", background: "var(--paper)" }}>
               <strong id="currency-summary-title" style={{ display: "block", fontSize: "0.82rem", marginBottom: "8px" }}>Currency totals</strong>
@@ -939,7 +879,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                   </span>
                 ))}
               </div>
-              <p className="muted" style={{ fontSize: "0.72rem", margin: "8px 0 0" }}>Computed from denomination × quantity. Currency records remain review-gated until staff confirms each value.</p>
+              <p className="muted" style={{ fontSize: "0.72rem", margin: "8px 0 0" }}>Provisional until staff verification.</p>
             </section>
           )}
 
@@ -958,13 +898,13 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                   <>
                     <p style={{ margin: 0, fontWeight: 550 }}>
                       {caseFile.uploads.length === 0
-                        ? "Add at least one valid item photo before completing the case."
+                        ? "Add a photo."
                         : unresolved === 0
-                          ? "Item list is complete. Ready to confirm and export."
-                          : `Resolve ${unresolved} remaining review items before finalising.`}
+                          ? "Ready to complete."
+                          : `${unresolved} reviews remaining.`}
                     </p>
                     <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
-                      Completion records who checked the item list and when.
+                      Records reviewer and time.
                     </span>
                   </>
                 )}

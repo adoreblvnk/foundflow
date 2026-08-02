@@ -41,6 +41,16 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   const reviewPanelBox = await page.locator(".review-panel").boundingBox();
   expect(verifierBox?.x).toBeGreaterThanOrEqual(reviewPanelBox?.x ?? Number.MAX_SAFE_INTEGER);
   expect(verifierBox?.width).toBeGreaterThan(capturePanelBox?.width ?? Number.MAX_SAFE_INTEGER);
+  await expect(page.locator(".capture-panel").getByRole("button", { name: "Scan Item Photos" })).toBeVisible();
+  await expect(page.locator(".review-panel").getByRole("button", { name: "Scan Item Photos" })).toHaveCount(0);
+
+  const insightSection = page.getByRole("region", { name: "Owner context and handling advice" });
+  const currencySection = page.getByRole("region", { name: "Currency totals" });
+  await expect(insightSection.getByRole("button", { name: "Generate insight" })).toBeVisible();
+  await expect(insightSection.getByText("It cannot identify an owner, verify a claimant, or justify release.", { exact: false })).toBeVisible();
+  const insightBox = await insightSection.boundingBox();
+  const currencyBox = await currencySection.boundingBox();
+  expect(currencyBox?.y).toBeGreaterThan(insightBox?.y ?? Number.MAX_SAFE_INTEGER);
 
   await page.getByRole("button", { name: "Show Plain kraft notebook on source photo" }).click();
   await page.getByRole("button", { name: "+ Draw region" }).click();

@@ -33,6 +33,9 @@ FoundFlow's challenge MVP is accepted only when all criteria below pass using st
 - [x] Staff can add, edit, confirm, and delete nested records.
 - [x] Staff can select a record or box, compare cropped instances with the source photo, draw or remove boxes, and reassign boxes between records linked to the same photo.
 - [x] Visual verification occupies the wider inventory column so source images and region boxes remain large enough for practical review.
+- [x] Photo scanning is launched beside the photo-upload controls after staff finish adding relevant images.
+- [x] Currency totals appear after the item list and optional insight rather than interrupting visual review.
+- [x] Staff may request an ephemeral AI handling insight; it may suggest only broad situational context and practical routing, never identify an owner, infer protected traits, verify a claimant, or authorise release.
 - [x] Confirmed records with photo regions require one region per visible instance.
 - [x] Browser speech recognition fills a transcript; staff must review it and select **Apply** before a correction changes the item list.
 - [x] A deterministic text-command fallback exercises the same correction path when Web Speech API is unavailable.

@@ -36,6 +36,8 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   await expect(page.getByText("MYR 50.40", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "First Check" })).toHaveCount(5);
   await expect(page.getByRole("region", { name: "Match records to the photo" })).toBeVisible();
+  await expect(page.getByText("15 of 15 listed instances marked", { exact: true })).toBeVisible();
+  await expect(page.locator(".photo-region")).toHaveCount(15);
   const verifierBox = await page.getByRole("region", { name: "Match records to the photo" }).boundingBox();
   const capturePanelBox = await page.locator(".capture-panel").boundingBox();
   const reviewPanelBox = await page.locator(".review-panel").boundingBox();

@@ -18,9 +18,9 @@ FoundFlow's challenge MVP is accepted only when all criteria below pass using st
 - [x] Currency-heavy or complex photos receive a second independent verification pass using the configured strong vision model; failures retain the primary draft under review rather than fabricating results.
 - [x] OCR text, visible attributes, confidence, review reason, parent relationship, quantity, and photo ID are retained.
 - [x] Readable or unmistakable product brands and visible model names are included in item-list labels; uncertain brands, models, and authenticity are never inferred.
-- [x] AI returns one normalised photo region per visible instance; invalid or out-of-image coordinates are rejected and count mismatches require review.
+- [x] Both fast extraction and strong verification return one normalised photo region per visible physical instance, including uncertain objects and the visible outer property; invalid coordinates and count mismatches require review.
 - [x] Currency fields force the canonical currency item type even when the model returns an inconsistent type label.
-- [x] The model is instructed not to duplicate the already-recorded outer property.
+- [x] A visible outer property updates the existing root record with a proposed region instead of creating a duplicate item.
 - [x] Invalid photo IDs, invalid parents, duplicate temporary IDs, cycles, and sensitive categories are rejected, normalised, or forced into review without being silently trusted.
 - [x] Cash, currency, identity documents, valuables, and serial identifiers cannot be finalised without staff confirmation.
 - [x] Money, identification documents, and perishable items require two explicit staff checks before confirmation.
@@ -33,6 +33,7 @@ FoundFlow's challenge MVP is accepted only when all criteria below pass using st
 - [x] Staff can add, edit, confirm, and delete nested records.
 - [x] Staff can select a record or box, compare cropped instances with the source photo, draw or remove boxes, and reassign boxes between records linked to the same photo.
 - [x] Visual verification occupies the wider inventory column so source images and region boxes remain large enough for practical review.
+- [x] Visual verification reports marked-versus-listed instance coverage and gives every box a unique visible number; missing boxes remain explicit staff work and staff are reminded to inspect for unlisted objects.
 - [x] Photo scanning is launched beside the photo-upload controls after staff finish adding relevant images.
 - [x] Currency totals appear after the item list and optional insight rather than interrupting visual review.
 - [x] Staff may request an ephemeral AI handling insight; it may suggest only broad situational context and practical routing, never identify an owner, infer protected traits, verify a claimant, or authorise release.

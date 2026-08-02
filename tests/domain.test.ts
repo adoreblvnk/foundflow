@@ -160,6 +160,14 @@ test("Photo Region Persistence & Validation", async (t) => {
     assert.strictEqual(isValidImageRegion({ id: "region-3", x: 0.1, y: 0.2, width: 0, height: 0.2 }), false);
   });
 
+  await t.test("marks every visible demo object with one region per instance", async () => {
+    const demo = (await getCaseById("CT3A-20260721-DEMO"))!;
+    const photoItems = demo.manifest.filter((item) => item.evidenceId === "demo-evidence-1");
+    assert.ok(photoItems.some((item) => item.id === "outer-item-root"));
+    assert.ok(photoItems.every((item) => item.quantityKnown === false || item.regions?.length === item.quantity));
+    assert.strictEqual(photoItems.reduce((count, item) => count + (item.regions?.length ?? 0), 0), 15);
+  });
+
   await t.test("round-trips multiple regions through the database", async () => {
     const demo = (await getCaseById("CT3A-20260721-DEMO"))!;
     const item = demo.manifest.find((candidate) => candidate.id === "sgd-1-coins")!;

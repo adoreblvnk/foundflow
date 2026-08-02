@@ -139,6 +139,10 @@ h2 { margin-bottom: 34px; font-size: clamp(2rem, 4vw, 3.5rem); line-height: 1; l
 .region-draw { min-height: 34px; padding-inline: 10px; font-size: 0.75rem; }
 .region-draw.active { background: var(--amber); border-color: var(--amber); }
 .region-help { margin: 0; font-size: 0.75rem; }
+.region-coverage { display: flex; justify-content: space-between; gap: 10px; border-radius: 7px; padding: 8px 10px; font-size: 0.72rem; }
+.region-coverage.complete { background: #edf4ef; color: var(--green-dark); }
+.region-coverage.incomplete { background: #fff4dd; color: #754600; }
+.region-coverage span { text-align: right; }
 .region-photo-tabs { display: flex; gap: 6px; overflow-x: auto; }
 .region-photo-tabs button { border: 1px solid var(--line); border-radius: 999px; background: var(--panel); padding: 5px 9px; font-size: 0.7rem; cursor: pointer; }
 .region-photo-tabs button.active { border-color: var(--green); color: var(--green-dark); font-weight: 700; }
@@ -149,6 +153,7 @@ h2 { margin-bottom: 34px; font-size: clamp(2rem, 4vw, 3.5rem); line-height: 1; l
 .photo-region > span { position: absolute; top: 2px; left: 2px; display: grid; min-width: 18px; min-height: 18px; place-items: center; border-radius: 4px; background: var(--green-dark); font-size: 0.65rem; font-weight: 800; }
 .photo-region.uncertain { border-color: #d08a18; background: rgba(255, 187, 64, 0.18); }
 .photo-region.uncertain > span { background: #8a5200; }
+.photo-region.outer { border-style: dashed; background: transparent; }
 .photo-region.selected { z-index: 3; border-width: 3px; box-shadow: 0 0 0 2px white, 0 0 0 4px var(--green); }
 .photo-region.draft { border-style: dashed; border-color: var(--amber); background: rgba(255, 187, 64, 0.2); pointer-events: none; }
 .region-tools { display: grid; grid-template-columns: minmax(0, 1fr) minmax(130px, 1.3fr) auto; align-items: end; gap: 8px; border-top: 1px solid var(--line); padding-top: 10px; font-size: 0.72rem; }

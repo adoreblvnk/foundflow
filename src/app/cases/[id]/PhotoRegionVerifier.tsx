@@ -68,9 +68,12 @@ export default function PhotoRegionVerifier({ uploads, items, selectedItemId, re
       ? (item.regions || []).map((region, index) => ({ item, region, index }))
       : []
   ), [activeUploadId, items]);
+  const expectedInstances = items
+    .filter((item) => item.evidenceId === activeUploadId)
+    .reduce((total, item) => total + (item.quantityKnown === false ? Math.max(1, item.regions?.length ?? 0) : item.quantity), 0);
   const selectedRegionOwner = items.find((item) => item.regions?.some((region) => region.id === selectedRegionId)) ?? null;
   const compatibleItems = selectedRegionOwner
-    ? items.filter((item) => item.id !== "outer-item-root" && item.evidenceId === selectedRegionOwner.evidenceId)
+    ? items.filter((item) => item.evidenceId === selectedRegionOwner.evidenceId)
     : [];
 
   function pointFromEvent(event: React.PointerEvent<HTMLDivElement>): Point {
@@ -141,7 +144,7 @@ export default function PhotoRegionVerifier({ uploads, items, selectedItemId, re
           <button
             type="button"
             className={drawMode ? "button region-draw active" : "button button-secondary region-draw"}
-            disabled={!selectedItem || selectedItem.id === "outer-item-root"}
+            disabled={!selectedItem}
             onClick={() => setDrawMode((value) => !value)}
           >
             {drawMode ? "Cancel drawing" : "+ Draw region"}
@@ -151,6 +154,10 @@ export default function PhotoRegionVerifier({ uploads, items, selectedItemId, re
       <p className="muted region-help">
         Select an item row or box. {readOnly ? "Boxes show the reviewed source regions." : "To correct the AI, select an item then drag around each visible instance."}
       </p>
+      <div className={visibleRegions.length === expectedInstances ? "region-coverage complete" : "region-coverage incomplete"} role="status">
+        <strong>{visibleRegions.length} of {expectedInstances} listed instances marked</strong>
+        <span>{visibleRegions.length === expectedInstances ? "All listed instances boxed; inspect for omissions" : `${Math.max(0, expectedInstances - visibleRegions.length)} box${expectedInstances - visibleRegions.length === 1 ? "" : "es"} still required`}</span>
+      </div>
 
       {uploads.length > 1 && (
         <div className="region-photo-tabs" aria-label="Source photos">
@@ -171,20 +178,20 @@ export default function PhotoRegionVerifier({ uploads, items, selectedItemId, re
         {/* Authenticated evidence is intentionally served directly. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={`/api/uploads/${activeUploadId}`} alt="Source evidence with detected item regions" draggable={false} />
-        {visibleRegions.map(({ item, region, index }) => {
+        {visibleRegions.map(({ item, region, index }, visibleIndex) => {
           const selected = item.id === selectedItemId || region.id === selectedRegionId;
           return (
             <button
               type="button"
               key={region.id}
-              className={`photo-region ${selected ? "selected" : ""} ${item.status === "review" ? "uncertain" : ""}`}
+              className={`photo-region ${selected ? "selected" : ""} ${item.status === "review" ? "uncertain" : ""} ${item.id === "outer-item-root" ? "outer" : ""}`}
               style={regionPosition(region)}
               onPointerDown={(event) => event.stopPropagation()}
               onClick={() => { onSelectItem(item.id); setSelectedRegionId(region.id); }}
               aria-label={`${item.label}, region ${index + 1}`}
               title={`${item.label} · region ${index + 1}`}
             >
-              <span>{index + 1}</span>
+              <span>{visibleIndex + 1}</span>
             </button>
           );
         })}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCases } from "@/lib/db";
+import { buildConfirmedSearchItems } from "@/lib/search";
 import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
@@ -18,24 +19,8 @@ export async function POST(request: NextRequest) {
 
   const cases = await getCases();
 
-  // Build flat list of all items with case metadata
-  let allItems = cases.flatMap((c) =>
-    c.manifest.map((item) => ({
-      id: item.id,
-      label: item.label,
-      caseId: c.id,
-      location: c.location,
-      foundTime: c.foundTime,
-      foundBy: c.foundBy || "",
-      itemType: item.itemType || "property",
-      category: item.category || "other",
-      currencyCode: item.currencyCode || null,
-      currencyTotal: item.currencyTotal || null,
-      ocrText: item.ocrText || "",
-      visibleAttributes: item.visibleAttributes || "",
-      confidence: item.confidence,
-    }))
-  );
+  // Search only completed cases and items confirmed by staff.
+  let allItems = buildConfirmedSearchItems(cases);
 
   // Apply structured filters
   if (filters) {

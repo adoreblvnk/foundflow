@@ -7,7 +7,18 @@ test.afterAll(() => {
   rmSync(dataDir, { recursive: true, force: true });
 });
 
-test("evidence-backed demo completes the custody workflow", async ({ page }) => {
+test("photo-linked demo completes the airport property workflow", async ({ page }) => {
+  await page.goto("/");
+  const kioskMode = page.getByRole("link", { name: /Kiosk Mode/ });
+  const mobileMode = page.getByRole("link", { name: /Mobile Mode/ });
+  await expect(kioskMode).toBeVisible();
+  await expect(mobileMode).toBeVisible();
+  await expect(kioskMode).not.toContainText(/[\u2600-\u27BF\u{1F300}-\u{1FAFF}]/u);
+  await expect(mobileMode).not.toContainText(/[\u2600-\u27BF\u{1F300}-\u{1FAFF}]/u);
+
+  await page.goto("/kiosk");
+  await expect(page.getByRole("heading", { name: "Kiosk Intake" })).toBeVisible();
+
   await page.goto("/cases");
   await expect(page).toHaveURL(/\/login$/);
 
@@ -19,19 +30,29 @@ test("evidence-backed demo completes the custody workflow", async ({ page }) => 
   await page.getByRole("button", { name: /Load Demo|Reset Demo/ }).click();
   await page.locator('a[href="/cases/CT3A-20260721-DEMO"]').first().click();
   await expect(page).toHaveURL(/\/cases\/CT3A-20260721-DEMO$/);
-  await expect(page.getByText("Evidence Gallery (1)", { exact: true })).toBeVisible();
+  await expect(page.getByText("Item Photos (1)", { exact: true })).toBeVisible();
   await expect(page.getByText("11 records", { exact: true })).toBeVisible();
   await expect(page.getByText("SGD 104.00", { exact: true })).toBeVisible();
   await expect(page.getByText("MYR 50.40", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Confirm" })).toHaveCount(5);
+  await expect(page.getByRole("button", { name: /Confirm$/ })).toHaveCount(5);
 
-  const evidence = page.locator('img[alt="staged-found-property.webp"]');
-  await expect(evidence).toBeVisible();
-  expect(await evidence.evaluate((image) => image.complete && image.naturalWidth > 0)).toBe(true);
+  const openCaseSearch = await page.evaluate(async () => {
+    const response = await fetch("/api/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: "", mode: "text" }),
+    });
+    return response.json();
+  });
+  expect(openCaseSearch.results).toHaveLength(0);
+
+  const photo = page.locator('img[alt="staged-found-property.webp"]');
+  await expect(photo).toBeVisible();
+  expect(await photo.evaluate((image) => image.complete && image.naturalWidth > 0)).toBe(true);
 
   await page.setViewportSize({ width: 375, height: 500 });
   await page.getByRole("button", { name: "+ Add Item", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Add New Manifest Record" });
+  const dialog = page.getByRole("dialog", { name: "Add Item" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Item Label")).toBeFocused();
   const box = await dialog.boundingBox();
@@ -42,34 +63,45 @@ test("evidence-backed demo completes the custody workflow", async ({ page }) => 
   await page.setViewportSize({ width: 1280, height: 720 });
 
   await page.getByRole("button", { name: "Edit Singapore 1-dollar specimen coins" }).click();
-  const currencyDialog = page.getByRole("dialog", { name: "Edit Manifest Record" });
+  const currencyDialog = page.getByRole("dialog", { name: "Edit Item" });
   await expect(currencyDialog.getByLabel("ISO currency code")).toHaveValue("SGD");
   await expect(currencyDialog.getByLabel("Currency denomination")).toHaveValue("1");
   await expect(currencyDialog.getByText("Total: SGD 3.00", { exact: true })).toBeVisible();
   await currencyDialog.getByRole("button", { name: "Cancel" }).click();
   await expect(currencyDialog).toBeHidden();
 
-  while (await page.getByRole("button", { name: "Confirm" }).count()) {
-    await page.getByRole("button", { name: "Confirm" }).first().click();
+  while (await page.getByRole("button", { name: /Confirm$/ }).count()) {
+    await page.getByRole("button", { name: /Confirm$/ }).first().click();
     await expect(page.getByText(/Item confirmed/)).toBeVisible();
   }
 
   await page.getByRole("button", { name: "Edit Singapore 1-dollar specimen coins" }).click();
-  await page.getByRole("dialog", { name: "Edit Manifest Record" }).getByLabel("Quantity").fill("4");
-  await page.getByRole("dialog", { name: "Edit Manifest Record" }).getByRole("button", { name: "Save Changes" }).click();
-  await expect(page.getByRole("button", { name: "Confirm" })).toHaveCount(1);
+  await page.getByRole("dialog", { name: "Edit Item" }).getByLabel("Quantity").fill("4");
+  await page.getByRole("dialog", { name: "Edit Item" }).getByRole("button", { name: "Save Changes" }).click();
+  await expect(page.getByRole("button", { name: /Confirm$/ })).toHaveCount(1);
   await expect(page.getByText("SGD 105.00", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Edit Singapore 1-dollar specimen coins" }).click();
-  await page.getByRole("dialog", { name: "Edit Manifest Record" }).getByLabel("Quantity").fill("3");
-  await page.getByRole("dialog", { name: "Edit Manifest Record" }).getByRole("button", { name: "Save Changes" }).click();
+  await page.getByRole("dialog", { name: "Edit Item" }).getByLabel("Quantity").fill("3");
+  await page.getByRole("dialog", { name: "Edit Item" }).getByRole("button", { name: "Save Changes" }).click();
   await expect(page.getByText("SGD 104.00", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Confirm" }).click();
+  await page.getByRole("button", { name: /Confirm$/ }).click();
 
-  const finalise = page.getByRole("button", { name: "Approve and Finalise" });
+  const finalise = page.getByRole("button", { name: "Confirm & Complete" });
   await expect(finalise).toBeEnabled();
   await finalise.click();
-  await expect(page.getByText(/Custody Case Finalised & Approved/)).toBeVisible();
+  await expect(page.getByText(/Property Record Completed/)).toBeVisible();
+
+  const completedCaseSearch = await page.evaluate(async () => {
+    const response = await fetch("/api/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: "", mode: "text" }),
+    });
+    return response.json();
+  });
+  expect(completedCaseSearch.results).toHaveLength(11);
+  expect(completedCaseSearch.results.every((item) => item.caseId === "CT3A-20260721-DEMO")).toBe(true);
 
   const exports = await page.evaluate(async () => {
     const [jsonResponse, csvResponse] = await Promise.all([
@@ -107,5 +139,5 @@ test("evidence-backed demo completes the custody workflow", async ({ page }) => 
   expect(exports.csv).toContain("SAMPLE-0241");
 
   await page.reload();
-  await expect(page.getByText(/MANIFEST EXPORTED/).first()).toBeVisible();
+  await expect(page.getByText(/ITEM LIST EXPORTED/).first()).toBeVisible();
 });

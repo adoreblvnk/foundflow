@@ -34,7 +34,6 @@ export default function Home() {
             color: "inherit",
             transition: "border-color 0.15s, box-shadow 0.15s",
           }}>
-            <span style={{ fontSize: "2.2rem" }}>📷</span>
             <strong style={{ fontSize: "1.05rem" }}>Kiosk Mode</strong>
             <span style={{ fontSize: "0.8rem", color: "var(--muted)", lineHeight: 1.4 }}>
               Fixed camera station. Capture and scan items in real time.
@@ -54,8 +53,7 @@ export default function Home() {
             color: "inherit",
             transition: "border-color 0.15s, box-shadow 0.15s",
           }}>
-            <span style={{ fontSize: "2.2rem" }}>📝</span>
-            <strong style={{ fontSize: "1.05rem" }}>Field Mode</strong>
+            <strong style={{ fontSize: "1.05rem" }}>Mobile Mode</strong>
             <span style={{ fontSize: "0.8rem", color: "var(--muted)", lineHeight: 1.4 }}>
               Step-by-step guided wizard. Upload photos from your phone.
             </span>
@@ -76,7 +74,7 @@ export default function Home() {
           fontSize: "0.88rem",
           fontWeight: 600,
         }}>
-          🔍 Search logged items across all cases
+          Search staff-confirmed items from completed cases
         </Link>
       </div>
     </main>

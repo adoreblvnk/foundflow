@@ -22,12 +22,12 @@ export async function GET(
 
   // Block export if not finalised
   if (caseFile.status !== "finalised") {
-    return new NextResponse("Forbidden: Case must be finalised and approved before export", { status: 403 });
+    return new NextResponse("Forbidden: Case must be completed by staff before export", { status: 403 });
   }
 
   try {
     // Record audit event for export
-    await addAuditLog(id, user!.username, "manifest_exported", "Exported approved JSON manifest data.");
+    await addAuditLog(id, user!.username, "manifest_exported", "Exported confirmed JSON item list.");
 
     // Clean payload for system ingestion with complete attributes and OCR references
     const exportData = {
@@ -60,7 +60,7 @@ export async function GET(
     return new Response(JSON.stringify(exportData, null, 2), {
       headers: {
         "Content-Type": "application/json; charset=utf-8",
-        "Content-Disposition": `attachment; filename="foundflow_manifest_${caseFile.id}.json"`,
+        "Content-Disposition": `attachment; filename="foundflow_item_list_${caseFile.id}.json"`,
       },
     });
   } catch (error) {

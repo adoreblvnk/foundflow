@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
       foundBy,
       outerItemDescription,
       notes,
-      finalisedBy: "kiosk-officer",
+      finalisedBy: "kiosk-staff",
     });
     return NextResponse.json({ id: newCase.id });
   } catch (err) {

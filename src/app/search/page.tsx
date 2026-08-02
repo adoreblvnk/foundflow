@@ -84,7 +84,7 @@ export default function SearchPage() {
       <div style={{ width: "min(820px, calc(100% - 40px))", marginInline: "auto", paddingBlock: "36px 60px" }}>
         <h1 style={{ fontSize: "1.8rem", letterSpacing: "-0.03em", margin: "0 0 8px" }}>Search Items</h1>
         <p style={{ fontSize: "0.88rem", color: "var(--muted)", margin: "0 0 24px" }}>
-          Locate found property by date, location, finder, item type, or describe what you are looking for.
+          Search staff-confirmed items from completed cases by date, location, finder, item type, or description.
         </p>
 
         {/* Filters */}
@@ -180,7 +180,7 @@ export default function SearchPage() {
                 type="text"
                 value={foundBy}
                 onChange={(e) => setFoundBy(e.target.value)}
-                placeholder="Officer name..."
+                placeholder="Staff name..."
                 style={{
                   height: "40px",
                   borderRadius: "6px",
@@ -286,7 +286,7 @@ export default function SearchPage() {
                 {results.map((item) => (
                   <Link
                     key={`${item.caseId}-${item.id}`}
-                    href={`/cases/${item.caseId}/review`}
+                    href={`/cases/${item.caseId}`}
                     style={{
                       display: "block",
                       padding: "14px 16px",

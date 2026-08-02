@@ -15,7 +15,7 @@ export async function isAuthenticated(): Promise<boolean> {
 
 export async function getCurrentUser(): Promise<{ username: string } | null> {
   if (isAuthDisabled()) {
-    return { username: "demo-officer" };
+    return { username: "demo-staff" };
   }
 
   const cookieStore = await cookies();

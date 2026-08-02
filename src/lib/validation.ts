@@ -96,7 +96,7 @@ export function validateManifestStructure(caseFile: Case): string | null {
 
   // Manifest-level validation
   if (items.length === 0) {
-    return "Manifest must contain at least one item.";
+    return "Item list must contain at least one item.";
   }
 
   const root = items.find((i) => i.id === "outer-item-root");
@@ -111,7 +111,7 @@ export function validateManifestStructure(caseFile: Case): string | null {
 
   // Verify unique IDs (prevent duplicate temp IDs or saved IDs)
   if (itemIds.size !== items.length) {
-    return "Manifest contains items with duplicate identifiers.";
+    return "Item list contains duplicate item identifiers.";
   }
 
   for (const item of items) {
@@ -162,7 +162,7 @@ export function validateManifestStructure(caseFile: Case): string | null {
   }
 
   if (hasCycle(items)) {
-    return "Manifest structure contains cyclic container references.";
+    return "Item list contains circular container links.";
   }
 
   for (const item of items) {
@@ -183,7 +183,7 @@ export function validateManifestStructure(caseFile: Case): string | null {
 
   for (const item of items) {
     if (!item.evidenceId || !validEvidenceIds.has(item.evidenceId)) {
-      return `Item "${item.label}" references an invalid or non-existent evidence ID: "${item.evidenceId}".`;
+      return `Item "${item.label}" references an invalid or missing photo: "${item.evidenceId}".`;
     }
   }
 

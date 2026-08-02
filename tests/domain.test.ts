@@ -40,6 +40,7 @@ import { verifyImageSignature } from "../src/lib/image-utils.ts";
 import { escapeCsvCell } from "../src/lib/csv-utils.ts";
 import { hasCycle, isCurrencyItem, mergeAiDraftWithStaffItems, requiresSensitiveReview, summarizeCurrency, validateManifestStructure } from "../src/lib/validation.ts";
 import { addDecimals, isValidCurrencyCode, multiplyDecimal, normalizeDecimal } from "../src/lib/currency.ts";
+import { buildConfirmedSearchItems } from "../src/lib/search.ts";
 
 test("Database Layer, Seeding & Isolation", async (t) => {
   await t.test("should start with 0 cases on fresh setup", async () => {
@@ -47,7 +48,7 @@ test("Database Layer, Seeding & Isolation", async (t) => {
     assert.strictEqual(cases.length, 0);
   });
 
-  await t.test("should explicitly seed a complete evidence-backed demo case", async () => {
+  await t.test("should explicitly seed a complete photo-linked demo case", async () => {
     const demo = await seedDemoCase();
     assert.strictEqual(demo.id, "CT3A-20260721-DEMO");
     assert.strictEqual(demo.isDemo, true);
@@ -79,7 +80,7 @@ test("Database Layer, Seeding & Isolation", async (t) => {
     const newCase = await createCase({
       location: "Gate B22 Arrivals",
       foundTime: new Date().toISOString(),
-      foundBy: "Officer Test",
+      foundBy: "Airport Staff Test",
       outerItemDescription: "Blue Suitcase",
       notes: "Test Suitcase",
     });
@@ -159,6 +160,49 @@ test("Authentication & Security Session Tokens", async (t) => {
   });
 });
 
+test("Search Visibility", () => {
+  const confirmedItem: ManifestItem = {
+    id: "confirmed-item",
+    label: "Black wallet",
+    parentId: null,
+    quantity: 1,
+    status: "confirmed",
+    confidence: 1,
+    reviewReason: null,
+    evidenceId: "staff-entry",
+  };
+  const reviewItem: ManifestItem = {
+    ...confirmedItem,
+    id: "review-item",
+    label: "Unverified card",
+    status: "review",
+  };
+  const baseCase: Case = {
+    id: "completed-case",
+    location: "Terminal 3",
+    foundTime: "2026-08-02T12:00:00.000Z",
+    foundBy: "Airport staff",
+    outerItemDescription: "Black wallet",
+    notes: "",
+    status: "finalised",
+    finalisedAt: "2026-08-02T12:10:00.000Z",
+    finalisedBy: "Airport staff",
+    uploads: [],
+    manifest: [confirmedItem, reviewItem],
+    auditLogs: [],
+    createdAt: "2026-08-02T12:00:00.000Z",
+  };
+
+  const results = buildConfirmedSearchItems([
+    baseCase,
+    { ...baseCase, id: "open-case", status: "reviewing", finalisedAt: null, finalisedBy: null },
+    { ...baseCase, id: "unconfirmed-case", finalisedBy: null },
+  ]);
+
+  assert.deepStrictEqual(results.map((item) => item.id), ["confirmed-item"]);
+  assert.strictEqual(results[0].caseId, "completed-case");
+});
+
 test("Upload Hardening & Image Signature Validation", async (t) => {
   await t.test("should validate JPG files", () => {
     const mockJpg = Buffer.from([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01]);
@@ -224,7 +268,7 @@ test("Domain, Cycles & Finalisation Validations", async (t) => {
     assert.ok(error && error.includes("root"));
   });
 
-  await t.test("should reject invalid evidence references on structure check", () => {
+  await t.test("should reject invalid photo references on structure check", () => {
     const mockCase: Case = {
       id: "FF-TEST",
       location: "Terminal",
@@ -244,7 +288,7 @@ test("Domain, Cycles & Finalisation Validations", async (t) => {
       createdAt: new Date().toISOString(),
     };
     const error = validateManifestStructure(mockCase);
-    assert.ok(error && error.includes("evidence"));
+    assert.ok(error && error.includes("photo"));
   });
 
   await t.test("requires exact denomination totals before currency confirmation", async () => {

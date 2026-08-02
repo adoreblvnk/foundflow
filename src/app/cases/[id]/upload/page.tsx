@@ -62,7 +62,7 @@ export default function UploadPage() {
         }}>
           <p className="eyebrow">Step 2 of 5</p>
           <h1 style={{ fontSize: "1.8rem", letterSpacing: "-0.03em", margin: "0 0 8px" }}>
-            Photograph Evidence
+            Add Item Photos
           </h1>
           <p style={{ fontSize: "0.9rem", color: "var(--muted)", margin: "0 0 24px", lineHeight: 1.5 }}>
             Take photos of each layer of contents. Spread items out and scan one nesting level at a time.

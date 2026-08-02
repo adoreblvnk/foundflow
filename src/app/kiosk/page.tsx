@@ -146,7 +146,7 @@ export default function KioskPage() {
         <div style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "20px", background: "#111" }}>
           {showGuide && !cameraActive && (
             <div style={{ maxWidth: "500px", width: "100%" }}>
-              <h1 style={{ fontSize: "1.8rem", margin: "0 0 16px", textAlign: "center" }}>📷 Kiosk Scanner</h1>
+              <h1 style={{ fontSize: "1.8rem", margin: "0 0 16px", textAlign: "center" }}>Kiosk Intake</h1>
               <p style={{ textAlign: "center", color: "#999", marginBottom: "24px", fontSize: "0.9rem" }}>
                 Point the camera at items laid out on the scanning surface.
               </p>
@@ -182,19 +182,20 @@ export default function KioskPage() {
                   onClick={captureFrame}
                   disabled={isCapturing}
                   style={{
-                    width: "72px",
+                    minWidth: "96px",
                     height: "72px",
-                    borderRadius: "50%",
-                    border: "4px solid white",
+                    borderRadius: "10px",
+                    border: "1px solid white",
                     background: isCapturing ? "#666" : "rgba(255,255,255,0.2)",
                     cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: "1.5rem",
+                    fontSize: "0.85rem",
+                    fontWeight: 700,
                   }}
                 >
-                  📸
+                  Capture
                 </button>
                 {photoCount > 0 && (
                   <button
@@ -204,7 +205,7 @@ export default function KioskPage() {
                     className="button"
                     style={{ minHeight: "44px" }}
                   >
-                    {isScanning ? "Scanning..." : `🔍 Scan (${photoCount} photos)`}
+                    {isScanning ? "Scanning..." : `Scan ${photoCount} photo${photoCount === 1 ? "" : "s"}`}
                   </button>
                 )}
               </div>
@@ -215,7 +216,7 @@ export default function KioskPage() {
                 onClick={() => setShowGuide(!showGuide)}
                 style={{ position: "absolute", top: "12px", right: "12px", background: "rgba(0,0,0,0.6)", border: "none", color: "white", padding: "6px 10px", borderRadius: "6px", fontSize: "0.75rem", cursor: "pointer" }}
               >
-                ℹ️ Layout Guide
+                Layout Guide
               </button>
 
               {showGuide && (
@@ -261,7 +262,7 @@ export default function KioskPage() {
                     )}
                   </div>
                   <span style={{ fontSize: "0.7rem", color: item.status === "confirmed" ? "#4caf50" : "#ffc107" }}>
-                    {item.status === "confirmed" ? "✓" : "⚠️"}
+                    {item.status === "confirmed" ? "Confirmed" : "Review"}
                   </span>
                 </div>
               ))}
@@ -272,12 +273,12 @@ export default function KioskPage() {
               <div style={{ marginTop: "20px", display: "grid", gap: "8px" }}>
                 {unresolved > 0 && (
                   <button type="button" className="button" onClick={confirmAll} style={{ width: "100%", minHeight: "40px", fontSize: "0.82rem" }}>
-                    ✓ Confirm All ({unresolved})
+                    Confirm All ({unresolved})
                   </button>
                 )}
                 {unresolved === 0 && (
                   <button type="button" className="button" onClick={finalise} style={{ width: "100%", minHeight: "40px", fontSize: "0.82rem", background: "var(--green-dark)" }}>
-                    🔒 Finalise Case
+                    Complete Case
                   </button>
                 )}
               </div>
@@ -285,7 +286,7 @@ export default function KioskPage() {
 
             {isFinalised && (
               <div style={{ marginTop: "20px", padding: "14px", background: "#1b5e20", borderRadius: "8px", textAlign: "center" }}>
-                <div style={{ fontSize: "1rem", marginBottom: "4px" }}>✓ Case Finalised</div>
+                <div style={{ fontSize: "1rem", marginBottom: "4px" }}>Case Completed</div>
                 <div style={{ fontSize: "0.75rem", color: "#a5d6a7" }}>{caseFile?.id}</div>
               </div>
             )}

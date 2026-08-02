@@ -48,13 +48,13 @@ export default async function NewCasePage() {
           <p className="eyebrow" style={{ marginBottom: "8px" }}>Form FF-01</p>
           <h1 style={{ fontSize: "2.2rem", letterSpacing: "-0.04em", margin: "0 0 10px" }}>Start Case Intake</h1>
           <p className="muted" style={{ fontSize: "0.95rem", marginBottom: "30px", lineHeight: 1.4 }}>
-            Capture initial custody details. This initializes a new, empty nested inventory manifest where you can link photos and observations.
+            Record where and when the property was found. You can then build a nested item list from photos and staff observations.
           </p>
 
           <form action={handleCreateCase} style={{ display: "grid", gap: "24px" }}>
             <div style={{ display: "grid", gap: "6px" }}>
               <label htmlFor="outerItemDescription" style={{ fontWeight: 600, fontSize: "0.88rem" }}>
-                Outer Custody Description <span style={{ color: "var(--green)" }}>*</span>
+                Outer Item Description <span style={{ color: "var(--green)" }}>*</span>
               </label>
               <input
                 id="outerItemDescription"
@@ -108,7 +108,7 @@ export default async function NewCasePage() {
                 id="foundBy"
                 name="foundBy"
                 type="text"
-                placeholder="e.g. Officer Tan, Passenger (self-report), Cleaner"
+                placeholder="e.g. Airport staff, passenger, cleaner"
                 style={{
                   minHeight: "44px",
                   paddingInline: "12px",
@@ -122,7 +122,7 @@ export default async function NewCasePage() {
 
             <div style={{ display: "grid", gap: "6px" }}>
               <label htmlFor="foundTime" style={{ fontWeight: 600, fontSize: "0.88rem" }}>
-                Custody Handover / Found Time <span style={{ color: "var(--green)" }}>*</span>
+                Found / Handover Time <span style={{ color: "var(--green)" }}>*</span>
               </label>
               <input
                 id="foundTime"

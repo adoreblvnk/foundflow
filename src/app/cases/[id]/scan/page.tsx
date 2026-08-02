@@ -49,7 +49,7 @@ export default function ScanPage() {
         }}>
           <p className="eyebrow">Step 3 of 5</p>
           <h1 style={{ fontSize: "1.8rem", letterSpacing: "-0.03em", margin: "0 0 8px" }}>
-            Scan Evidence
+            Scan Item Photos
           </h1>
           <p style={{ fontSize: "0.9rem", color: "var(--muted)", margin: "0 0 32px", lineHeight: 1.5 }}>
             AI will read your uploaded photos and generate a structured inventory draft.
@@ -72,7 +72,7 @@ export default function ScanPage() {
               {isScanning ? (
                 <span>Scanning... please wait</span>
               ) : (
-                <span>🔍 Scan Evidence Photos</span>
+                <span>🔍 Scan Photos</span>
               )}
             </button>
           )}

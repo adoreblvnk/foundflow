@@ -7,7 +7,7 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 export const metadata: Metadata = {
   title: "FoundFlow - AI Found-Property Intake",
-  description: "Human-verified, evidence-linked inventory logging for found-property teams.",
+  description: "Staff-confirmed, photo-linked item records for found-property teams.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

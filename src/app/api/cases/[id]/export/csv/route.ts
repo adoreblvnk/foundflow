@@ -24,12 +24,12 @@ export async function GET(
 
   // Block export if not finalised
   if (caseFile.status !== "finalised") {
-    return new NextResponse("Forbidden: Case must be finalised and approved before export", { status: 403 });
+    return new NextResponse("Forbidden: Case must be completed by staff before export", { status: 403 });
   }
 
   try {
     // Record audit event for export
-    await addAuditLog(id, user!.username, "manifest_exported", "Exported approved CSV manifest report.");
+    await addAuditLog(id, user!.username, "manifest_exported", "Exported confirmed CSV item list.");
 
     // Header Row
     const headers = [
@@ -42,7 +42,7 @@ export async function GET(
       "Confidence %",
       "Status",
       "Source",
-      "Evidence ID",
+      "Photo ID",
       "Currency Code",
       "Denomination",
       "Line Currency Total",
@@ -82,7 +82,7 @@ export async function GET(
     return new Response(csvContent, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="foundflow_manifest_${caseFile.id}.csv"`,
+        "Content-Disposition": `attachment; filename="foundflow_item_list_${caseFile.id}.csv"`,
       },
     });
   } catch (error) {

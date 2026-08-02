@@ -28,6 +28,13 @@ function displayCurrencyTotal(item: Pick<ManifestItem, "itemType" | "denominatio
   return formatDecimal(multiplyDecimal(denomination, item.quantity));
 }
 
+const activityLabels: Record<string, string> = {
+  evidence_uploaded: "PHOTO ADDED",
+  ai_analysis_complete: "PHOTO SCAN COMPLETE",
+  case_finalised: "CASE COMPLETED",
+  manifest_exported: "ITEM LIST EXPORTED",
+};
+
 export default function CaseDetailClient({ initialCase, currentUser }: CaseDetailClientProps) {
   const [caseFile, setCaseFile] = useState<Case>(initialCase);
   const [isUploading, setIsUploading] = useState(false);
@@ -224,7 +231,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
       if (res.error) {
         setErrorMsg(res.error);
       } else if (res.success) {
-        setSuccessMsg("Evidence photo uploaded successfully.");
+        setSuccessMsg("Item photo uploaded successfully.");
         form.reset();
         await refreshCase();
       }
@@ -341,7 +348,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
       if (result.error) {
         setErrorMsg(result.error);
       } else {
-        setSuccessMsg("Item deleted and manifest updated.");
+        setSuccessMsg("Item deleted and item list updated.");
         await refreshCase();
       }
     }
@@ -417,7 +424,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
         <div>
           <Link className="brand" href="/cases">FoundFlow</Link>
           <p>
-            Guided intake · Case <strong>{caseFile.id}</strong> {caseFile.isDemo && "(Demo Sample)"} · Officer: <strong>{currentUser.username}</strong>
+            Guided intake · Case <strong>{caseFile.id}</strong> {caseFile.isDemo && "(Demo Sample)"} · Staff: <strong>{currentUser.username}</strong>
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -435,7 +442,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
         {/* LEFT PANEL: Custody Details, Evidence Upload & Timeline */}
         <section className="capture-panel" style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
           <div>
-            <p className="eyebrow">Custody Details</p>
+            <p className="eyebrow">Property Details</p>
             <h1 style={{ fontSize: "2rem", marginBottom: "8px" }}>{caseFile.outerItemDescription}</h1>
             <p style={{ fontSize: "0.88rem", color: "var(--muted)", margin: "0 0 12px" }}>
               📍 <strong>Location:</strong> {caseFile.location}<br />
@@ -450,10 +457,10 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
 
           {/* Private Evidence Gallery */}
           <div>
-            <p className="eyebrow" style={{ marginBottom: "12px" }}>Evidence Gallery ({caseFile.uploads.length})</p>
+            <p className="eyebrow" style={{ marginBottom: "12px" }}>Item Photos ({caseFile.uploads.length})</p>
             {caseFile.uploads.length === 0 ? (
               <div style={{ padding: "30px", border: "1px dashed var(--line)", borderRadius: "12px", textAlign: "center", color: "var(--muted)", background: "var(--paper)" }}>
-                No photographic evidence uploaded yet.<br />
+                No item photos added yet.<br />
                 <small>Upload at least one image to unlock AI structure drafting.</small>
               </div>
             ) : (
@@ -477,7 +484,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                       alt={u.originalName}
                       style={{ width: "100%", height: "120px", objectFit: "cover", borderBottom: "1px solid var(--line)" }}
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23edf1ea'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='10' fill='%2368736c'>Evidence</text></svg>";
+                        (e.target as HTMLImageElement).src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23edf1ea'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='10' fill='%2368736c'>Photo</text></svg>";
                       }}
                     />
                     <div style={{ padding: "8px", fontSize: "0.72rem" }}>
@@ -493,7 +500,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
           {/* Evidence Upload Form */}
           {!isFinalised && (
             <div style={{ border: "1px solid var(--line)", borderRadius: "12px", padding: "16px", background: "var(--panel)" }}>
-              <strong style={{ fontSize: "0.88rem", display: "block", marginBottom: "12px" }}>📸 Upload New Photographic Evidence</strong>
+              <strong style={{ fontSize: "0.88rem", display: "block", marginBottom: "12px" }}>📸 Add Item Photo</strong>
               <form onSubmit={onUploadSubmit} style={{ display: "grid", gap: "12px" }}>
                 <div style={{ display: "grid", gap: "4px" }}>
                   <label htmlFor="file" style={{ fontSize: "0.75rem", fontWeight: 700 }}>Select JPG / PNG / WebP</label>
@@ -522,7 +529,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                       background: "var(--paper)"
                     }}
                   >
-                    <option value="outer-item">Outer Custody Layer (backpack/suitcase)</option>
+                    <option value="outer-item">Outer Item (backpack/suitcase)</option>
                     <option value="bag-contents">Bag Contents Level (general bag space)</option>
                     <option value="inner-container">Inner Container Level (pouch/wallet/box)</option>
                   </select>
@@ -542,7 +549,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
 
           {/* Audit Timeline */}
           <div style={{ borderTop: "1px solid var(--line)", paddingTop: "24px" }}>
-            <p className="eyebrow" style={{ marginBottom: "16px" }}>🔒 Custody Audit Timeline</p>
+            <p className="eyebrow" style={{ marginBottom: "16px" }}>Activity History</p>
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
               {caseFile.auditLogs.map((log) => (
                 <div key={log.id} style={{ display: "flex", gap: "12px", fontSize: "0.78rem" }}>
@@ -552,7 +559,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                       {new Date(log.timestamp).toLocaleString("en-SG", { timeZone: "Asia/Singapore" })} by <strong>{log.userId}</strong>
                     </span>
                     <span style={{ color: "var(--ink)", fontWeight: 550 }}>
-                      {log.action.replaceAll("_", " ").toUpperCase()}: {log.details}
+                      {activityLabels[log.action] ?? log.action.replaceAll("_", " ").toUpperCase()}: {log.details}
                     </span>
                   </div>
                 </div>
@@ -571,7 +578,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
           <div className="review-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <p className="eyebrow">Linked Inventory</p>
-              <h2 style={{ fontSize: "1.8rem" }}>Manifest Workspace</h2>
+              <h2 style={{ fontSize: "1.8rem" }}>Item List</h2>
             </div>
             <span style={{ fontSize: "0.95rem" }}>{caseFile.manifest.length} records</span>
           </div>
@@ -624,7 +631,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
               gap: "16px"
             }}>
               <div style={{ flex: 1 }}>
-                <strong style={{ fontSize: "0.88rem", display: "block" }}>Scan Evidence Photos</strong>
+                <strong style={{ fontSize: "0.88rem", display: "block" }}>Scan Item Photos</strong>
                 <p className="muted" style={{ fontSize: "0.78rem", margin: "4px 0 0", lineHeight: 1.4 }}>
                   AI reads your uploaded images and drafts an inventory of items, text, and containers found.
                 </p>
@@ -635,7 +642,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                 disabled={isAnalyzing || caseFile.uploads.length === 0}
                 style={{ minHeight: "40px", whiteSpace: "nowrap", background: "var(--green-dark)" }}
               >
-                {isAnalyzing ? "Scanning..." : "🔍 Scan Evidence"}
+                {isAnalyzing ? "Scanning..." : "🔍 Scan Photos"}
               </button>
             </div>
           )}
@@ -804,7 +811,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
 
             {sortedManifest.length === 0 && (
               <div style={{ padding: "40px", textAlign: "center", color: "var(--muted)" }}>
-                No items yet. Upload evidence photos and scan, or add items manually.
+                No items yet. Add photos and scan, or add items manually.
               </div>
             )}
           </div>
@@ -815,22 +822,22 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
               <div style={{ flex: 1 }}>
                 {isFinalised ? (
                   <>
-                    <p style={{ margin: 0, fontWeight: 700, color: "var(--green)" }}>✅ Custody Case Finalised & Approved</p>
+                    <p style={{ margin: 0, fontWeight: 700, color: "var(--green)" }}>✅ Property Record Completed</p>
                     <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
-                      Approved by: <strong>{caseFile.finalisedBy}</strong> on {caseFile.finalisedAt ? new Date(caseFile.finalisedAt).toLocaleString("en-SG", { timeZone: "Asia/Singapore" }) : ""}
+                      Completed by: <strong>{caseFile.finalisedBy}</strong> on {caseFile.finalisedAt ? new Date(caseFile.finalisedAt).toLocaleString("en-SG", { timeZone: "Asia/Singapore" }) : ""}
                     </span>
                   </>
                 ) : (
                   <>
                     <p style={{ margin: 0, fontWeight: 550 }}>
                       {caseFile.uploads.length === 0
-                        ? "Upload at least one validated evidence image before finalising."
+                        ? "Add at least one valid item photo before completing the case."
                         : unresolved === 0
-                          ? "Manifest is complete. Ready for approval and export."
+                          ? "Item list is complete. Ready to confirm and export."
                           : `Resolve ${unresolved} remaining review items before finalising.`}
                     </p>
                     <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
-                      Approved state creates a durable custody chain.
+                      Completion records who checked the item list and when.
                     </span>
                   </>
                 )}
@@ -843,7 +850,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                   onClick={() => { void finaliseIntake(); }}
                   style={{ paddingInline: "24px" }}
                 >
-                  Approve and Finalise
+                  Confirm & Complete
                 </button>
               )}
             </div>
@@ -858,26 +865,26 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                 display: "grid",
                 gap: "10px"
               }}>
-                <strong style={{ fontSize: "0.85rem", color: "var(--green)" }}>📥 Export Manifest Handover Data</strong>
+                <strong style={{ fontSize: "0.85rem", color: "var(--green)" }}>📥 Export Item Handover Data</strong>
                 <span className="muted" style={{ fontSize: "0.78rem" }}>
-                  Download approved inventory reports with nested parent IDs and evidence references.
+                  Download the confirmed item list with nested container links and photo references.
                 </span>
                 <div style={{ display: "flex", gap: "12px", marginTop: "4px" }}>
                   <a
                     href={`/api/cases/${caseFile.id}/export/json`}
-                    download={`foundflow_manifest_${caseFile.id}.json`}
+                    download={`foundflow_item_list_${caseFile.id}.json`}
                     className="button"
                     style={{ flex: 1, minHeight: "36px", fontSize: "0.82rem", background: "var(--green)" }}
                   >
-                    Download JSON Manifest
+                    Download JSON Item List
                   </a>
                   <a
                     href={`/api/cases/${caseFile.id}/export/csv`}
-                    download={`foundflow_manifest_${caseFile.id}.csv`}
+                    download={`foundflow_item_list_${caseFile.id}.csv`}
                     className="button button-secondary"
                     style={{ flex: 1, minHeight: "36px", fontSize: "0.82rem" }}
                   >
-                    Download CSV Manifest
+                    Download CSV Item List
                   </a>
                 </div>
               </div>
@@ -913,7 +920,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
               boxShadow: "0 8px 16px rgba(0,0,0,0.15)"
             }}
           >
-            <h3 id="edit-item-title" style={{ fontSize: "1.25rem", margin: "0 0 16px" }}>Edit Manifest Record</h3>
+            <h3 id="edit-item-title" style={{ fontSize: "1.25rem", margin: "0 0 16px" }}>Edit Item</h3>
             <form onSubmit={(e) => { void submitEditItem(e); }} style={{ display: "grid", gap: "16px" }}>
               <div style={{ display: "grid", gap: "4px" }}>
                 <label style={{ fontSize: "0.75rem", fontWeight: 700 }}>Item Label</label>
@@ -1042,7 +1049,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
               )}
 
               <div style={{ display: "grid", gap: "4px" }}>
-                <label style={{ fontSize: "0.75rem", fontWeight: 700 }}>Evidence Reference</label>
+                <label style={{ fontSize: "0.75rem", fontWeight: 700 }}>Source Photo</label>
                 <select
                   value={editingItem.evidenceId || "staff-added"}
                   disabled={editingItem.id === "outer-item-root"}
@@ -1153,7 +1160,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
               maxWidth: "480px",
               boxShadow: "0 8px 16px rgba(0,0,0,0.15)"
             }}>
-            <h3 id="add-item-title" style={{ fontSize: "1.25rem", margin: "0 0 16px" }}>Add New Manifest Record</h3>
+            <h3 id="add-item-title" style={{ fontSize: "1.25rem", margin: "0 0 16px" }}>Add Item</h3>
             <form onSubmit={(e) => { void submitAddItem(e); }} style={{ display: "grid", gap: "16px" }}>
               <div style={{ display: "grid", gap: "4px" }}>
                 <label style={{ fontSize: "0.75rem", fontWeight: 700 }}>Item Label</label>
@@ -1279,7 +1286,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
               </div>
 
               <div style={{ display: "grid", gap: "4px" }}>
-                <label style={{ fontSize: "0.75rem", fontWeight: 700 }}>Evidence Reference</label>
+                <label style={{ fontSize: "0.75rem", fontWeight: 700 }}>Source Photo</label>
                 <select
                   value={newItemData.evidenceId || "staff-added"}
                   onChange={(e) => setNewItemData({ ...newItemData, evidenceId: e.target.value })}
@@ -1337,7 +1344,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
       )}
 
       <footer className="shell footer">
-        <span>FoundFlow Intake Workspace · Custody Copilot</span>
+        <span>FoundFlow · Airport Lost Property Intake</span>
         <span>AI drafts. Staff decide.</span>
       </footer>
     </main>

@@ -13,26 +13,26 @@ const processSteps = [
   },
   {
     number: "02",
-    title: "Upload Evidence",
+    title: "Add Photos",
     description: "Photograph the outer container and each nesting level inside.",
     icon: "📷",
   },
   {
     number: "03",
-    title: "Scan Evidence",
-    description: "AI vision reads your photos and drafts a nested inventory manifest.",
+    title: "Scan Photos",
+    description: "AI vision reads your photos and drafts a nested item list.",
     icon: "🔍",
   },
   {
     number: "04",
     title: "Review & Verify",
-    description: "Confirm each item, resolve flagged uncertainties, and link to evidence.",
+    description: "Confirm each item, resolve flagged uncertainties, and link it to a source photo.",
     icon: "✅",
   },
   {
     number: "05",
-    title: "Finalise & Export",
-    description: "Lock the approved manifest and export as JSON or CSV.",
+    title: "Confirm & Export",
+    description: "Complete the confirmed item list and export it as JSON or CSV.",
     icon: "📤",
   },
 ];

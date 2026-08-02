@@ -58,7 +58,7 @@ export default function FinalisePage() {
         await loadCase();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to finalise");
+      setError(err instanceof Error ? err.message : "Failed to complete case");
     } finally {
       setIsFinalising(false);
     }
@@ -79,7 +79,7 @@ export default function FinalisePage() {
         }}>
           <p className="eyebrow">Step 5 of 5</p>
           <h1 style={{ fontSize: "1.8rem", letterSpacing: "-0.03em", margin: "0 0 8px" }}>
-            {isFinalised ? "Case Finalised ✓" : "Finalise & Export"}
+            {isFinalised ? "Case Completed ✓" : "Complete & Export"}
           </h1>
 
           {/* Summary */}
@@ -140,7 +140,7 @@ export default function FinalisePage() {
                 disabled={isFinalising || unresolved > 0}
                 style={{ width: "100%", minHeight: "50px", fontSize: "0.95rem", background: "var(--green-dark)" }}
               >
-                {isFinalising ? "Finalising..." : "🔒 Lock & Finalise Case"}
+                {isFinalising ? "Completing..." : "Complete Case"}
               </button>
             </>
           )}

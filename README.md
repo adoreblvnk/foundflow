@@ -1,27 +1,27 @@
 # FoundFlow Intake Copilot
 
-Human-verified, evidence-linked nested inventory logging for found-property teams.
+Staff-confirmed, photo-linked item logging for found-property teams.
 
-FoundFlow is a secure, single-server prototype designed to help frontline airport and transit custody staff document complex found-property cases. Its guided workflow captures outer containers and each nesting level (e.g., Backpack → Pouch → Currency), drafts a structured manifest with OCR attributes and exact denomination × quantity totals for notes and coins, highlights uncertainty for human review, and requires staff approval before finalisation and export.
+FoundFlow helps airport and transit staff document complex found-property cases. Its guided workflow captures outer containers and each nesting level (e.g. Backpack → Pouch → Currency), drafts a structured item list with OCR attributes and exact denomination × quantity totals for notes and coins, highlights uncertainty for staff review, and requires confirmation before completion and export.
 
-*Note: This application is a fully functional prototype designed for single-server local deployment and is not called production-ready.*
+*Note: This application is a functional hosted prototype for controlled demonstrations; production roll-out would require organisational access controls and operational review.*
 
 ---
 
 ## 🚀 Active Routes & Capabilities
 
 - **Landing Page (`/`)**: Product overview and security entry.
-- **Sign In (`/login`)**: Secure local staff authentication.
-- **Dashboard (`/cases`)**: View and manage all active custody cases. Supports controlled demo seeding.
-- **New Case (`/cases/new`)**: Initiate custody and document a fresh found-property container entry.
+- **Sign In (`/login`)**: Configurable staff authentication; the hosted demo can temporarily bypass login with `AUTH_DISABLED=true`.
+- **Dashboard (`/cases`)**: View and manage found-property cases. Supports controlled demo seeding.
+- **New Case (`/cases/new`)**: Document a new found-property container.
 - **Case Intake Workspace (`/cases/[id]`)**: Unified hub to:
-  - Upload photographic evidence (validated using JPG/PNG/WebP magic-number signatures).
+  - Add item photos (validated using JPG/PNG/WebP magic-number signatures).
   - Trigger live AI vision analysis (using AI SDK v6).
-  - Apply quick text commands to manage manifest items.
-  - Interactively edit manifest items, manage parent nesting, and assign evidence links.
-  - Lock and finalise approved custody cases (blocking unresolved items or invalid structures).
-- **Secure Private Uploads (`/api/uploads/[id]`)**: Authenticated endpoint that serves evidence files securely.
-- **Approved Structured Exports (`/api/cases/[id]/export/json` and `/api/cases/[id]/export/csv`)**: Finalised manifest datasets with parent relationships, OCR text, and attributes, protected against CSV formula injection.
+  - Apply quick text commands to manage the item list.
+  - Edit items, manage parent nesting, and assign source photos.
+  - Complete confirmed cases while blocking unresolved items or invalid structures.
+- **Private Photos (`/api/uploads/[id]`)**: Application endpoint for stored item photos.
+- **Confirmed Exports (`/api/cases/[id]/export/json` and `/api/cases/[id]/export/csv`)**: Completed item lists with parent relationships, OCR text, and attributes, protected against CSV formula injection.
 
 ---
 
@@ -73,7 +73,7 @@ npm ci
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000), sign in, then select **Load Demo Case** for the complete staged backpack workflow. The deterministic demo includes one synthetic evidence photograph, an eleven-record nested manifest, five denomination-level currency reviews, exact totals of SGD 104.00 and MYR 50.40, finalisation and JSON / CSV exports. Selecting **Reset Demo Case** restores the fixture for another walkthrough.
+Open [http://localhost:3000](http://localhost:3000), sign in when authentication is enabled, then select **Load Demo Case** for the staged backpack workflow. The deterministic demo includes one synthetic item photo, an eleven-record nested item list, five denomination-level currency reviews, exact totals of SGD 104.00 and MYR 50.40, completion and JSON / CSV exports. Selecting **Reset Demo Case** restores the fixture for another walkthrough.
 
 ### Run Static Typecheck
 ```bash
@@ -99,7 +99,7 @@ npm run test:ai
 For the optional local-only Codex backup provider, run `npm run test:ai:codex`. Production never invokes Codex CLI.
 
 ### Run Playwright CLI Production Demo Verification
-Builds the production app, starts an isolated server through Playwright CLI, signs in, loads the evidence-backed fixture, checks the 375×500 mobile dialog, resolves all reviews, finalises the case and verifies both exports and their audit events:
+Builds the production app, starts an isolated server through Playwright CLI, signs in, loads the photo-linked fixture, checks the 375×500 mobile dialog, resolves all reviews, completes the case and verifies both exports and their activity records:
 ```bash
 npm run test:e2e:playwright
 ```
@@ -113,7 +113,7 @@ E2E_USERNAME="$LOGIN_USERNAME" \
 E2E_PASSWORD="$LOGIN_PASSWORD" \
 npm run test:e2e
 ```
-The test uses `public/demo/found-property-evidence.webp` by default. Override `E2E_EVIDENCE_PATH` only when validating another staged image. Use staged or synthetic evidence only; do not place real passenger records in the repository.
+The test uses `public/demo/found-property-evidence.webp` by default. Override `E2E_EVIDENCE_PATH` only when validating another staged image. Use staged or synthetic property only; do not place real passenger records in the repository.
 
 ### Compile Production Build
 ```bash
@@ -137,7 +137,7 @@ FoundFlow uses the `@ai-sdk/openai` provider with AI SDK v6 to call OpenAI's vis
 ## 🛡️ Prototype Design & Security Safeguards
 
 - **Durable Shared Persistence**: One async libSQL data layer uses a local file in development and Turso on Vercel. Case mutations and audit entries are committed in atomic batches.
-- **Private Evidence Storage**: Evidence stays under `DATA_DIR` locally and in a private Vercel Blob store when hosted.
+- **Private Photo Storage**: Item photos stay under `DATA_DIR` locally and in a private Vercel Blob store when hosted.
 - **Upload Hardening**: magic number file-signature checks (JPG/PNG/WebP), cryptographically secure UUID file IDs, and strict path protection.
 - **CSV Formula Escape**: Guards formula prefixes (`=`, `+`, `-`, `@`) even after leading whitespace before CSV generation.
 - **Constant-Time Verification**: Cryptographic HMAC session verification with SHA-256 timing-safe string comparison. Require exactly two token segments for parsed authentication tokens.
@@ -147,4 +147,4 @@ FoundFlow uses the `@ai-sdk/openai` provider with AI SDK v6 to call OpenAI's vis
 
 ## ⚠️ Deployment Limits & Constraints
 
-- **Hosted Prototype**: Vercel, Turso, and private Blob support stateless function instances. This remains a controlled prototype, not a production custody system.
+- **Hosted Prototype**: Vercel, Turso, and private Blob support stateless function instances. This remains a controlled airport lost-property prototype.

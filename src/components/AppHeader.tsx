@@ -68,7 +68,7 @@ export default function AppHeader() {
                 transition: "background 0.15s",
               }}
             >
-              📷 Kiosk
+              Kiosk
             </Link>
             <Link
               href="/cases"
@@ -79,7 +79,7 @@ export default function AppHeader() {
                 transition: "background 0.15s",
               }}
             >
-              📝 Field
+              Mobile
             </Link>
           </div>
         </nav>

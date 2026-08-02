@@ -35,6 +35,14 @@ const activityLabels: Record<string, string> = {
   manifest_exported: "ITEM LIST EXPORTED",
 };
 
+function formatActivityDetails(details: string): string {
+  return details
+    .replace(/\bevidence\b/gi, "item photo")
+    .replace(/\bmanifest\b/gi, "item list")
+    .replace(/\bcustody\b/gi, "property handling")
+    .replace(/\bofficer\b/gi, "staff member");
+}
+
 export default function CaseDetailClient({ initialCase, currentUser }: CaseDetailClientProps) {
   const [caseFile, setCaseFile] = useState<Case>(initialCase);
   const [isUploading, setIsUploading] = useState(false);
@@ -579,7 +587,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                       {new Date(log.timestamp).toLocaleString("en-SG", { timeZone: "Asia/Singapore" })} by <strong>{log.userId}</strong>
                     </span>
                     <span style={{ color: "var(--ink)", fontWeight: 550 }}>
-                      {activityLabels[log.action] ?? log.action.replaceAll("_", " ").toUpperCase()}: {log.details}
+                      {activityLabels[log.action] ?? log.action.replaceAll("_", " ").toUpperCase()}: {formatActivityDetails(log.details)}
                     </span>
                   </div>
                 </div>

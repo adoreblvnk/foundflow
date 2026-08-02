@@ -160,7 +160,7 @@ export function validateManifestStructure(caseFile: Case): string | null {
       return `Item "${item.label}" must have one photo region per confirmed visible instance.`;
     }
 
-    if (isCurrencyItem(item)) {
+    if (item.id !== "outer-item-root" && isCurrencyItem(item)) {
       const codeValid = isValidCurrencyCode(item.currencyCode) && item.currencyCode === item.currencyCode.toUpperCase();
       const denomination = normalizeDecimal(item.denomination);
       const total = normalizeDecimal(item.currencyTotal);

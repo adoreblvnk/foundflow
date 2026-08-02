@@ -146,6 +146,14 @@ test("Database Layer, Seeding & Isolation", async (t) => {
 });
 
 test("Photo Region Persistence & Validation", async (t) => {
+  await t.test("does not misclassify a currency-described outer property as a currency manifest record", async () => {
+    const demo = structuredClone((await getCaseById("CT3A-20260721-DEMO"))!);
+    demo.outerItemDescription = "Loose mixed coins";
+    const root = demo.manifest.find((item) => item.id === "outer-item-root")!;
+    root.label = "Loose mixed coins";
+    assert.strictEqual(validateManifestStructure(demo), null);
+  });
+
   await t.test("accepts normalized regions and rejects boxes outside the image", () => {
     assert.strictEqual(isValidImageRegion({ id: "region-1", x: 0.1, y: 0.2, width: 0.3, height: 0.4 }), true);
     assert.strictEqual(isValidImageRegion({ id: "region-2", x: 0.9, y: 0.2, width: 0.2, height: 0.2 }), false);

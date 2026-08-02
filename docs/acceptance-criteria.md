@@ -14,6 +14,7 @@ FoundFlow's challenge MVP is accepted only when all criteria below pass using st
 ## AI draft and review
 
 - [x] Production analysis sends actual uploaded image bytes to the AI SDK v6 OpenAI provider and returns schema-validated nested records.
+- [x] Currency-heavy or complex photos receive a second independent verification pass using the configured strong vision model; failures retain the primary draft under review rather than fabricating results.
 - [x] OCR text, visible attributes, confidence, review reason, parent relationship, quantity, and photo ID are retained.
 - [x] AI returns one normalised photo region per visible instance; invalid or out-of-image coordinates are rejected and count mismatches require review.
 - [x] Currency fields force the canonical currency item type even when the model returns an inconsistent type label.

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { getCases } from "@/lib/db";
-import { handleSeedDemo } from "@/app/cases/actions";
 import { isAuthenticated } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
@@ -51,11 +50,6 @@ export default async function CasesPage() {
           </p>
         </div>
         <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-          <form action={handleSeedDemo}>
-            <button className="button button-secondary" type="submit" style={{ minHeight: "40px" }}>
-              {cases.some((c) => c.isDemo) ? "Reset Demo" : "Load Demo"}
-            </button>
-          </form>
           <Link className="button" href="/cases/new" style={{ minHeight: "40px" }}>
             + New Case
           </Link>

@@ -53,9 +53,8 @@ export default function AboutPage() {
                 human sign-off before the case can be finalised and exported.
               </p>
               <p style={{ margin: 0 }}>
-                Two intake modes serve different contexts: <strong>Kiosk Mode</strong> uses a fixed camera
-                at a scanning station for rapid batch processing, while <strong>Mobile Mode</strong> provides
-                a guided step-by-step wizard for staff using a phone away from the kiosk.
+                The guided intake workflow works across staff workstations and phones, preserving the same
+                photo-linked review process in either setting.
               </p>
             </div>
           </div>
@@ -89,10 +88,7 @@ export default function AboutPage() {
                 <strong>Hosted services require network access</strong> - Turso, private Blob storage, and AI scanning are unavailable during an outage.
                 <br /><em>Mitigation:</em> Keep manual intake available and add an offline queue for later synchronisation.
               </li>
-              <li>
-                <strong>Kiosk camera requires HTTPS</strong> - browser getUserMedia demands a secure context.
-                <br /><em>Mitigation:</em> Vercel deploys with HTTPS by default. For local dev, use mkcert for trusted local certificates.
-              </li>
+
               <li>
                 <strong>AI accuracy varies</strong> - low-confidence items and unreadable currency are flagged for review.
                 <br /><em>Mitigation:</em> Layout guide reduces misreads. Staff can edit items or split mixed-currency groups into individual denominations. The system blocks confirmation until details are exact.

@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 
 export default function AppHeader() {
   const pathname = usePathname();
-  const isKiosk = pathname.startsWith("/kiosk");
 
   return (
     <header style={{
@@ -50,38 +49,13 @@ export default function AppHeader() {
             Search
           </Link>
 
-          {/* Mode Toggle */}
-          <div style={{
-            display: "flex",
-            border: "1px solid var(--line)",
-            borderRadius: "8px",
-            overflow: "hidden",
-            fontSize: "0.78rem",
-            fontWeight: 700,
-          }}>
-            <Link
-              href="/kiosk"
-              style={{
-                padding: "6px 14px",
-                background: isKiosk ? "var(--green)" : "transparent",
-                color: isKiosk ? "white" : "var(--muted)",
-                transition: "background 0.15s",
-              }}
-            >
-              Kiosk
-            </Link>
-            <Link
-              href="/cases"
-              style={{
-                padding: "6px 14px",
-                background: !isKiosk ? "var(--green)" : "transparent",
-                color: !isKiosk ? "white" : "var(--muted)",
-                transition: "background 0.15s",
-              }}
-            >
-              Mobile
-            </Link>
-          </div>
+          <Link
+            href="/cases"
+            className="button"
+            style={{ minHeight: "36px", paddingInline: "14px", fontSize: "0.8rem" }}
+          >
+            Staff Intake
+          </Link>
         </nav>
       </div>
     </header>

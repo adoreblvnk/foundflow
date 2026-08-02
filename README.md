@@ -74,7 +74,7 @@ npm ci
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000), sign in when authentication is enabled, then select **Load Demo Case** for the staged backpack workflow. The deterministic demo includes one synthetic item photo, an eleven-record nested item list, five denomination-level currency reviews, exact totals of SGD 104.00 and MYR 50.40, completion and JSON / CSV exports. Selecting **Reset Demo Case** restores the fixture for another walkthrough.
+Open [http://localhost:3000](http://localhost:3000), sign in when authentication is enabled, then create a found-property case from **Staff Intake**. The automated test suite seeds a deterministic staged backpack case with one synthetic item photo, an eleven-record nested item list, five denomination-level currency reviews, exact totals of SGD 104.00 and MYR 50.40, completion and JSON / CSV exports.
 
 ### Run Static Typecheck
 ```bash

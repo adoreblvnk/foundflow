@@ -1,6 +1,6 @@
 "use server";
 
-import { createCase, getCaseById, updateCaseWithAudit, seedDemoCase, Case, EvidenceUpload, ManifestItem } from "@/lib/db";
+import { createCase, getCaseById, updateCaseWithAudit, Case, EvidenceUpload, ManifestItem } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { generateObject } from "ai";
@@ -810,13 +810,4 @@ export async function handleFinaliseCase(caseId: string) {
 
   await updateCaseWithAudit(caseId, caseFile, user.username, "case_finalised", `Case finalised and locked by ${user.username}`);
   return { success: true, case: caseFile };
-}
-
-export async function handleSeedDemo() {
-  const user = await getCurrentUser();
-  if (!user) {
-    throw new Error("Unauthenticated");
-  }
-  await seedDemoCase();
-  redirect("/cases");
 }

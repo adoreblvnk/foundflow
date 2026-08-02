@@ -20,26 +20,7 @@ export default function Home() {
           Photograph. Scan. Verify. Replace 25 minutes of typing with 5 minutes of review.
         </p>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "24px" }}>
-          <Link href="/kiosk" style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: "12px",
-            padding: "32px 20px",
-            background: "var(--panel)",
-            border: "1px solid var(--line)",
-            borderRadius: "14px",
-            textDecoration: "none",
-            color: "inherit",
-            transition: "border-color 0.15s, box-shadow 0.15s",
-          }}>
-            <strong style={{ fontSize: "1.05rem" }}>Kiosk Mode</strong>
-            <span style={{ fontSize: "0.8rem", color: "var(--muted)", lineHeight: 1.4 }}>
-              Fixed camera station. Capture and scan items in real time.
-            </span>
-          </Link>
-
+        <div style={{ marginBottom: "24px" }}>
           <Link href="/cases" style={{
             display: "flex",
             flexDirection: "column",
@@ -53,9 +34,9 @@ export default function Home() {
             color: "inherit",
             transition: "border-color 0.15s, box-shadow 0.15s",
           }}>
-            <strong style={{ fontSize: "1.05rem" }}>Mobile Mode</strong>
+            <strong style={{ fontSize: "1.05rem" }}>Start Staff Intake</strong>
             <span style={{ fontSize: "0.8rem", color: "var(--muted)", lineHeight: 1.4 }}>
-              Step-by-step guided wizard. Upload photos from your phone.
+              Register found property, add item photos and verify the structured item list.
             </span>
           </Link>
         </div>

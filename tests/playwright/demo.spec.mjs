@@ -8,17 +8,16 @@ test.afterAll(() => {
 });
 
 test("photo-linked demo completes the airport property workflow", async ({ page }) => {
+  process.env.DATA_DIR = dataDir;
+  const { seedDemoCase } = await import("../../src/lib/db.ts");
+  await seedDemoCase();
+
   await page.goto("/");
-  const kioskMode = page.getByRole("link", { name: /Kiosk Mode/ });
-  const mobileMode = page.getByRole("link", { name: /Mobile Mode/ });
-  await expect(kioskMode).toBeVisible();
-  await expect(mobileMode).toBeVisible();
-  await expect(kioskMode).not.toContainText(/[\u2600-\u27BF\u{1F300}-\u{1FAFF}]/u);
-  await expect(mobileMode).not.toContainText(/[\u2600-\u27BF\u{1F300}-\u{1FAFF}]/u);
+  await expect(page.getByRole("link", { name: /Start Staff Intake/ })).toBeVisible();
+  await expect(page.getByText(/Kiosk Mode/)).toHaveCount(0);
 
   await page.goto("/kiosk");
-  await expect(page.getByRole("heading", { name: "Kiosk Intake" })).toBeVisible();
-  expect(await page.locator("main").innerText()).not.toMatch(/[\u2600-\u27BF\u{1F300}-\u{1FAFF}]/u);
+  await expect(page.getByRole("heading", { name: "404" })).toBeVisible();
 
   await page.goto("/cases");
   await expect(page).toHaveURL(/\/login$/);
@@ -28,7 +27,7 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   await page.getByRole("button", { name: "Sign in to FoundFlow" }).click();
   await expect(page).toHaveURL(/\/cases$/);
 
-  await page.getByRole("button", { name: /Load Demo|Reset Demo/ }).click();
+  await expect(page.getByRole("button", { name: /Load Demo|Reset Demo/ })).toHaveCount(0);
   await page.locator('a[href="/cases/CT3A-20260721-DEMO"]').first().click();
   await expect(page).toHaveURL(/\/cases\/CT3A-20260721-DEMO$/);
   await expect(page.getByText("Item Photos (1)", { exact: true })).toBeVisible();

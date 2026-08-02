@@ -49,6 +49,7 @@ export async function GET(
         status: item.status,
         source: item.source ?? "staff",
         evidenceId: item.evidenceId,
+        regions: item.regions || [],
         currencyCode: item.currencyCode ?? null,
         denomination: item.denomination ?? null,
         currencyTotal: item.currencyTotal ?? null,

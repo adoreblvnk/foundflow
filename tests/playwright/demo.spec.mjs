@@ -35,6 +35,32 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   await expect(page.getByText("SGD 104.00", { exact: true })).toBeVisible();
   await expect(page.getByText("MYR 50.40", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "First Check" })).toHaveCount(5);
+  await expect(page.getByRole("region", { name: "Match records to the photo" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Show Plain kraft notebook on source photo" }).click();
+  await page.getByRole("button", { name: "+ Draw region" }).click();
+  const regionPhoto = page.locator(".region-photo");
+  const regionPhotoBox = await regionPhoto.boundingBox();
+  expect(regionPhotoBox).not.toBeNull();
+  await page.mouse.move(regionPhotoBox.x + regionPhotoBox.width * 0.72, regionPhotoBox.y + regionPhotoBox.height * 0.15);
+  await page.mouse.down();
+  await page.mouse.move(regionPhotoBox.x + regionPhotoBox.width * 0.82, regionPhotoBox.y + regionPhotoBox.height * 0.25);
+  await page.mouse.up();
+  await expect(page.getByRole("button", { name: /Plain kraft notebook, region/ })).toHaveCount(2);
+  await page.getByRole("button", { name: "Plain kraft notebook, region 2" }).click();
+  await page.getByRole("button", { name: "Remove box" }).click();
+  await expect(page.getByRole("button", { name: /Plain kraft notebook, region/ })).toHaveCount(1);
+  await page.locator("article").filter({ hasText: "Plain kraft notebook" }).getByRole("button", { name: "Confirm" }).click();
+  await expect(page.getByRole("button", { name: "First Check" })).toHaveCount(5);
+
+  await expect(page.getByRole("button", { name: /Singapore 1-dollar specimen coins, region/ })).toHaveCount(3);
+  await page.getByRole("button", { name: "Show Singapore 1-dollar specimen coins on source photo" }).click();
+  await page.getByRole("button", { name: "Singapore 1-dollar specimen coins, region 1" }).click();
+  await page.getByLabel("Assign box to").selectOption("sgd-050-coins");
+  await expect(page.getByRole("button", { name: /Singapore 50-cent specimen coins, region/ })).toHaveCount(3);
+  await page.getByRole("button", { name: "Singapore 50-cent specimen coins, region 3" }).click();
+  await page.getByLabel("Assign box to").selectOption("sgd-1-coins");
+  await expect(page.getByRole("button", { name: /Singapore 1-dollar specimen coins, region/ })).toHaveCount(3);
 
   const chooseImage = page.getByRole("button", { name: "Choose Image" });
   const uploadPhoto = page.getByRole("button", { name: "Upload Photo" });
@@ -173,6 +199,8 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   expect(exports.jsonStatus).toBe(200);
   expect(exports.csvStatus).toBe(200);
   expect(exports.json.manifest).toHaveLength(13);
+  expect(exports.json.manifest.find((item) => item.id === "sgd-1-coins").regions).toHaveLength(3);
+  expect(exports.csv).toContain("Photo Regions");
   expect(exports.json.currencySummary).toEqual([
     { currencyCode: "MYR", total: "50.4" },
     { currencyCode: "SGD", total: "104" },

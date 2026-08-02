@@ -15,6 +15,14 @@ export interface EvidenceUpload {
   containerContext?: string;
 }
 
+export interface ImageRegion {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface ManifestItem {
   id: string;
   label: string;
@@ -33,6 +41,7 @@ export interface ManifestItem {
   currencyTotal?: string | null;
   category?: string;
   source?: "ai" | "staff" | "system";
+  regions?: ImageRegion[];
 }
 
 export interface AuditLog {
@@ -159,6 +168,7 @@ async function initializeSchema(db: DbClient): Promise<void> {
       currencyTotal TEXT,
       category TEXT DEFAULT 'other',
       source TEXT NOT NULL DEFAULT 'staff',
+      regions TEXT NOT NULL DEFAULT '[]',
       PRIMARY KEY (id, caseId),
       FOREIGN KEY (caseId) REFERENCES cases(id) ON DELETE CASCADE
     )`, args: [] },
@@ -220,6 +230,7 @@ async function initializeSchema(db: DbClient): Promise<void> {
   await addColumn("itemType", "TEXT NOT NULL DEFAULT 'property'");
   await addColumn("currencyCode", "TEXT");
   await addColumn("category", "TEXT DEFAULT 'other'");
+  await addColumn("regions", "TEXT NOT NULL DEFAULT '[]'");
 
   for (const name of ["denomination", "currencyTotal"] as const) {
     const column = columns.find((candidate) => candidate.name === name);
@@ -252,6 +263,23 @@ export function closeDb(): void {
   schemaPromise = null;
 }
 
+function parseRegions(value: string | null | undefined): ImageRegion[] {
+  try {
+    const parsed = JSON.parse(value || "[]") as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((region): region is ImageRegion => {
+      if (!region || typeof region !== "object") return false;
+      const candidate = region as Partial<ImageRegion>;
+      return typeof candidate.id === "string" && candidate.id.length > 0
+        && [candidate.x, candidate.y, candidate.width, candidate.height].every((number) => typeof number === "number" && Number.isFinite(number))
+        && candidate.x! >= 0 && candidate.y! >= 0 && candidate.width! > 0 && candidate.height! > 0
+        && candidate.x! + candidate.width! <= 1 && candidate.y! + candidate.height! <= 1;
+    });
+  } catch {
+    return [];
+  }
+}
+
 interface CaseRow {
   id: string; isDemo: number; location: string; foundTime: string; foundBy: string; outerItemDescription: string;
   notes: string; status: string; finalisedAt: string | null; finalisedBy: string | null; createdAt: string;
@@ -264,7 +292,7 @@ interface ManifestItemRow {
   id: string; label: string; parentId: string | null; quantity: number; quantityKnown: number; itemType: string;
   status: string; confidence: number; reviewReason: string | null; evidenceId: string | null; ocrText: string | null;
   visibleAttributes: string | null; currencyCode: string | null; denomination: string | number | null;
-  currencyTotal: string | number | null; category: string | null; source: string;
+  currencyTotal: string | number | null; category: string | null; source: string; regions: string;
 }
 interface AuditLogRow {
   id: string; timestamp: string; userId: string; action: string; details: string;
@@ -322,6 +350,7 @@ export async function getCaseById(id: string): Promise<Case | undefined> {
     currencyTotal: normalizeDecimal(item.currencyTotal),
     category: item.category || "other",
     source: (item.source === "ai" || item.source === "system" ? item.source : "staff") as ManifestItem["source"],
+    regions: parseRegions(item.regions),
   }));
   const auditLogs = (auditResult.rows as unknown as AuditLogRow[]).map((log) => ({ ...log }));
   const claims = (claimResult.rows as unknown as ClaimRow[]).map((claim) => ({
@@ -392,8 +421,8 @@ function updateStatements(id: string, updatedCase: Case): Statement[] {
   }
   statements.push({ sql: "DELETE FROM manifest_items WHERE caseId = ?", args: [id] });
   for (const item of updatedCase.manifest) {
-    statements.push({ sql: `INSERT INTO manifest_items (id, caseId, label, parentId, quantity, quantityKnown, itemType, status, confidence, reviewReason, evidenceId, ocrText, visibleAttributes, currencyCode, denomination, currencyTotal, category, source)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args: [item.id, id, item.label, item.parentId, item.quantity, item.quantityKnown === false ? 0 : 1, item.itemType ?? "property", item.status, item.confidence, item.reviewReason, item.evidenceId, item.ocrText || null, item.visibleAttributes || null, item.currencyCode || null, item.denomination ?? null, item.currencyTotal ?? null, item.category || "other", item.source || (item.id === "outer-item-root" ? "system" : "staff")] });
+    statements.push({ sql: `INSERT INTO manifest_items (id, caseId, label, parentId, quantity, quantityKnown, itemType, status, confidence, reviewReason, evidenceId, ocrText, visibleAttributes, currencyCode, denomination, currencyTotal, category, source, regions)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args: [item.id, id, item.label, item.parentId, item.quantity, item.quantityKnown === false ? 0 : 1, item.itemType ?? "property", item.status, item.confidence, item.reviewReason, item.evidenceId, item.ocrText || null, item.visibleAttributes || null, item.currencyCode || null, item.denomination ?? null, item.currencyTotal ?? null, item.category || "other", item.source || (item.id === "outer-item-root" ? "system" : "staff"), JSON.stringify(item.regions || [])] });
   }
   return statements;
 }
@@ -484,16 +513,16 @@ export async function seedDemoCase(): Promise<Case> {
   await writeEvidence(evidenceFilename, evidence, "image/webp");
   const items: ManifestItem[] = [
     { id: "outer-item-root", label: "Black backpack", parentId: null, quantity: 1, confidence: 1, status: "confirmed", reviewReason: null, evidenceId, ocrText: "", visibleAttributes: "Colour: black; condition: clean; main compartment open", category: "bags", source: "system" },
-    { id: "pouch", label: "Brown coin pouch", parentId: "outer-item-root", quantity: 1, confidence: 0.98, status: "confirmed", reviewReason: null, evidenceId, ocrText: "", visibleAttributes: "Brown leather; zip closure; open", category: "bags", source: "system" },
-    { id: "sgd-100", label: "Singapore 100-dollar specimen note", parentId: "pouch", quantity: 1, quantityKnown: true, itemType: "currency", confidence: 0.99, status: "review", reviewReason: "Currency amount requires staff confirmation before case completion.", evidenceId, ocrText: "SPECIMEN · SINGAPORE · 100 · ZX0000241", visibleAttributes: "Orange specimen note", currencyCode: "SGD", denomination: "100", currencyTotal: "100", source: "system" },
-    { id: "sgd-1-coins", label: "Singapore 1-dollar specimen coins", parentId: "pouch", quantity: 3, quantityKnown: true, itemType: "currency", confidence: 0.98, status: "review", reviewReason: "Coin count and denomination require staff confirmation.", evidenceId, ocrText: "SGD 1", visibleAttributes: "Three gold-colour synthetic coins marked SGD 1", currencyCode: "SGD", denomination: "1", currencyTotal: "3", source: "system" },
-    { id: "sgd-050-coins", label: "Singapore 50-cent specimen coins", parentId: "pouch", quantity: 2, quantityKnown: true, itemType: "currency", confidence: 0.98, status: "review", reviewReason: "Coin count and denomination require staff confirmation.", evidenceId, ocrText: "SGD 0.50", visibleAttributes: "Two silver-colour synthetic coins marked SGD 0.50", currencyCode: "SGD", denomination: "0.5", currencyTotal: "1", source: "system" },
-    { id: "myr-50", label: "Malaysian 50-ringgit specimen note", parentId: "pouch", quantity: 1, quantityKnown: true, itemType: "currency", confidence: 0.99, status: "review", reviewReason: "Currency amount requires staff confirmation before case completion.", evidenceId, ocrText: "SPECIMEN · BANK NEGARA MALAYSIA · 50 · MYX0000241", visibleAttributes: "Blue-green specimen note", currencyCode: "MYR", denomination: "50", currencyTotal: "50", source: "system" },
-    { id: "myr-020-coins", label: "Malaysian 20-sen specimen coins", parentId: "pouch", quantity: 2, quantityKnown: true, itemType: "currency", confidence: 0.98, status: "review", reviewReason: "Coin count and denomination require staff confirmation.", evidenceId, ocrText: "MYR 0.20", visibleAttributes: "Two gold-colour synthetic coins marked MYR 0.20", currencyCode: "MYR", denomination: "0.2", currencyTotal: "0.4", source: "system" },
-    { id: "cable", label: "White USB-C charging cable", parentId: "outer-item-root", quantity: 1, confidence: 0.99, status: "confirmed", reviewReason: null, evidenceId, ocrText: "", visibleAttributes: "White; coiled; USB-C connectors", source: "system" },
-    { id: "cardholder", label: "Black leather cardholder", parentId: "outer-item-root", quantity: 1, confidence: 0.98, status: "confirmed", reviewReason: null, evidenceId, ocrText: "", visibleAttributes: "Black leather; empty card slots", source: "system" },
-    { id: "notebook", label: "Plain kraft notebook", parentId: "outer-item-root", quantity: 1, confidence: 0.97, status: "confirmed", reviewReason: null, evidenceId, ocrText: "", visibleAttributes: "Plain brown cover; no visible writing", source: "system" },
-    { id: "tag", label: "Orange luggage tag", parentId: "outer-item-root", quantity: 1, confidence: 0.99, status: "confirmed", reviewReason: null, evidenceId, ocrText: "SAMPLE-0241", visibleAttributes: "Orange synthetic demo tag", source: "system" },
+    { id: "pouch", label: "Brown coin pouch", parentId: "outer-item-root", quantity: 1, confidence: 0.98, status: "confirmed", reviewReason: null, evidenceId, ocrText: "", visibleAttributes: "Brown leather; zip closure; open", category: "bags", source: "system", regions: [{ id: "region-pouch", x: 0.165, y: 0.383, width: 0.25, height: 0.23 }] },
+    { id: "sgd-100", label: "Singapore 100-dollar specimen note", parentId: "pouch", quantity: 1, quantityKnown: true, itemType: "currency", confidence: 0.99, status: "review", reviewReason: "Currency amount requires staff confirmation before case completion.", evidenceId, ocrText: "SPECIMEN · SINGAPORE · 100 · ZX0000241", visibleAttributes: "Orange specimen note", currencyCode: "SGD", denomination: "100", currencyTotal: "100", source: "system", regions: [{ id: "region-sgd-100", x: 0.19, y: 0.155, width: 0.2, height: 0.15 }] },
+    { id: "sgd-1-coins", label: "Singapore 1-dollar specimen coins", parentId: "pouch", quantity: 3, quantityKnown: true, itemType: "currency", confidence: 0.98, status: "review", reviewReason: "Coin count and denomination require staff confirmation.", evidenceId, ocrText: "SGD 1", visibleAttributes: "Three gold-colour synthetic coins marked SGD 1", currencyCode: "SGD", denomination: "1", currencyTotal: "3", source: "system", regions: [{ id: "region-sgd-1-a", x: 0.212, y: 0.4, width: 0.047, height: 0.077 }, { id: "region-sgd-1-b", x: 0.263, y: 0.402, width: 0.047, height: 0.075 }, { id: "region-sgd-1-c", x: 0.315, y: 0.405, width: 0.047, height: 0.075 }] },
+    { id: "sgd-050-coins", label: "Singapore 50-cent specimen coins", parentId: "pouch", quantity: 2, quantityKnown: true, itemType: "currency", confidence: 0.98, status: "review", reviewReason: "Coin count and denomination require staff confirmation.", evidenceId, ocrText: "SGD 0.50", visibleAttributes: "Two silver-colour synthetic coins marked SGD 0.50", currencyCode: "SGD", denomination: "0.5", currencyTotal: "1", source: "system", regions: [{ id: "region-sgd-50-a", x: 0.236, y: 0.471, width: 0.045, height: 0.075 }, { id: "region-sgd-50-b", x: 0.291, y: 0.475, width: 0.045, height: 0.072 }] },
+    { id: "myr-50", label: "Malaysian 50-ringgit specimen note", parentId: "pouch", quantity: 1, quantityKnown: true, itemType: "currency", confidence: 0.99, status: "review", reviewReason: "Currency amount requires staff confirmation before case completion.", evidenceId, ocrText: "SPECIMEN · BANK NEGARA MALAYSIA · 50 · MYX0000241", visibleAttributes: "Blue-green specimen note", currencyCode: "MYR", denomination: "50", currencyTotal: "50", source: "system", regions: [{ id: "region-myr-50", x: 0.183, y: 0.29, width: 0.222, height: 0.16 }] },
+    { id: "myr-020-coins", label: "Malaysian 20-sen specimen coins", parentId: "pouch", quantity: 2, quantityKnown: true, itemType: "currency", confidence: 0.98, status: "review", reviewReason: "Coin count and denomination require staff confirmation.", evidenceId, ocrText: "MYR 0.20", visibleAttributes: "Two gold-colour synthetic coins marked MYR 0.20", currencyCode: "MYR", denomination: "0.2", currencyTotal: "0.4", source: "system", regions: [{ id: "region-myr-20-a", x: 0.238, y: 0.535, width: 0.043, height: 0.07 }, { id: "region-myr-20-b", x: 0.289, y: 0.536, width: 0.043, height: 0.07 }] },
+    { id: "cable", label: "White USB-C charging cable", parentId: "outer-item-root", quantity: 1, confidence: 0.99, status: "confirmed", reviewReason: null, evidenceId, ocrText: "", visibleAttributes: "White; coiled; USB-C connectors", source: "system", regions: [{ id: "region-cable", x: 0.495, y: 0.59, width: 0.11, height: 0.27 }] },
+    { id: "cardholder", label: "Black leather cardholder", parentId: "outer-item-root", quantity: 1, confidence: 0.98, status: "confirmed", reviewReason: null, evidenceId, ocrText: "", visibleAttributes: "Black leather; empty card slots", source: "system", regions: [{ id: "region-cardholder", x: 0.618, y: 0.59, width: 0.12, height: 0.29 }] },
+    { id: "notebook", label: "Plain kraft notebook", parentId: "outer-item-root", quantity: 1, confidence: 0.97, status: "confirmed", reviewReason: null, evidenceId, ocrText: "", visibleAttributes: "Plain brown cover; no visible writing", source: "system", regions: [{ id: "region-notebook", x: 0.756, y: 0.573, width: 0.12, height: 0.314 }] },
+    { id: "tag", label: "Orange luggage tag", parentId: "outer-item-root", quantity: 1, confidence: 0.99, status: "confirmed", reviewReason: null, evidenceId, ocrText: "SAMPLE-0241", visibleAttributes: "Orange synthetic demo tag", source: "system", regions: [{ id: "region-tag", x: 0.893, y: 0.55, width: 0.075, height: 0.34 }] },
   ];
   for (const item of items) {
     if (item.itemType === "currency") item.category = "cash";
@@ -518,8 +547,8 @@ export async function seedDemoCase(): Promise<Case> {
       args: [evidenceId, id, evidenceFilename, "staged-found-property.webp", "image/webp", evidence.byteLength, "2026-07-21T09:31:00.000Z", "bag-contents"] },
   ];
   for (const item of items) {
-    statements.push({ sql: `INSERT INTO manifest_items (id, caseId, label, parentId, quantity, quantityKnown, itemType, status, confidence, reviewReason, evidenceId, ocrText, visibleAttributes, currencyCode, denomination, currencyTotal, category, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [item.id, id, item.label, item.parentId, item.quantity, item.quantityKnown === false ? 0 : 1, item.itemType ?? "property", item.status, item.confidence, item.reviewReason, item.evidenceId, item.ocrText ?? null, item.visibleAttributes ?? null, item.currencyCode ?? null, item.denomination ?? null, item.currencyTotal ?? null, item.category ?? "other", item.source ?? "system"] });
+    statements.push({ sql: `INSERT INTO manifest_items (id, caseId, label, parentId, quantity, quantityKnown, itemType, status, confidence, reviewReason, evidenceId, ocrText, visibleAttributes, currencyCode, denomination, currencyTotal, category, source, regions) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [item.id, id, item.label, item.parentId, item.quantity, item.quantityKnown === false ? 0 : 1, item.itemType ?? "property", item.status, item.confidence, item.reviewReason, item.evidenceId, item.ocrText ?? null, item.visibleAttributes ?? null, item.currencyCode ?? null, item.denomination ?? null, item.currencyTotal ?? null, item.category ?? "other", item.source ?? "system", JSON.stringify(item.regions || [])] });
   }
   const logs = [
     ["log-1", createdAt, "demo-staff", "case_created", "Demo case created from a staged synthetic found-property set"],

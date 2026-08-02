@@ -24,6 +24,7 @@ import {
   getCases,
   getCaseById,
   createCase,
+  updateCase,
   createClaimRecord,
   decideClaimRecord,
   seedDemoCase,
@@ -40,7 +41,7 @@ import {
 
 import { verifyImageSignature } from "../src/lib/image-utils.ts";
 import { escapeCsvCell } from "../src/lib/csv-utils.ts";
-import { FIRST_STAFF_CHECK_PREFIX, hasCycle, hasFirstStaffCheck, isCurrencyItem, mergeAiDraftWithStaffItems, requiresDoubleStaffCheck, requiresSensitiveReview, summarizeCurrency, validateManifestStructure } from "../src/lib/validation.ts";
+import { FIRST_STAFF_CHECK_PREFIX, hasCycle, hasFirstStaffCheck, isCurrencyItem, isValidImageRegion, mergeAiDraftWithStaffItems, requiresDoubleStaffCheck, requiresSensitiveReview, summarizeCurrency, validateManifestStructure } from "../src/lib/validation.ts";
 import { addDecimals, isValidCurrencyCode, multiplyDecimal, normalizeDecimal } from "../src/lib/currency.ts";
 import { buildConfirmedSearchItems } from "../src/lib/search.ts";
 import { caseContainsIdentityEvidence, evaluateClaimVerification } from "../src/lib/claim-policy.ts";
@@ -141,6 +142,35 @@ test("Database Layer, Seeding & Isolation", async (t) => {
     assert.strictEqual(repeatedDecision, undefined);
     const afterRepeat = await getCaseById("CT3A-20260721-DEMO");
     assert.strictEqual(afterRepeat!.auditLogs.filter((log) => log.action === "item_collected" || log.action === "claim_rejected").length, 1);
+  });
+});
+
+test("Photo Region Persistence & Validation", async (t) => {
+  await t.test("accepts normalized regions and rejects boxes outside the image", () => {
+    assert.strictEqual(isValidImageRegion({ id: "region-1", x: 0.1, y: 0.2, width: 0.3, height: 0.4 }), true);
+    assert.strictEqual(isValidImageRegion({ id: "region-2", x: 0.9, y: 0.2, width: 0.2, height: 0.2 }), false);
+    assert.strictEqual(isValidImageRegion({ id: "region-3", x: 0.1, y: 0.2, width: 0, height: 0.2 }), false);
+  });
+
+  await t.test("round-trips multiple regions through the database", async () => {
+    const demo = (await getCaseById("CT3A-20260721-DEMO"))!;
+    const item = demo.manifest.find((candidate) => candidate.id === "sgd-1-coins")!;
+    item.regions = [
+      { id: "region-a", x: 0.1, y: 0.1, width: 0.1, height: 0.1 },
+      { id: "region-b", x: 0.3, y: 0.2, width: 0.12, height: 0.14 },
+      { id: "region-c", x: 0.5, y: 0.3, width: 0.11, height: 0.13 },
+    ];
+    await updateCase(demo.id, demo);
+    const reloaded = (await getCaseById(demo.id))!;
+    assert.deepStrictEqual(reloaded.manifest.find((candidate) => candidate.id === item.id)!.regions, item.regions);
+    assert.strictEqual(validateManifestStructure(reloaded), null);
+  });
+
+  await t.test("rejects regions attached without an uploaded source photo", async () => {
+    const demo = (await getCaseById("CT3A-20260721-DEMO"))!;
+    const item = demo.manifest.find((candidate) => candidate.id === "sgd-1-coins")!;
+    item.evidenceId = "staff-added";
+    assert.match(validateManifestStructure(demo) ?? "", /photo regions without a valid source photo/);
   });
 });
 

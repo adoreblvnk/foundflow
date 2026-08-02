@@ -1,4 +1,4 @@
-import type { Case, ManifestItem } from "./db.ts";
+import type { Case, ImageRegion, ManifestItem } from "./db.ts";
 import { addDecimals, isValidCurrencyCode, multiplyDecimal, normalizeDecimal } from "./currency.ts";
 
 const sensitiveItemPattern = /\b(?:cash|money|currency|banknotes?|notes?|coins?|dollars?|ringgit|passport|identity|identification|id card|credit card|debit card|serial(?: number)?|jewel(?:ry|lery)|watch|valuable|perishable|food|meal|sandwich|fruit|vegetable|meat|dairy)\b/i;
@@ -7,6 +7,13 @@ const currencyContainerPattern = /\b(?:pouch|wallet|bag|container|envelope)\b/i;
 const doubleCheckItemPattern = /\b(?:cash|money|currency|banknotes?|notes?|coins?|dollars?|ringgit|passport|identity|identification|id card|national id|driving licen[cs]e|perishable|food|meal|sandwich|fruit|vegetable|meat|dairy)\b/i;
 
 export const FIRST_STAFF_CHECK_PREFIX = "First staff check completed";
+
+export function isValidImageRegion(region: ImageRegion): boolean {
+  return typeof region.id === "string" && region.id.length > 0
+    && [region.x, region.y, region.width, region.height].every((value) => Number.isFinite(value))
+    && region.x >= 0 && region.y >= 0 && region.width > 0 && region.height > 0
+    && region.x + region.width <= 1 && region.y + region.height <= 1;
+}
 
 export function requiresSensitiveReview(label: string, ocrText = "", visibleAttributes = ""): boolean {
   return sensitiveItemPattern.test(`${label} ${ocrText} ${visibleAttributes}`);
@@ -141,6 +148,16 @@ export function validateManifestStructure(caseFile: Case): string | null {
     // Confidence check
     if (typeof item.confidence !== "number" || isNaN(item.confidence) || item.confidence < 0 || item.confidence > 1) {
       return `Item "${item.label}" has an invalid confidence level: "${item.confidence}".`;
+    }
+
+    if ((item.regions || []).some((region) => !isValidImageRegion(region))) {
+      return `Item "${item.label}" has an invalid photo region.`;
+    }
+    if ((item.regions?.length || 0) > 0 && !caseFile.uploads.some((upload) => upload.id === item.evidenceId)) {
+      return `Item "${item.label}" has photo regions without a valid source photo.`;
+    }
+    if (item.status === "confirmed" && item.quantityKnown !== false && (item.regions?.length || 0) > 0 && item.regions!.length !== item.quantity) {
+      return `Item "${item.label}" must have one photo region per confirmed visible instance.`;
     }
 
     if (isCurrencyItem(item)) {

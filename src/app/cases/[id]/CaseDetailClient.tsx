@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Case, ManifestItem } from "@/lib/db";
 import { hasFirstStaffCheck, requiresDoubleStaffCheck, summarizeCurrency } from "@/lib/validation";
 import { formatDecimal, multiplyDecimal, normalizeDecimal } from "@/lib/currency";
+import PhotoRegionVerifier, { RegionCrops } from "./PhotoRegionVerifier";
 import {
   handleUploadEvidence,
   handleAiAnalysis,
@@ -12,6 +13,7 @@ import {
   handleUpdateItem,
   handleAddItem,
   handleDeleteItem,
+  handleReassignPhotoRegion,
   handleFinaliseCase
 } from "../actions";
 
@@ -35,6 +37,7 @@ const activityLabels: Record<string, string> = {
   case_finalised: "CASE COMPLETED",
   manifest_exported: "ITEM LIST EXPORTED",
   claim_created: "CLAIM CREATED",
+  photo_region_reassigned: "PHOTO REGION REASSIGNED",
   item_collected: "ITEM COLLECTED",
   claim_rejected: "CLAIM REJECTED",
   claim_escalated: "CLAIM ESCALATED",
@@ -54,6 +57,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
   // Modal / Form state for item editing/adding
   const [editingItem, setEditingItem] = useState<ManifestItem | null>(null);
@@ -89,6 +93,29 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
     } catch (err) {
       console.error("Failed to refresh case:", err);
     }
+  }, [caseFile.id]);
+
+  const updatePhotoRegions = useCallback(async (item: ManifestItem) => {
+    setErrorMsg(null);
+    const result = await handleUpdateItem(caseFile.id, item);
+    if (result.error || !result.manifest) {
+      setErrorMsg(result.error || "Could not update photo regions.");
+      return;
+    }
+    setCaseFile((previous) => ({ ...previous, manifest: result.manifest! }));
+    setSuccessMsg("Photo regions updated. Staff confirmation is required.");
+  }, [caseFile.id]);
+
+  const reassignPhotoRegion = useCallback(async (regionId: string, targetItemId: string) => {
+    setErrorMsg(null);
+    const result = await handleReassignPhotoRegion(caseFile.id, regionId, targetItemId);
+    if (result.error || !result.manifest) {
+      setErrorMsg(result.error || "Could not reassign photo region.");
+      return;
+    }
+    setCaseFile((previous) => ({ ...previous, manifest: result.manifest! }));
+    setSelectedItemId(targetItemId);
+    setSuccessMsg("Photo region reassigned. Both records require confirmation.");
   }, [caseFile.id]);
 
   // Deterministic Speech/Text Command Parser
@@ -516,6 +543,18 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
             )}
           </div>
 
+          {caseFile.uploads.length > 0 && (
+            <PhotoRegionVerifier
+              uploads={caseFile.uploads}
+              items={caseFile.manifest}
+              selectedItemId={selectedItemId}
+              readOnly={isFinalised}
+              onSelectItem={setSelectedItemId}
+              onUpdateItem={updatePhotoRegions}
+              onReassignRegion={reassignPhotoRegion}
+            />
+          )}
+
           {/* Evidence Upload Form */}
           {!isFinalised && (
             <div style={{ border: "1px solid var(--line)", borderRadius: "12px", padding: "16px", background: "var(--panel)" }}>
@@ -758,7 +797,8 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
               return (
                 <article
                   key={item.id}
-                  className="review-item"
+                  className={selectedItemId === item.id ? "review-item selected" : "review-item"}
+                  onClick={() => setSelectedItemId(item.id)}
                   style={{
                     marginLeft: `${depth * 20}px`,
                     borderLeft: depth > 0 ? "2px solid var(--line)" : "none",
@@ -795,6 +835,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                         ⚠️ {item.reviewReason}
                       </div>
                     )}
+                    <RegionCrops item={item} selected={selectedItemId === item.id} onSelect={() => setSelectedItemId(item.id)} />
                   </div>
 
                   <div style={{ display: "flex", gap: "6px", alignItems: "center", flexShrink: 0 }}>

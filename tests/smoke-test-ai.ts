@@ -5,9 +5,15 @@ import { z } from "zod";
 
 const schema = z.object({
   items: z.array(z.object({
-    label: z.string(),
+    label: z.string().min(1),
     quantity: z.number().int().positive().nullable(),
     evidenceId: z.literal("smoke-evidence"),
+    regions: z.array(z.object({
+      x: z.number().min(0).max(1),
+      y: z.number().min(0).max(1),
+      width: z.number().positive().max(1),
+      height: z.number().positive().max(1),
+    })).min(1),
   })).min(1),
 });
 
@@ -20,12 +26,15 @@ async function runSmokeTest() {
     messages: [{
       role: "user",
       content: [
-        { type: "text", text: "Catalog at least one clearly visible property item. Use evidenceId smoke-evidence and do not guess an unreadable quantity." },
+        { type: "text", text: "Catalog at least one clearly visible property item. Use evidenceId smoke-evidence. Return one tight normalized x/y/width/height bounding box per visible instance; coordinates are fractions of the full image. Do not guess an unreadable quantity." },
         { type: "file", mediaType: "image/webp", data: image },
       ],
     }],
   });
   if (!result.object.items.length) throw new Error("OpenAI returned no schema-valid items");
+  if (result.object.items.some((item) => item.quantity != null && item.regions.length !== item.quantity)) {
+    throw new Error("OpenAI region count did not match a visible item quantity");
+  }
   console.log(`OpenAI vision smoke test passed (${result.object.items.length} items).`);
 }
 

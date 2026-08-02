@@ -2,7 +2,7 @@
 
 Staff-confirmed, photo-linked item logging for found-property teams.
 
-FoundFlow helps airport and transit staff document complex found-property cases. Its guided workflow captures outer containers and each nesting level (e.g. Backpack → Pouch → Currency), drafts a structured item list with OCR attributes and exact denomination × quantity totals for notes and coins, highlights uncertainty for staff review, and requires confirmation before completion and export.
+FoundFlow helps airport and transit staff document complex found-property cases. Its guided workflow captures outer containers and each nesting level (e.g. Backpack → Pouch → Currency), drafts a structured item list with OCR attributes, per-instance photo bounding boxes and exact denomination × quantity totals for notes and coins, highlights uncertainty for side-by-side staff review, and requires confirmation before completion and export.
 
 *Note: This application is a functional hosted prototype for controlled demonstrations; production roll-out would require organisational access controls and operational review.*
 

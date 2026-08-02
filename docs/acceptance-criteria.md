@@ -15,6 +15,9 @@ FoundFlow's challenge MVP is accepted only when all criteria below pass using st
 
 - [x] Production analysis sends actual uploaded image bytes to the AI SDK v6 OpenAI provider and returns schema-validated nested records.
 - [x] OCR text, visible attributes, confidence, review reason, parent relationship, quantity, and photo ID are retained.
+- [x] AI returns one normalised photo region per visible instance; invalid or out-of-image coordinates are rejected and count mismatches require review.
+- [x] Currency fields force the canonical currency item type even when the model returns an inconsistent type label.
+- [x] The model is instructed not to duplicate the already-recorded outer property.
 - [x] Invalid photo IDs, invalid parents, duplicate temporary IDs, cycles, and sensitive categories are rejected, normalised, or forced into review without being silently trusted.
 - [x] Cash, currency, identity documents, valuables, and serial identifiers cannot be finalised without staff confirmation.
 - [x] Money, identification documents, and perishable items require two explicit staff checks before confirmation.
@@ -25,13 +28,15 @@ FoundFlow's challenge MVP is accepted only when all criteria below pass using st
 ## Corrections, persistence, and history
 
 - [x] Staff can add, edit, confirm, and delete nested records.
+- [x] Staff can select a record or box, compare cropped instances with the source photo, draw or remove boxes, and reassign boxes between records linked to the same photo.
+- [x] Confirmed records with photo regions require one region per visible instance.
 - [x] Browser speech recognition fills a transcript; staff must review it and select **Apply** before a correction changes the item list.
 - [x] A deterministic text-command fallback exercises the same correction path when Web Speech API is unavailable.
 - [x] Cases, private photos, source links, and append-only activity events survive serverless function restarts through Turso and Vercel Blob.
 - [x] State mutations and their corresponding audit records commit atomically.
 - [x] Completion remains disabled until a photo exists and every review item is resolved.
 - [x] Completed cases are locked against further mutation.
-- [x] Confirmed item lists export as JSON and CSV; CSV cells resist spreadsheet-formula injection.
+- [x] Confirmed item lists export photo regions in JSON and CSV; CSV cells resist spreadsheet-formula injection.
 
 ## Collection and handover
 

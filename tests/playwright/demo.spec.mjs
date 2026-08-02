@@ -13,7 +13,10 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   await seedDemoCase();
 
   await page.goto("/");
-  await expect(page.getByRole("link", { name: /Start Staff Intake/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Found property" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Open Cases/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Search Items/ })).toBeVisible();
+  await expect(page.getByText(/Photograph\. Scan\. Verify\./)).toHaveCount(0);
   await expect(page.getByText(/Kiosk Mode/)).toHaveCount(0);
 
   await page.goto("/kiosk");
@@ -27,6 +30,8 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   await page.getByRole("button", { name: "Sign in to FoundFlow" }).click();
   await expect(page).toHaveURL(/\/cases$/);
 
+  await expect(page.getByRole("heading", { name: "Cases" })).toBeVisible();
+  await expect(page.getByText("Step-by-Step Intake Process", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Load Demo|Reset Demo/ })).toHaveCount(0);
   await page.locator('a[href="/cases/CT3A-20260721-DEMO"]').first().click();
   await expect(page).toHaveURL(/\/cases\/CT3A-20260721-DEMO$/);

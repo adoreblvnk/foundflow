@@ -28,17 +28,6 @@ export default function AppHeader() {
 
         <nav style={{ display: "flex", alignItems: "center", gap: "16px" }}>
           <Link
-            href="/about"
-            style={{
-              fontSize: "0.82rem",
-              fontWeight: 600,
-              color: pathname === "/about" ? "var(--green)" : "var(--muted)",
-            }}
-          >
-            About
-          </Link>
-
-          <Link
             href="/search"
             style={{
               fontSize: "0.82rem",
@@ -51,10 +40,21 @@ export default function AppHeader() {
 
           <Link
             href="/cases"
+            style={{
+              fontSize: "0.82rem",
+              fontWeight: 600,
+              color: pathname.startsWith("/cases") ? "var(--green)" : "var(--muted)",
+            }}
+          >
+            Cases
+          </Link>
+
+          <Link
+            href="/cases/new"
             className="button"
             style={{ minHeight: "36px", paddingInline: "14px", fontSize: "0.8rem" }}
           >
-            Staff Intake
+            + New Case
           </Link>
         </nav>
       </div>

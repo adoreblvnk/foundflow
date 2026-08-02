@@ -3,39 +3,6 @@ import { getCases } from "@/lib/db";
 import { isAuthenticated } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
-const processSteps = [
-  {
-    number: "01",
-    title: "Create Case",
-    description: "Register a new found-property item with location and description.",
-    icon: "📋",
-  },
-  {
-    number: "02",
-    title: "Add Photos",
-    description: "Photograph the outer container and each nesting level inside.",
-    icon: "📷",
-  },
-  {
-    number: "03",
-    title: "Scan Photos",
-    description: "AI vision reads your photos and drafts a nested item list.",
-    icon: "🔍",
-  },
-  {
-    number: "04",
-    title: "Review & Verify",
-    description: "Confirm each item, resolve flagged uncertainties, and link it to a source photo.",
-    icon: "✅",
-  },
-  {
-    number: "05",
-    title: "Confirm & Complete",
-    description: "Complete the reviewed item list and continue to ownership verification.",
-    icon: "✅",
-  },
-];
-
 export default async function CasesPage() {
   if (!(await isAuthenticated())) redirect("/login");
   const cases = await getCases();
@@ -46,7 +13,7 @@ export default async function CasesPage() {
         <div>
           <Link className="brand" href="/">FoundFlow</Link>
           <p className="muted" style={{ margin: "4px 0 0", fontSize: "0.82rem" }}>
-            Intake Copilot · Found-Property Processing
+            Staff Operations
           </p>
         </div>
         <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
@@ -56,52 +23,9 @@ export default async function CasesPage() {
         </div>
       </header>
 
-      {/* Process Steps */}
-      <section className="shell" style={{ paddingBlock: "40px" }}>
-        <p className="eyebrow" style={{ marginBottom: "8px" }}>How It Works</p>
-        <h1 style={{ fontSize: "2rem", letterSpacing: "-0.03em", margin: "0 0 32px" }}>
-          Step-by-Step Intake Process
-        </h1>
-
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-          gap: "16px",
-          marginBottom: "48px",
-        }}>
-          {processSteps.map((step) => (
-            <div
-              key={step.number}
-              style={{
-                background: "var(--panel)",
-                border: "1px solid var(--line)",
-                borderRadius: "12px",
-                padding: "20px",
-                textAlign: "center",
-                position: "relative",
-              }}
-            >
-              <div style={{ fontSize: "2rem", marginBottom: "8px" }}>{step.icon}</div>
-              <div style={{
-                fontSize: "0.7rem",
-                fontWeight: 700,
-                color: "var(--green)",
-                letterSpacing: "0.05em",
-                marginBottom: "4px",
-              }}>
-                STEP {step.number}
-              </div>
-              <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: "0 0 6px" }}>{step.title}</h3>
-              <p className="muted" style={{ fontSize: "0.78rem", margin: 0, lineHeight: 1.4 }}>
-                {step.description}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        {/* Cases List */}
+      <section className="shell" style={{ paddingBlock: "32px 40px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "20px" }}>
-          <h2 style={{ fontSize: "1.4rem", fontWeight: 700, margin: 0 }}>Active Cases</h2>
+          <h1 style={{ fontSize: "1.6rem", fontWeight: 700, margin: 0 }}>Cases</h1>
           <span className="muted" style={{ fontSize: "0.85rem" }}>{cases.length} case{cases.length !== 1 ? "s" : ""}</span>
         </div>
 

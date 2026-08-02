@@ -83,7 +83,11 @@ h2 { margin-bottom: 34px; font-size: clamp(2rem, 4vw, 3.5rem); line-height: 1; l
 .finalise-copy { min-width: 0; display: grid; gap: 4px; }
 .finalise-actions > .button { flex: none; }
 .modal-backdrop { box-sizing: border-box; padding: 20px; overflow-y: auto; }
-.modal-panel { box-sizing: border-box; max-height: calc(100dvh - 40px); overflow-y: auto; }
+.modal-panel { box-sizing: border-box; width: min(480px, calc(100vw - 40px)) !important; max-width: none !important; max-height: calc(100dvh - 40px); overflow-x: hidden; overflow-y: auto; }
+.modal-panel form, .modal-panel form > div, .modal-panel fieldset { min-width: 0; }
+.modal-panel fieldset { margin-inline: 0; }
+.modal-panel input:not([type="checkbox"]), .modal-panel select, .modal-panel textarea { display: block; width: 100%; min-width: 0; padding-inline: 12px !important; }
+.modal-panel input[type="checkbox"] { flex: 0 0 auto; }
 
 .claim-shell { width: min(1160px, calc(100% - 40px)); margin: 32px auto 64px; display: grid; grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1.28fr); gap: 24px; align-items: start; }
 .claim-summary, .claim-panel { border: 1px solid var(--line); border-radius: 16px; background: var(--panel); padding: 28px; }
@@ -167,6 +171,8 @@ h2 { margin-bottom: 34px; font-size: clamp(2rem, 4vw, 3.5rem); line-height: 1; l
 }
 
 @media (max-width: 540px) {
+  .modal-backdrop { padding: 12px; }
+  .modal-panel { width: calc(100vw - 24px) !important; padding: 20px !important; }
   .shell { width: min(100% - 24px, 1160px); }
   .nav { min-height: 68px; }
   .nav .button { min-height: 40px; padding-inline: 12px; font-size: 0.82rem; }

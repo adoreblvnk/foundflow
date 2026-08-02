@@ -100,6 +100,17 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   const box = await dialog.boundingBox();
   expect(box?.y).toBeGreaterThanOrEqual(0);
   expect((box?.y ?? 0) + (box?.height ?? 501)).toBeLessThanOrEqual(500);
+  const modalMetrics = await dialog.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+    paddingLeft: parseFloat(getComputedStyle(element).paddingLeft),
+  }));
+  expect(modalMetrics.scrollWidth).toBeLessThanOrEqual(modalMetrics.clientWidth);
+  expect(modalMetrics.paddingLeft).toBeGreaterThanOrEqual(20);
+  const itemLabelPadding = await dialog.getByLabel("Item Label").evaluate((element) => parseFloat(getComputedStyle(element).paddingLeft));
+  expect(itemLabelPadding).toBeGreaterThanOrEqual(12);
+  const itemLabelBox = await dialog.getByLabel("Item Label").boundingBox();
+  expect(itemLabelBox?.x).toBeGreaterThanOrEqual((box?.x ?? 0) + modalMetrics.paddingLeft - 1);
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   await page.setViewportSize({ width: 1280, height: 720 });

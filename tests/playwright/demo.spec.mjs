@@ -18,12 +18,12 @@ test("evidence-backed demo completes the custody workflow", async ({ page }) => 
 
   await page.getByRole("button", { name: "Load Demo Case" }).click();
   await page.getByRole("link", { name: "Open Case File →" }).click();
-  await expect(page).toHaveURL(/\/cases\/FF-0241$/);
+  await expect(page).toHaveURL(/\/cases\/CT3A-20260721-DEMO$/);
   await expect(page.getByText("Evidence Gallery (1)", { exact: true })).toBeVisible();
   await expect(page.getByText("11 records", { exact: true })).toBeVisible();
   await expect(page.getByText("SGD 104.00", { exact: true })).toBeVisible();
   await expect(page.getByText("MYR 50.40", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Confirm Entry" })).toHaveCount(5);
+  await expect(page.getByRole("button", { name: "Confirm" })).toHaveCount(5);
 
   const evidence = page.locator('img[alt="staged-found-property.webp"]');
   await expect(evidence).toBeVisible();
@@ -49,22 +49,22 @@ test("evidence-backed demo completes the custody workflow", async ({ page }) => 
   await currencyDialog.getByRole("button", { name: "Cancel" }).click();
   await expect(currencyDialog).toBeHidden();
 
-  while (await page.getByRole("button", { name: "Confirm Entry" }).count()) {
-    await page.getByRole("button", { name: "Confirm Entry" }).first().click();
+  while (await page.getByRole("button", { name: "Confirm" }).count()) {
+    await page.getByRole("button", { name: "Confirm" }).first().click();
     await expect(page.getByText(/Item confirmed/)).toBeVisible();
   }
 
   await page.getByRole("button", { name: "Edit Singapore 1-dollar specimen coins" }).click();
   await page.getByRole("dialog", { name: "Edit Manifest Record" }).getByLabel("Quantity").fill("4");
   await page.getByRole("dialog", { name: "Edit Manifest Record" }).getByRole("button", { name: "Save Changes" }).click();
-  await expect(page.getByRole("button", { name: "Confirm Entry" })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Confirm" })).toHaveCount(1);
   await expect(page.getByText("SGD 105.00", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Edit Singapore 1-dollar specimen coins" }).click();
   await page.getByRole("dialog", { name: "Edit Manifest Record" }).getByLabel("Quantity").fill("3");
   await page.getByRole("dialog", { name: "Edit Manifest Record" }).getByRole("button", { name: "Save Changes" }).click();
   await expect(page.getByText("SGD 104.00", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Confirm Entry" }).click();
+  await page.getByRole("button", { name: "Confirm" }).click();
 
   const finalise = page.getByRole("button", { name: "Approve and Finalise" });
   await expect(finalise).toBeEnabled();
@@ -73,8 +73,8 @@ test("evidence-backed demo completes the custody workflow", async ({ page }) => 
 
   const exports = await page.evaluate(async () => {
     const [jsonResponse, csvResponse] = await Promise.all([
-      fetch("/api/cases/FF-0241/export/json", { cache: "no-store" }),
-      fetch("/api/cases/FF-0241/export/csv", { cache: "no-store" }),
+      fetch("/api/cases/CT3A-20260721-DEMO/export/json", { cache: "no-store" }),
+      fetch("/api/cases/CT3A-20260721-DEMO/export/csv", { cache: "no-store" }),
     ]);
     return {
       jsonStatus: jsonResponse.status,

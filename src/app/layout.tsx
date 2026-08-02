@@ -6,7 +6,7 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "FoundFlow — AI Found-Property Intake",
+  title: "FoundFlow - AI Found-Property Intake",
   description: "Human-verified, evidence-linked inventory logging for found-property teams.",
 };
 

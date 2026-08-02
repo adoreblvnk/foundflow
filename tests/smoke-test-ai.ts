@@ -1,4 +1,4 @@
-import { codexExec } from "ai-sdk-provider-codex-cli";
+import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 import fs from "fs";
 import { generateObject } from "ai";
@@ -34,15 +34,9 @@ async function runSmokeTest() {
   });
 
   try {
-    // 3. Invoke Codex CLI provider
-    const model = codexExec("gpt-5.5", {
-      allowNpx: false,
-      skipGitRepoCheck: true,
-      sandboxMode: "read-only",
-      approvalMode: "never",
-      cwd: process.cwd()
-    });
-    console.log("Invoking Codex CLI model (gpt-5.5)...");
+    // 3. Invoke OpenAI provider
+    const model = openai("gpt-5.5");
+    console.log("Invoking OpenAI model (gpt-5.5)...");
 
     const result = await generateObject({
       model,

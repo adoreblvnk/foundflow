@@ -333,13 +333,31 @@ export function getCaseById(id: string): Case | undefined {
   };
 }
 
-export function generateCaseId(): string {
-  return crypto.randomUUID();
+export function generateCaseId(location?: string): string {
+  const now = new Date();
+  const datePart = now.toISOString().slice(0, 10).replace(/-/g, ""); // 20260802
+
+  // Extract short location tag: use first word or abbreviation, uppercase, max 6 chars
+  let locTag = "LOC";
+  if (location) {
+    const cleaned = location.trim().replace(/[^a-zA-Z0-9\s]/g, "");
+    const words = cleaned.split(/\s+/).filter(Boolean);
+    if (words.length >= 2) {
+      // Use initials of first two words: "Terminal 3" → "T3", "Gate B12" → "GB12"
+      locTag = (words[0][0] + words[1]).toUpperCase().slice(0, 5);
+    } else if (words.length === 1) {
+      locTag = words[0].toUpperCase().slice(0, 5);
+    }
+  }
+
+  // Add random 4-char suffix for uniqueness
+  const suffix = crypto.randomUUID().slice(0, 4).toUpperCase();
+  return `${locTag}-${datePart}-${suffix}`;
 }
 
 export function createCase(caseData: Partial<Case> & { location: string; foundTime: string; outerItemDescription: string }): Case {
   const db = getDbInstance();
-  const id = generateCaseId();
+  const id = generateCaseId(caseData.location);
   const isDemo = caseData.isDemo ? 1 : 0;
   const location = caseData.location;
   const foundTime = caseData.foundTime;
@@ -491,10 +509,10 @@ export function addAuditLog(id: string, userId: string, action: string, details:
 // Explicitly controlled seeding for the deterministic demo case.
 export function seedDemoCase(): Case {
   const db = getDbInstance();
-  const id = "FF-0241";
+  const id = "CT3A-20260721-DEMO";
   const createdAt = "2026-07-21T09:30:00.000Z";
   const evidenceId = "demo-evidence-1";
-  const evidenceFilename = "ff-0241-staged-evidence.webp";
+  const evidenceFilename = "demo-staged-evidence.webp";
   const sourcePath = path.join(process.cwd(), "public", "demo", "found-property-evidence.webp");
   const uploadsDir = path.join(process.env.DATA_DIR || "./data", "uploads");
   const destinationPath = path.join(uploadsDir, evidenceFilename);

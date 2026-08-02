@@ -6,17 +6,13 @@ const SESSION_COOKIE_NAME = "foundflow_session";
 export { signSession, verifySession, timingSafeCompare };
 
 export async function isAuthenticated(): Promise<boolean> {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME);
-  if (!sessionCookie?.value) return false;
-  return verifySession(sessionCookie.value) !== null;
+  // Auth bypassed for demo/hackathon mode
+  return true;
 }
 
 export async function getCurrentUser(): Promise<{ username: string } | null> {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME);
-  if (!sessionCookie?.value) return null;
-  return verifySession(sessionCookie.value);
+  // Auth bypassed for demo/hackathon mode
+  return { username: "officer" };
 }
 
 export async function login(password: string, username: string): Promise<boolean> {

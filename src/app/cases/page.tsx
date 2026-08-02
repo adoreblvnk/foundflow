@@ -1,17 +1,41 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { isAuthenticated, getCurrentUser } from "@/lib/auth";
 import { getCases } from "@/lib/db";
-import { handleLogout } from "@/app/login/actions";
 import { handleSeedDemo } from "@/app/cases/actions";
 
-export default async function CasesPage() {
-  const authed = await isAuthenticated();
-  if (!authed) {
-    redirect("/login");
-  }
+const processSteps = [
+  {
+    number: "01",
+    title: "Create Case",
+    description: "Register a new found-property item with location and description.",
+    icon: "📋",
+  },
+  {
+    number: "02",
+    title: "Upload Evidence",
+    description: "Photograph the outer container and each nesting level inside.",
+    icon: "📷",
+  },
+  {
+    number: "03",
+    title: "Scan Evidence",
+    description: "AI vision reads your photos and drafts a nested inventory manifest.",
+    icon: "🔍",
+  },
+  {
+    number: "04",
+    title: "Review & Verify",
+    description: "Confirm each item, resolve flagged uncertainties, and link to evidence.",
+    icon: "✅",
+  },
+  {
+    number: "05",
+    title: "Finalise & Export",
+    description: "Lock the approved manifest and export as JSON or CSV.",
+    icon: "📤",
+  },
+];
 
-  const currentUser = await getCurrentUser();
+export default async function CasesPage() {
   const cases = getCases();
 
   return (
@@ -20,128 +44,180 @@ export default async function CasesPage() {
         <div>
           <Link className="brand" href="/">FoundFlow</Link>
           <p className="muted" style={{ margin: "4px 0 0", fontSize: "0.82rem" }}>
-            Officer Portal · Active Session: <strong>{currentUser?.username}</strong>
+            Intake Copilot · Found-Property Processing
           </p>
         </div>
-        <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+        <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
           <form action={handleSeedDemo}>
             <button className="button button-secondary" type="submit" style={{ minHeight: "40px" }}>
-              {cases.some((caseFile) => caseFile.isDemo) ? "Reset Demo Case" : "Load Demo Case"}
+              {cases.some((c) => c.isDemo) ? "Reset Demo" : "Load Demo"}
             </button>
           </form>
           <Link className="button" href="/cases/new" style={{ minHeight: "40px" }}>
-            + Create New Case
+            + New Case
           </Link>
-          <form action={handleLogout}>
-            <button className="button button-secondary" type="submit" style={{ minHeight: "40px" }}>
-              Sign Out
-            </button>
-          </form>
         </div>
       </header>
 
-      <section className="shell" style={{ flex: 1, paddingBlock: "40px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "28px" }}>
-          <div>
-            <p className="eyebrow">Case Management</p>
-            <h1 style={{ fontSize: "2.5rem", letterSpacing: "-0.04em", margin: 0 }}>Active Handover Cases</h1>
-          </div>
-          <span className="muted" style={{ fontSize: "0.95rem" }}>{cases.length} cases found</span>
+      {/* Process Steps */}
+      <section className="shell" style={{ paddingBlock: "40px" }}>
+        <p className="eyebrow" style={{ marginBottom: "8px" }}>How It Works</p>
+        <h1 style={{ fontSize: "2rem", letterSpacing: "-0.03em", margin: "0 0 32px" }}>
+          Step-by-Step Intake Process
+        </h1>
+
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: "16px",
+          marginBottom: "48px",
+        }}>
+          {processSteps.map((step) => (
+            <div
+              key={step.number}
+              style={{
+                background: "var(--panel)",
+                border: "1px solid var(--line)",
+                borderRadius: "12px",
+                padding: "20px",
+                textAlign: "center",
+                position: "relative",
+              }}
+            >
+              <div style={{ fontSize: "2rem", marginBottom: "8px" }}>{step.icon}</div>
+              <div style={{
+                fontSize: "0.7rem",
+                fontWeight: 700,
+                color: "var(--green)",
+                letterSpacing: "0.05em",
+                marginBottom: "4px",
+              }}>
+                STEP {step.number}
+              </div>
+              <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: "0 0 6px" }}>{step.title}</h3>
+              <p className="muted" style={{ fontSize: "0.78rem", margin: 0, lineHeight: 1.4 }}>
+                {step.description}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* Cases List */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "20px" }}>
+          <h2 style={{ fontSize: "1.4rem", fontWeight: 700, margin: 0 }}>Active Cases</h2>
+          <span className="muted" style={{ fontSize: "0.85rem" }}>{cases.length} case{cases.length !== 1 ? "s" : ""}</span>
         </div>
 
         {cases.length === 0 ? (
           <div style={{
             border: "1px dashed var(--line)",
-            borderRadius: "16px",
-            padding: "48px",
+            borderRadius: "12px",
+            padding: "40px",
             textAlign: "center",
             background: "var(--panel)",
-            maxWidth: "600px",
-            margin: "40px auto"
           }}>
-            <h2 style={{ fontSize: "1.5rem", fontWeight: 700, marginBottom: "12px" }}>No Cases Found</h2>
-            <p className="muted" style={{ fontSize: "0.95rem", marginBottom: "24px", lineHeight: 1.5 }}>
-              Create a new custody case, or use <strong>Load Demo Case</strong> in the toolbar for the complete staged backpack workflow.
+            <p style={{ fontSize: "1.1rem", fontWeight: 600, margin: "0 0 8px" }}>No cases yet</p>
+            <p className="muted" style={{ fontSize: "0.9rem", margin: "0 0 20px" }}>
+              Create a new case or load the demo to see the full workflow.
             </p>
-            <Link href="/cases/new" className="button">
-              + Create New Case
-            </Link>
+            <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
+              <Link href="/cases/new" className="button">+ New Case</Link>
+            </div>
           </div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "24px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "16px" }}>
             {cases.map((c) => {
               const unresolvedCount = c.manifest.filter(i => i.status === "review").length;
+              const totalItems = c.manifest.length;
+              const confirmedItems = c.manifest.filter(i => i.status === "confirmed").length;
+
+              // Determine current step
+              let currentStep = "Create";
+              if (c.status === "finalised") {
+                currentStep = "Complete";
+              } else if (totalItems > 0 && unresolvedCount === 0) {
+                currentStep = "Ready to Finalise";
+              } else if (totalItems > 0) {
+                currentStep = "Review";
+              } else if (c.uploads.length > 0) {
+                currentStep = "Scan";
+              } else {
+                currentStep = "Upload";
+              }
 
               return (
-                <article
+                <Link
+                  href={`/cases/${c.id}`}
                   key={c.id}
                   style={{
                     border: "1px solid var(--line)",
-                    borderRadius: "16px",
+                    borderRadius: "12px",
                     background: "var(--panel)",
-                    padding: "24px",
+                    padding: "20px",
                     display: "flex",
                     flexDirection: "column",
-                    justifyContent: "space-between",
-                    transition: "box-shadow 0.2s",
-                    boxShadow: "0 4px 12px rgba(22, 49, 37, 0.02)",
+                    gap: "12px",
+                    textDecoration: "none",
+                    color: "inherit",
+                    transition: "box-shadow 0.15s, border-color 0.15s",
                   }}
                 >
-                  <div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <strong style={{ fontSize: "1.15rem" }}>{c.id}</strong>
-                        {c.isDemo && (
-                          <span style={{ background: "#edf1ea", color: "var(--muted)", padding: "2px 8px", borderRadius: "4px", fontSize: "0.68rem", fontWeight: 700 }}>
-                            DEMO SAMPLE
-                          </span>
-                        )}
-                      </div>
-                      <span className={c.status === "finalised" ? "status status-complete" : "status"}>
-                        {c.status === "finalised" ? "Finalised" : "Draft Intake"}
-                      </span>
-                    </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <strong style={{ fontSize: "0.85rem" }}>{c.id}</strong>
+                    <span className={c.status === "finalised" ? "status status-complete" : "status"}
+                      style={{ fontSize: "0.72rem" }}>
+                      {currentStep}
+                    </span>
+                  </div>
 
-                    <h3 style={{ fontSize: "1.3rem", fontWeight: 700, margin: "0 0 10px" }}>
-                      {c.outerItemDescription}
-                    </h3>
+                  <h3 style={{ fontSize: "1.1rem", fontWeight: 700, margin: 0 }}>
+                    {c.outerItemDescription}
+                  </h3>
 
-                    <p style={{ fontSize: "0.88rem", color: "var(--muted)", margin: "0 0 16px" }}>
-                      📍 {c.location}<br />
-                      📅 {new Date(c.foundTime).toLocaleString("en-SG", { timeZone: "Asia/Singapore" })}
-                    </p>
+                  <div className="muted" style={{ fontSize: "0.8rem" }}>
+                    📍 {c.location}
+                  </div>
 
+                  <div style={{
+                    display: "flex",
+                    gap: "12px",
+                    fontSize: "0.75rem",
+                    color: "var(--muted)",
+                  }}>
+                    <span>📷 {c.uploads.length}</span>
+                    <span>📦 {totalItems}</span>
+                    <span>✅ {confirmedItems}/{totalItems}</span>
+                    {unresolvedCount > 0 && (
+                      <span style={{ color: "var(--amber)", fontWeight: 600 }}>⚠️ {unresolvedCount}</span>
+                    )}
+                  </div>
+
+                  {/* Progress bar */}
+                  {totalItems > 0 && (
                     <div style={{
-                      display: "flex",
-                      gap: "10px",
-                      background: "var(--paper)",
-                      padding: "10px 14px",
-                      borderRadius: "8px",
-                      fontSize: "0.8rem",
-                      marginBottom: "20px"
+                      height: "4px",
+                      background: "var(--line)",
+                      borderRadius: "2px",
+                      overflow: "hidden",
                     }}>
-                      <div>📁 <strong>{c.uploads.length}</strong> Evidence files</div>
-                      <div>📦 <strong>{c.manifest.length}</strong> Manifest items</div>
-                      {unresolvedCount > 0 && (
-                        <div style={{ color: "var(--amber)", fontWeight: "bold" }}>⚠️ <strong>{unresolvedCount}</strong> Review</div>
-                      )}
+                      <div style={{
+                        height: "100%",
+                        width: `${Math.round((confirmedItems / totalItems) * 100)}%`,
+                        background: c.status === "finalised" ? "var(--green)" : "var(--green)",
+                        borderRadius: "2px",
+                        transition: "width 0.3s",
+                      }} />
                     </div>
-                  </div>
-
-                  <div style={{ display: "flex", gap: "10px" }}>
-                    <Link href={`/cases/${c.id}`} className="button full-width" style={{ minHeight: "40px", fontSize: "0.9rem" }}>
-                      Open Case File →
-                    </Link>
-                  </div>
-                </article>
+                  )}
+                </Link>
               );
             })}
           </div>
         )}
       </section>
 
-      <footer className="shell footer" style={{ borderTop: "1px solid var(--line)", paddingBlock: "24px" }}>
-        <span>FoundFlow Copilot Operational Dashboard</span>
+      <footer className="shell footer" style={{ borderTop: "1px solid var(--line)", paddingBlock: "20px", marginTop: "auto" }}>
+        <span>FoundFlow Intake Copilot</span>
         <span>AI drafts. Staff decide.</span>
       </footer>
     </main>

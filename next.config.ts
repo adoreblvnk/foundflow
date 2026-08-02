@@ -7,6 +7,8 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "6mb",
     },
   },
+  // Required for node:sqlite on Vercel (Node.js runtime, not Edge)
+  serverExternalPackages: ["node:sqlite"],
 };
 
 export default nextConfig;

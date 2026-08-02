@@ -17,7 +17,7 @@ FoundFlow is a secure, single-server prototype designed to help frontline airpor
 - **Case Intake Workspace (`/cases/[id]`)**: Unified hub to:
   - Upload photographic evidence (validated using JPG/PNG/WebP magic-number signatures).
   - Trigger live AI vision analysis (using AI SDK v6).
-  - Apply spoken correction observations (Web Speech API) or text-command fallbacks.
+  - Apply quick text commands to manage manifest items.
   - Interactively edit manifest items, manage parent nesting, and assign evidence links.
   - Lock and finalise approved custody cases (blocking unresolved items or invalid structures).
 - **Secure Private Uploads (`/api/uploads/[id]`)**: Authenticated endpoint that serves evidence files securely.
@@ -31,7 +31,7 @@ FoundFlow requires zero third-party cloud database accounts or external OAuth cr
 
 ### Prerequisites
 - **Node.js v24.11.1+ Required**: Built-in synchronous SQLite is powered by the native `node:sqlite` module, requiring Node 24.
-- **Codex CLI**: Required to invoke the configured vision model from the local server; inference may use the hosted Codex service.
+- **OpenAI API Key**: Required to invoke the vision model for AI analysis.
 
 ### 1. Initialize Configuration
 Copy the environment variables template:
@@ -51,6 +51,9 @@ LOGIN_USERNAME=
 # Required password for prototype login (minimum 8 characters)
 LOGIN_PASSWORD=
 
+# OpenAI API Key - required for AI vision analysis
+OPENAI_API_KEY=
+
 # Directory path for local SQLite database and uploads
 DATA_DIR=./data
 ```
@@ -60,7 +63,7 @@ DATA_DIR=./data
 ## 📦 Script Commands & Verification
 
 ### Install Dependencies
-FoundFlow uses **AI SDK v6** and the compatible **1.x** Codex CLI provider:
+FoundFlow uses **AI SDK v6** and the **@ai-sdk/openai** provider:
 ```bash
 npm ci
 ```
@@ -88,7 +91,7 @@ npm run test
 ```
 
 ### Run AI Vision Smoke Test
-Verifies Codex CLI connectivity and structured multimodal responses using harmless staged image data:
+Verifies OpenAI API connectivity and structured multimodal responses using harmless staged image data:
 ```bash
 npm run test:ai
 ```
@@ -117,14 +120,11 @@ npm run build
 
 ---
 
-## 🤖 Codex CLI Vision Setup
-FoundFlow invokes `ai-sdk-provider-codex-cli` from the local Node.js server and authenticates through the existing `codex login` ChatGPT session, so no OpenAI API key is required. Application data and evidence storage stay local, but model inference uses the configured hosted Codex service; review its data-handling terms before processing real records.
+## 🤖 OpenAI Vision Setup
+FoundFlow uses the `@ai-sdk/openai` provider with AI SDK v6 to call OpenAI's vision models directly via API. An `OPENAI_API_KEY` is required.
 
-1. Run `npm ci`; the provider installs its compatible Codex CLI `0.144.x` optional dependency.
-2. Authenticate your ChatGPT subscription:
-   ```bash
-   codex login
-   ```
+1. Run `npm ci` to install all dependencies.
+2. Set your `OPENAI_API_KEY` in `.env`.
 3. Verify provider connectivity:
    ```bash
    npm run test:ai
@@ -145,4 +145,3 @@ FoundFlow invokes `ai-sdk-provider-codex-cli` from the local Node.js server and 
 ## ⚠️ Deployment Limits & Constraints
 
 - **Single-Server / Local Storage Only**: File uploads and database are stored inside the local `DATA_DIR` directory. Scale-out multi-server deployments require distributed file storage and a shared DB, which is out-of-scope.
-- **Speech API Support**: Spoken correction uses the HTML5 Web Speech API, which requires browser-side microphone permissions (best supported in Google Chrome, Edge, and Safari).

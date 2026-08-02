@@ -15,38 +15,7 @@ import {
   handleFinaliseCase
 } from "../actions";
 
-interface CustomSpeechErrorEvent {
-  error: string;
-}
 
-interface CustomSpeechEvent {
-  results: {
-    [index: number]: {
-      [index: number]: {
-        transcript: string;
-      };
-    };
-  };
-}
-
-interface CustomSpeechRecognition {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  onstart: () => void;
-  onerror: (event: CustomSpeechErrorEvent) => void;
-  onend: () => void;
-  onresult: (event: CustomSpeechEvent) => void;
-  start: () => void;
-  stop: () => void;
-}
-
-declare global {
-  interface Window {
-    webkitSpeechRecognition: new () => CustomSpeechRecognition;
-    SpeechRecognition: new () => CustomSpeechRecognition;
-  }
-}
 
 interface CaseDetailClientProps {
   initialCase: Case;
@@ -55,7 +24,7 @@ interface CaseDetailClientProps {
 
 function displayCurrencyTotal(item: Pick<ManifestItem, "itemType" | "denomination" | "quantity" | "quantityKnown">): string {
   const denomination = normalizeDecimal(item.denomination);
-  if (item.itemType !== "currency" || !denomination || item.quantityKnown === false) return "—";
+  if (item.itemType !== "currency" || !denomination || item.quantityKnown === false) return "-";
   return formatDecimal(multiplyDecimal(denomination, item.quantity));
 }
 
@@ -81,12 +50,6 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
     currencyTotal: null,
   });
 
-  // Speech Recognition state
-  const [isListening, setIsListening] = useState(false);
-  const [speechCommand, setSpeechCommand] = useState("");
-  const [speechError, setSpeechError] = useState<string | null>(null);
-  const recognitionRef = useRef<CustomSpeechRecognition | null>(null);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const unresolved = caseFile.manifest.filter((item) => item.status === "review").length;
@@ -108,7 +71,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
   }, [caseFile.id]);
 
   // Deterministic Speech/Text Command Parser
-  const applyVoiceCorrection = useCallback(async (commandText: string) => {
+  const applyCommand = useCallback(async (commandText: string) => {
     if (isFinalised) return;
     const cmd = commandText.trim().toLowerCase();
 
@@ -142,15 +105,15 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
         status: "confirmed",
         confidence: 1.0,
         reviewReason: null,
-        evidenceId: "voice-command",
+        evidenceId: "staff-command",
       });
 
       if (result.success && result.manifest) {
         setCaseFile(prev => ({ ...prev, manifest: result.manifest! }));
-        setSuccessMsg(`Voice Action: Added "${label}" (Qty: ${quantity})`);
+        setSuccessMsg(`Added "${label}" (Qty: ${quantity})`);
         await refreshCase();
       } else {
-        setErrorMsg("Failed to apply voice action: Add item");
+        setErrorMsg("Failed to add item.");
       }
       return;
     }
@@ -169,13 +132,13 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
         const result = await handleDeleteItem(caseFile.id, matched.id);
         if (result.success && result.manifest) {
           setCaseFile(prev => ({ ...prev, manifest: result.manifest! }));
-          setSuccessMsg(`Voice Action: Deleted item "${matched.label}"`);
+          setSuccessMsg(`Deleted item "${matched.label}"`);
           await refreshCase();
         } else {
           setErrorMsg("Failed to delete matched item.");
         }
       } else {
-        setErrorMsg(`Voice Action: No item matched "${targetLabel}" to delete.`);
+        setErrorMsg(`No item matched "${targetLabel}" to delete.`);
       }
       return;
     }
@@ -189,13 +152,13 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
         const result = await handleConfirmItem(caseFile.id, matched.id);
         if (result.success && result.manifest) {
           setCaseFile(prev => ({ ...prev, manifest: result.manifest! }));
-          setSuccessMsg(`Voice Action: Confirmed "${matched.label}"`);
+          setSuccessMsg(`Confirmed "${matched.label}"`);
           await refreshCase();
         } else {
           setErrorMsg("Failed to confirm item.");
         }
       } else {
-        setErrorMsg(`Voice Action: No item matched "${targetLabel}" to confirm.`);
+        setErrorMsg(`No item matched "${targetLabel}" to confirm.`);
       }
       return;
     }
@@ -214,55 +177,19 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
         });
         if (result.success && result.manifest) {
           setCaseFile(prev => ({ ...prev, manifest: result.manifest! }));
-          setSuccessMsg(`Voice Action: Set quantity of "${matched.label}" to ${newQty}`);
+          setSuccessMsg(`Set quantity of "${matched.label}" to ${newQty}`);
           await refreshCase();
         } else {
           setErrorMsg("Failed to update item quantity.");
         }
       } else {
-        setErrorMsg(`Voice Action: No item matched "${targetLabel}" to update quantity.`);
+        setErrorMsg(`No item matched "${targetLabel}" to update quantity.`);
       }
       return;
     }
 
-    setErrorMsg(`Voice Command parsed: "${commandText}" but no deterministic action matched. Try: "add backpack", "confirm malaysian", "delete USB-C", or "set quantity of cardholder to 2"`);
+    setErrorMsg(`Command not recognized: "${commandText}". Try: "add backpack", "confirm malaysian", "delete USB-C", or "set quantity of cardholder to 2"`);
   }, [caseFile.id, caseFile.manifest, refreshCase, isFinalised]);
-
-  // Initialize Speech Recognition
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        const rec = new SpeechRecognition();
-        rec.continuous = false;
-        rec.interimResults = false;
-        rec.lang = "en-SG"; // Changi localized
-
-        rec.onstart = () => {
-          setIsListening(true);
-          setSpeechError(null);
-        };
-
-        rec.onerror = (event: CustomSpeechErrorEvent) => {
-          console.error("Speech error", event);
-          setSpeechError(`Speech recognition failed: ${event.error}`);
-          setIsListening(false);
-        };
-
-        rec.onend = () => {
-          setIsListening(false);
-        };
-
-        rec.onresult = (event: CustomSpeechEvent) => {
-          const resultText = event.results[0][0].transcript;
-          setSpeechCommand(resultText);
-          setSuccessMsg("Voice transcript captured. Review it, then select Apply before the manifest changes.");
-        };
-
-        recognitionRef.current = rec;
-      }
-    }
-  }, []);
 
   useEffect(() => {
     if (!editingItem && !isAddingItem) return;
@@ -280,23 +207,6 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
       window.removeEventListener("keydown", closeOnEscape);
     };
   }, [editingItem, isAddingItem]);
-
-  function startListening() {
-    if (isFinalised) return;
-    if (recognitionRef.current) {
-      setSpeechCommand("");
-      setSpeechError(null);
-      recognitionRef.current.start();
-    } else {
-      setSpeechError("Web Speech API is not supported in this browser.");
-    }
-  }
-
-  function stopListening() {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-    }
-  }
 
   // Handle image upload submission
   async function onUploadSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -338,7 +248,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
       if (result.error) {
         setErrorMsg(result.error);
       } else if (result.success) {
-        setSuccessMsg(`AI analysis complete. Nested manifest draft generated with ${result.manifest?.length} items!`);
+        setSuccessMsg(`Scan complete - ${result.manifest?.length} items detected. Review below.`);
         await refreshCase();
       }
     } catch (err: unknown) {
@@ -714,9 +624,9 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
               gap: "16px"
             }}>
               <div style={{ flex: 1 }}>
-                <strong style={{ fontSize: "0.88rem", display: "block" }}>Generate a Fresh Inventory Draft</strong>
+                <strong style={{ fontSize: "0.88rem", display: "block" }}>Scan Evidence Photos</strong>
                 <p className="muted" style={{ fontSize: "0.78rem", margin: "4px 0 0", lineHeight: 1.4 }}>
-                  Analyze every uploaded image for objects, visible text and nested container relationships.
+                  AI reads your uploaded images and drafts an inventory of items, text, and containers found.
                 </p>
               </div>
               <button
@@ -725,171 +635,142 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                 disabled={isAnalyzing || caseFile.uploads.length === 0}
                 style={{ minHeight: "40px", whiteSpace: "nowrap", background: "var(--green-dark)" }}
               >
-                {isAnalyzing ? "Analyzing Images..." : "Live AI Analysis"}
+                {isAnalyzing ? "Scanning..." : "🔍 Scan Evidence"}
               </button>
             </div>
           )}
 
-          {/* Spoken / Text Corrections Assistant */}
+          {/* Quick Command Prompt */}
           {!isFinalised && (
             <div style={{ border: "1px solid var(--line)", borderRadius: "12px", padding: "18px", background: "var(--paper)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <strong style={{ fontSize: "0.88rem", display: "block", color: "var(--green)" }}>🎙️ Spoken Observation Correction</strong>
-                <span className="muted" style={{ fontSize: "0.72rem" }}>Uses browser Speech API</span>
-              </div>
+              <strong style={{ fontSize: "0.88rem", display: "block", color: "var(--green)", marginBottom: "12px" }}>💬 Quick Command</strong>
 
-              <div style={{ display: "flex", gap: "10px", marginBlock: "12px" }}>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <input
+                  id="text-correction"
+                  type="text"
+                  placeholder="e.g. confirm Malaysian currency, add charging cable, delete USB-C..."
+                  style={{
+                    flex: 1,
+                    height: "40px",
+                    borderRadius: "6px",
+                    border: "1px solid var(--line)",
+                    paddingInline: "12px",
+                    fontSize: "0.84rem",
+                    background: "var(--panel)"
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const val = e.currentTarget.value;
+                      if (val) {
+                        void applyCommand(val);
+                        e.currentTarget.value = "";
+                      }
+                    }
+                  }}
+                />
                 <button
                   type="button"
                   className="button"
-                  onClick={isListening ? stopListening : startListening}
-                  style={{
-                    background: isListening ? "#c81e1e" : "var(--green)",
-                    border: isListening ? "1px solid #c81e1e" : "1px solid var(--green)",
-                    minHeight: "40px",
-                    flex: 1,
-                    fontSize: "0.85rem"
+                  style={{ minHeight: "40px", paddingInline: "16px", fontSize: "0.84rem" }}
+                  onClick={() => {
+                    const input = document.getElementById("text-correction") as HTMLInputElement;
+                    if (input && input.value) {
+                      void applyCommand(input.value);
+                      input.value = "";
+                    }
                   }}
                 >
-                  {isListening ? "🔴 Listening... Click to Stop" : "🎤 Click to Speak Correction"}
+                  Apply
                 </button>
               </div>
-
-              {speechError && (
-                <div style={{ color: "#c81e1e", fontSize: "0.78rem", marginBottom: "8px" }}>{speechError}</div>
-              )}
-
-              {speechCommand && (
-                <div style={{ fontSize: "0.8rem", color: "var(--muted)", marginBlock: "8px", background: "var(--panel)", padding: "8px", borderRadius: "6px" }}>
-                  Speech Heard: <strong style={{ color: "var(--ink)" }}>&quot;{speechCommand}&quot;</strong>
-                </div>
-              )}
-
-              {/* Text fallback input */}
-              <div style={{ display: "grid", gap: "4px" }}>
-                <label htmlFor="text-correction" style={{ fontSize: "0.75rem", fontWeight: 700 }}>Text-Command Fallback</label>
-                <div style={{ display: "flex", gap: "8px" }}>
-                  <input
-                    id="text-correction"
-                    type="text"
-                    placeholder="e.g. confirm Malaysian currency, add charging cable..."
-                    style={{
-                      flex: 1,
-                      height: "36px",
-                      borderRadius: "6px",
-                      border: "1px solid var(--line)",
-                      paddingInline: "12px",
-                      fontSize: "0.82rem",
-                      background: "var(--panel)"
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        const val = e.currentTarget.value;
-                        if (val) {
-                          void applyVoiceCorrection(val);
-                          e.currentTarget.value = "";
-                        }
-                      }
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="button"
-                    style={{ minHeight: "36px", paddingInline: "12px", fontSize: "0.8rem" }}
-                    onClick={() => {
-                      const input = document.getElementById("text-correction") as HTMLInputElement;
-                      if (input && input.value) {
-                        void applyVoiceCorrection(input.value);
-                        input.value = "";
-                      }
-                    }}
-                  >
-                    Apply
-                  </button>
-                </div>
-                <small className="muted" style={{ fontSize: "0.7rem", marginTop: "2px" }}>
-                  {"Supported verbs: add [item], delete [item], confirm [item], set quantity of [item] to [qty]"}
-                </small>
-              </div>
+              <small className="muted" style={{ fontSize: "0.72rem", marginTop: "6px", display: "block" }}>
+                {"Supported: add [item], delete [item], confirm [item], set quantity of [item] to [qty]"}
+              </small>
             </div>
           )}
 
           {/* Interactive Manifest Tree View */}
           <div className="item-list" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-              <span style={{ fontSize: "0.85rem", fontWeight: 700 }}>Nested Hierarchy</span>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+              <span style={{ fontSize: "0.88rem", fontWeight: 700 }}>Items Found</span>
               {!isFinalised && (
                 <button
                   onClick={() => setIsAddingItem(true)}
                   className="text-link"
                   style={{ background: "transparent", border: "none", fontSize: "0.82rem", cursor: "pointer", display: "flex", alignItems: "center" }}
                 >
-                  + Add Item Manually
+                  + Add Item
                 </button>
               )}
             </div>
 
+            {!isFinalised && unresolved > 0 && (
+              <div style={{ fontSize: "0.75rem", color: "var(--amber)", fontWeight: 600, marginBottom: "10px", padding: "6px 10px", background: "#fffdf5", borderRadius: "6px", border: "1px solid #f5e6c8" }}>
+                ⚠️ {unresolved} item{unresolved !== 1 ? "s" : ""} need review before finalising.
+              </div>
+            )}
+
             {sortedManifest.map((item) => {
               const depth = getIndentDepth(item);
+              const isCurrency = item.itemType === "currency";
 
               return (
                 <article
                   key={item.id}
                   className="review-item"
                   style={{
-                    marginLeft: `${depth * 28}px`,
+                    marginLeft: `${depth * 20}px`,
                     borderLeft: depth > 0 ? "2px solid var(--line)" : "none",
-                    paddingLeft: depth > 0 ? "16px" : "4px",
-                    background: item.status === "review" ? "#fffdf5" : "transparent",
+                    paddingLeft: depth > 0 ? "12px" : "0",
+                    paddingBlock: "8px",
                     borderBottom: "1px solid var(--line)",
                     display: "flex",
                     justifyContent: "space-between",
-                    alignItems: "center"
+                    alignItems: "center",
+                    gap: "8px",
                   }}
                 >
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
-                      <strong style={{ fontSize: "0.98rem" }}>{item.label}</strong>
-                      <span style={{ fontSize: "0.75rem", background: "var(--paper)", padding: "2px 6px", borderRadius: "4px", color: "var(--muted)" }}>
-                        Qty: {item.quantity}
-                      </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                      <strong style={{ fontSize: "0.9rem" }}>{item.label}</strong>
+                      {item.quantity > 1 && (
+                        <span style={{ fontSize: "0.72rem", background: "var(--paper)", padding: "1px 6px", borderRadius: "4px", color: "var(--muted)" }}>
+                          ×{item.quantity}
+                        </span>
+                      )}
+                      {isCurrency && item.currencyCode && (
+                        <span style={{ fontSize: "0.72rem", fontFamily: "monospace", fontWeight: 700, color: "var(--green-dark)" }}>
+                          {item.currencyCode} {item.currencyTotal != null ? formatDecimal(item.currencyTotal) : "-"}
+                        </span>
+                      )}
+                      {item.status === "review" && (
+                        <span style={{ fontSize: "0.68rem", background: "#fff3cd", color: "#856404", padding: "1px 6px", borderRadius: "4px", fontWeight: 600 }}>
+                          Needs Review
+                        </span>
+                      )}
                     </div>
-                    <p style={{ fontSize: "0.75rem", color: "var(--muted)", margin: "4px 0 0" }}>
-                      Confidence {Math.round(item.confidence * 100)}%
-                      {item.evidenceId && ` · Evidence: ${item.evidenceId}`}
-                    </p>
-                    {item.itemType === "currency" && (
-                      <div style={{ marginTop: "6px", fontSize: "0.76rem", fontFamily: "monospace", fontWeight: 700 }}>
-                        {item.currencyCode ?? "Currency pending"} · {item.denomination != null ? formatDecimal(item.denomination) : "denomination pending"} × {item.quantityKnown === false ? "count pending" : item.quantity} = {item.currencyTotal != null ? formatDecimal(item.currencyTotal) : "total pending"}
-                      </div>
-                    )}
-                    {(item.ocrText || item.visibleAttributes) && (
-                      <div style={{ marginTop: "4px", fontSize: "0.74rem", color: "var(--muted)", background: "var(--paper)", padding: "4px 8px", borderRadius: "4px", display: "inline-block" }}>
-                        {item.ocrText && <div style={{ fontFamily: "monospace" }}>📝 <strong>OCR:</strong> &quot;{item.ocrText}&quot;</div>}
-                        {item.visibleAttributes && <div>🔍 <strong>Attributes:</strong> {item.visibleAttributes}</div>}
-                      </div>
-                    )}
                     {item.reviewReason && (
-                      <div style={{ marginTop: "4px", fontSize: "0.72rem", color: "var(--amber)", fontWeight: 550 }}>
+                      <div style={{ fontSize: "0.72rem", color: "var(--amber)", marginTop: "3px" }}>
                         ⚠️ {item.reviewReason}
                       </div>
                     )}
                   </div>
 
-                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: "6px", alignItems: "center", flexShrink: 0 }}>
                     {!isFinalised && item.status === "review" && (
                       <button
                         className="review-button"
                         onClick={() => { void confirmItemDirect(item.id); }}
                         type="button"
-                        style={{ padding: "6px 10px", fontSize: "0.78rem" }}
+                        style={{ padding: "4px 8px", fontSize: "0.74rem" }}
                       >
-                        Confirm Entry
+                        ✓ Confirm
                       </button>
                     )}
 
                     {item.status === "confirmed" && (
-                      <span className="verified" style={{ padding: "4px 8px" }}>Confirmed</span>
+                      <span style={{ fontSize: "0.7rem", color: "var(--green-dark)" }}>✓</span>
                     )}
 
                     {!isFinalised && (
@@ -898,8 +779,8 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                           type="button"
                           aria-label={`Edit ${item.label}`}
                           onClick={() => setEditingItem(item)}
-                          style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: "0.85rem" }}
-                          title="Edit Item"
+                          style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: "0.8rem", padding: "2px" }}
+                          title="Edit"
                         >
                           ✏️
                         </button>
@@ -908,10 +789,10 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                             type="button"
                             aria-label={`Delete ${item.label}`}
                             onClick={() => { void deleteItemDirect(item.id); }}
-                            style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: "0.85rem" }}
-                            title="Delete Item"
+                            style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: "0.8rem", padding: "2px" }}
+                            title="Delete"
                           >
-                            ❌
+                            🗑️
                           </button>
                         )}
                       </>
@@ -923,7 +804,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
 
             {sortedManifest.length === 0 && (
               <div style={{ padding: "40px", textAlign: "center", color: "var(--muted)" }}>
-                The manifest is completely empty. Please trigger live AI analysis or add items manually.
+                No items yet. Upload evidence photos and scan, or add items manually.
               </div>
             )}
           </div>
@@ -1129,7 +1010,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                       </label>
                     </div>
                     <output style={{ fontFamily: "monospace", fontSize: "0.78rem", fontWeight: 700 }}>
-                      Total: {editingItem.currencyCode || "—"} {displayCurrencyTotal(editingItem)}
+                      Total: {editingItem.currencyCode || "-"} {displayCurrencyTotal(editingItem)}
                     </output>
                   </>
                 )}
@@ -1370,7 +1251,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                       </label>
                     </div>
                     <output style={{ fontFamily: "monospace", fontSize: "0.78rem", fontWeight: 700 }}>
-                      Total: {newItemData.currencyCode || "—"} {displayCurrencyTotal({ itemType: newItemData.itemType, denomination: newItemData.denomination, quantity: newItemData.quantity || 1, quantityKnown: newItemData.quantityKnown })}
+                      Total: {newItemData.currencyCode || "-"} {displayCurrencyTotal({ itemType: newItemData.itemType, denomination: newItemData.denomination, quantity: newItemData.quantity || 1, quantityKnown: newItemData.quantityKnown })}
                     </output>
                   </>
                 )}

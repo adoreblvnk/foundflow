@@ -76,7 +76,7 @@ try {
   assert.equal(postUploadCase.body.uploads.length, 1, "uploaded evidence should be persisted");
   assert.match(postUploadBody, /EVIDENCE GALLERY \(1\)/, "uploaded evidence should refresh in the UI");
 
-  await page.getByRole("button", { name: "Live AI Analysis" }).click();
+  await page.getByRole("button", { name: "Scan Evidence" }).click();
   const analysisOutcome = page.getByText(/AI analysis complete|AI Analysis failed:/).first();
   await analysisOutcome.waitFor({ timeout: 300_000 });
   const analysisOutcomeText = await analysisOutcome.innerText();
@@ -132,8 +132,8 @@ try {
   assert.match(sensitiveManualItem?.reviewReason ?? "", /Sensitive item details require staff confirmation/);
   await expectDisabled(page.getByRole("button", { name: "Approve and Finalise" }));
 
-  while (await page.getByRole("button", { name: "Confirm Entry" }).count()) {
-    await page.getByRole("button", { name: "Confirm Entry" }).first().click();
+  while (await page.getByRole("button", { name: "Confirm" }).count()) {
+    await page.getByRole("button", { name: "Confirm" }).first().click();
     await page.getByText(/Item confirmed/).waitFor();
   }
 
@@ -149,7 +149,7 @@ try {
   await page.getByText(/Case intake finalised and locked successfully/).waitFor();
   await page.getByText(/FINALI[ZS]ED/).waitFor();
   assert.equal(await page.getByRole("button", { name: "+ Add Item Manually" }).count(), 0);
-  assert.equal(await page.getByRole("button", { name: "Live AI Analysis" }).count(), 0);
+  assert.equal(await page.getByRole("button", { name: "Scan Evidence" }).count(), 0);
 
   const jsonExport = await page.evaluate(async (id) => {
     const response = await fetch(`/api/cases/${id}/export/json`, { cache: "no-store" });

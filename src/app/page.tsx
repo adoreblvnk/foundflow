@@ -1,76 +1,84 @@
 import Link from "next/link";
-
-const steps = [
-  ["Capture", "Photograph the outer property and each container level."],
-  ["Structure", "Turn images and spoken notes into a nested inventory draft."],
-  ["Verify", "Review uncertain details and link every item to evidence."],
-  ["Export", "Send an approved manifest to the organisation's existing system."],
-];
+import AppHeader from "@/components/AppHeader";
 
 export default function Home() {
   return (
-    <main>
-      <nav className="shell nav">
-        <Link className="brand" href="/">FoundFlow</Link>
-        <Link className="button button-secondary" href="/cases">Open Case Dashboard</Link>
-      </nav>
+    <main style={{ minHeight: "100vh", background: "var(--paper)" }}>
+      <AppHeader />
 
-      <section className="shell hero">
-        <div>
-          <p className="eyebrow">AI intake copilot for found-property teams</p>
-          <h1>Turn a complex found bag into a verified inventory.</h1>
-          <p className="lede">
-            FoundFlow helps frontline staff capture, structure and review nested property
-            without surrendering human control.
-          </p>
-          <div className="actions">
-            <Link className="button" href="/cases">Try the complex-bag workflow</Link>
-            <a className="text-link" href="#workflow">See how it works</a>
-          </div>
+      <div style={{
+        width: "min(600px, calc(100% - 40px))",
+        marginInline: "auto",
+        paddingBlock: "80px 60px",
+        textAlign: "center",
+      }}>
+        <p className="eyebrow">Found-Property Intake Copilot</p>
+        <h1 style={{ fontSize: "2.8rem", letterSpacing: "-0.04em", margin: "0 0 16px", lineHeight: 1 }}>
+          FoundFlow
+        </h1>
+        <p style={{ fontSize: "1rem", color: "var(--muted)", lineHeight: 1.6, margin: "0 0 48px" }}>
+          Photograph. Scan. Verify. Replace 25 minutes of typing with 5 minutes of review.
+        </p>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "24px" }}>
+          <Link href="/kiosk" style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "12px",
+            padding: "32px 20px",
+            background: "var(--panel)",
+            border: "1px solid var(--line)",
+            borderRadius: "14px",
+            textDecoration: "none",
+            color: "inherit",
+            transition: "border-color 0.15s, box-shadow 0.15s",
+          }}>
+            <span style={{ fontSize: "2.2rem" }}>📷</span>
+            <strong style={{ fontSize: "1.05rem" }}>Kiosk Mode</strong>
+            <span style={{ fontSize: "0.8rem", color: "var(--muted)", lineHeight: 1.4 }}>
+              Fixed camera station. Capture and scan items in real time.
+            </span>
+          </Link>
+
+          <Link href="/cases" style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "12px",
+            padding: "32px 20px",
+            background: "var(--panel)",
+            border: "1px solid var(--line)",
+            borderRadius: "14px",
+            textDecoration: "none",
+            color: "inherit",
+            transition: "border-color 0.15s, box-shadow 0.15s",
+          }}>
+            <span style={{ fontSize: "2.2rem" }}>📝</span>
+            <strong style={{ fontSize: "1.05rem" }}>Field Mode</strong>
+            <span style={{ fontSize: "0.8rem", color: "var(--muted)", lineHeight: 1.4 }}>
+              Step-by-step guided wizard. Upload photos from your phone.
+            </span>
+          </Link>
         </div>
 
-        <div className="manifest-card" aria-label="Example nested inventory">
-          <div className="card-heading">
-            <span>Case FF-0241</span>
-            <span className="status">Reviewing</span>
-          </div>
-          <div className="tree">
-            <strong>Black backpack</strong>
-            <div><strong>Brown coin pouch</strong></div>
-            <div className="nested">Singapore currency <span className="verified">Confirmed</span></div>
-            <div className="nested">Malaysian currency <span className="warning">Review</span></div>
-            <div>USB-C cable <span className="verified">Confirmed</span></div>
-            <div>Cardholder <span className="private">Private</span></div>
-          </div>
-        </div>
-      </section>
-
-      <section className="evidence-strip">
-        <div className="shell evidence-grid">
-          <div><strong>50,000</strong><span>SPF found-property reports in 2024</span></div>
-          <div><strong>68.4M</strong><span>Changi passenger movements in FY2024/25</span></div>
-          <div><strong>Human-approved</strong><span>No AI draft becomes an official record on its own</span></div>
-        </div>
-      </section>
-
-      <section className="shell section" id="workflow">
-        <p className="eyebrow">Operational workflow</p>
-        <h2>Capture → Structure → Verify → Export</h2>
-        <div className="steps">
-          {steps.map(([title, description], index) => (
-            <article className="step" key={title}>
-              <span>{String(index + 1).padStart(2, "0")}</span>
-              <h3>{title}</h3>
-              <p>{description}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <footer className="shell footer">
-        <span>Built for the Launchpad 2026 AI Challenge.</span>
-        <span>AI drafts. Staff decide.</span>
-      </footer>
+        <Link href="/search" style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "8px",
+          padding: "14px",
+          background: "var(--panel)",
+          border: "1px solid var(--line)",
+          borderRadius: "10px",
+          textDecoration: "none",
+          color: "var(--muted)",
+          fontSize: "0.88rem",
+          fontWeight: 600,
+        }}>
+          🔍 Search logged items across all cases
+        </Link>
+      </div>
     </main>
   );
 }

@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import fs from "fs";
 import path from "path";
 import { generateObject } from "ai";
-import { codexExec } from "ai-sdk-provider-codex-cli";
+import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 import crypto from "crypto";
 
@@ -261,13 +261,7 @@ Respond strictly in the requested structured schema.`
       return { error: "No usable image files exist on disk for AI analysis." };
     }
 
-    const model = codexExec("gpt-5.5", {
-      allowNpx: false,
-      skipGitRepoCheck: true,
-      sandboxMode: "read-only",
-      approvalMode: "never",
-      cwd: process.cwd()
-    });
+    const model = openai("gpt-5.5");
 
     const result = await generateObject({
       model,

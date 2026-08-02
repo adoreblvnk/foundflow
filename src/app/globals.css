@@ -79,6 +79,9 @@ h2 { margin-bottom: 34px; font-size: clamp(2rem, 4vw, 3.5rem); line-height: 1; l
 .review-button { border: 1px solid #d4a34f; border-radius: 8px; background: #fff7e8; color: #744400; padding: 9px 12px; font-weight: 700; cursor: pointer; }
 .finalise-row { padding-top: 20px; }
 .finalise-row p { margin: 0; font-size: 0.85rem; }
+.finalise-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 20px; width: 100%; }
+.finalise-copy { min-width: 0; display: grid; gap: 4px; }
+.finalise-actions > .button { flex: none; }
 .modal-backdrop { box-sizing: border-box; padding: 20px; overflow-y: auto; }
 .modal-panel { box-sizing: border-box; max-height: calc(100dvh - 40px); overflow-y: auto; }
 
@@ -179,6 +182,7 @@ h2 { margin-bottom: 34px; font-size: clamp(2rem, 4vw, 3.5rem); line-height: 1; l
   .claim-status-row { align-items: flex-start; flex-direction: column; }
   .review-item { align-items: flex-start; flex-direction: column; }
   .ai-analysis-panel, .finalise-actions { align-items: stretch !important; flex-direction: column; }
+  .finalise-actions { grid-template-columns: 1fr; gap: 12px; }
   .ai-analysis-panel .button, .finalise-actions .button { width: 100%; }
 }
 

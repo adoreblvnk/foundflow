@@ -892,8 +892,8 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
 
           {/* Finalisation Control & Download Exports Panel */}
           <div className="finalise-row" style={{ borderTop: "1px solid var(--line)", paddingTop: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
-            <div className="finalise-actions" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ flex: 1 }}>
+            <div className="finalise-actions">
+              <div className="finalise-copy">
                 {isFinalised ? (
                   <>
                     <p style={{ margin: 0, fontWeight: 700, color: "var(--green)" }}>✅ Property Record Completed</p>
@@ -922,7 +922,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                   className="button"
                   disabled={unresolved > 0 || caseFile.uploads.length === 0 || isFinalised}
                   onClick={() => { void finaliseIntake(); }}
-                  style={{ paddingInline: "24px" }}
+                  style={{ paddingInline: "24px", whiteSpace: "nowrap" }}
                 >
                   Confirm & Complete
                 </button>

@@ -32,7 +32,8 @@ import type { Case, ManifestItem } from "../src/lib/db.ts";
 import {
   signSession,
   verifySession,
-  timingSafeCompare
+  timingSafeCompare,
+  isAuthDisabled
 } from "../src/lib/auth-tokens.ts";
 
 import { verifyImageSignature } from "../src/lib/image-utils.ts";
@@ -145,6 +146,16 @@ test("Authentication & Security Session Tokens", async (t) => {
   await t.test("timingSafeCompare should prevent timing attacks", () => {
     assert.strictEqual(timingSafeCompare("secret-pass", "secret-pass"), true);
     assert.strictEqual(timingSafeCompare("secret-pass", "wrong-pass"), false);
+  });
+
+  await t.test("temporary demo mode is controlled by an explicit environment flag", () => {
+    process.env.AUTH_DISABLED = "true";
+    try {
+      assert.strictEqual(isAuthDisabled(), true);
+    } finally {
+      delete process.env.AUTH_DISABLED;
+    }
+    assert.strictEqual(isAuthDisabled(), false);
   });
 });
 

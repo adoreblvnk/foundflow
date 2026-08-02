@@ -9,6 +9,10 @@ export const sessionPayloadSchema = z.object({
 
 export type SessionPayload = z.infer<typeof sessionPayloadSchema>;
 
+export function isAuthDisabled(): boolean {
+  return process.env.AUTH_DISABLED === "true";
+}
+
 // Get and validate the AUTH_SECRET environment variable
 export function getAuthSecret(): string {
   const secret = process.env.AUTH_SECRET;

@@ -1,17 +1,23 @@
 import { cookies } from "next/headers";
-import { signSession, verifySession, timingSafeCompare, getLoginPassword, getLoginUsername } from "./auth-tokens";
+import { signSession, verifySession, timingSafeCompare, getLoginPassword, getLoginUsername, isAuthDisabled } from "./auth-tokens";
 
 const SESSION_COOKIE_NAME = "foundflow_session";
 
 export { signSession, verifySession, timingSafeCompare };
 
 export async function isAuthenticated(): Promise<boolean> {
+  if (isAuthDisabled()) return true;
+
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   return token ? verifySession(token) !== null : false;
 }
 
 export async function getCurrentUser(): Promise<{ username: string } | null> {
+  if (isAuthDisabled()) {
+    return { username: "demo-officer" };
+  }
+
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   return token ? verifySession(token) : null;

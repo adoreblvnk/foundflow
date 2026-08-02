@@ -53,7 +53,7 @@ LOGIN_USERNAME=
 # Required password for prototype login (minimum 8 characters)
 LOGIN_PASSWORD=
 
-# OpenAI API key, fast extraction model, and strong verifier for currency/complex photos
+# OpenAI API key, fast extraction model, and strong verifier used for every photo scan
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4.1-mini
 OPENAI_VERIFIER_MODEL=gpt-5.6-sol

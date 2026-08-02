@@ -15,7 +15,7 @@ FoundFlow's challenge MVP is accepted only when all criteria below pass using st
 ## AI draft and review
 
 - [x] Production analysis sends actual uploaded image bytes to the AI SDK v6 OpenAI provider and returns schema-validated nested records.
-- [x] Currency-heavy or complex photos receive a second independent verification pass using the configured strong vision model; failures retain the primary draft under review rather than fabricating results.
+- [x] Every photo scan receives a second independent verification pass using the configured strong vision model for tighter full-image object regions; failures retain the primary draft under review.
 - [x] OCR text, visible attributes, confidence, review reason, parent relationship, quantity, and photo ID are retained.
 - [x] Readable or unmistakable product brands and visible model names are included in item-list labels; uncertain brands, models, and authenticity are never inferred.
 - [x] Both fast extraction and strong verification return one normalised photo region per visible physical instance, including uncertain objects and the visible outer property; invalid coordinates and count mismatches require review.

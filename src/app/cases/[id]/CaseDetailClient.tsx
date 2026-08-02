@@ -32,7 +32,8 @@ function displayCurrencyTotal(item: Pick<ManifestItem, "itemType" | "denominatio
 }
 
 function conciseReviewWarning(item: ManifestItem): string {
-  if (/region|photo box/i.test(item.reviewReason ?? "")) return "Fix photo boxes.";
+  const expectedRegions = item.quantityKnown === false ? Math.max(1, item.regions?.length ?? 0) : item.quantity;
+  if ((item.regions?.length ?? 0) !== expectedRegions || /invalid photo|missing source photo/i.test(item.reviewReason ?? "")) return "Fix photo boxes.";
   if (isCurrencyItem(item)) return "Verify currency, value and count.";
   if (/quantity|count/i.test(item.reviewReason ?? "")) return "Verify quantity.";
   return "Staff review required.";

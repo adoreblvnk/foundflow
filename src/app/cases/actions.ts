@@ -12,6 +12,7 @@ import { verifyImageSignature } from "@/lib/image-utils";
 import { buildDetectedItemLabel, FIRST_STAFF_CHECK_PREFIX, hasCycle, hasFirstStaffCheck, isCurrencyItem, isValidImageRegion, mergeAiDraftWithStaffItems, requiresDoubleStaffCheck, requiresSensitiveReview, validateManifestStructure } from "@/lib/validation";
 import { isValidCurrencyCode, multiplyDecimal, normalizeDecimal } from "@/lib/currency";
 import { deleteEvidence, readEvidence, writeEvidence } from "@/lib/evidence-storage";
+import { PHOTO_CONTEXT_VALUES } from "@/lib/photo-context";
 
 const imageRegionSchema = z.object({
   id: z.string().min(1).max(100),
@@ -49,7 +50,7 @@ const createCaseInputSchema = z.object({
   notes: z.string().max(2000),
 });
 
-const containerContextSchema = z.enum(["outer-item", "bag-contents", "inner-container"]);
+const containerContextSchema = z.enum(PHOTO_CONTEXT_VALUES);
 
 function markStaffLineage(caseFile: Case, itemId: string): void {
   const visited = new Set<string>();

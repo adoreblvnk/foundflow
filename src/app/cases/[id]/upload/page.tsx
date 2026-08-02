@@ -7,6 +7,7 @@ import AppHeader from "@/components/AppHeader";
 import StepIndicator from "@/components/StepIndicator";
 import LayoutGuide from "@/components/LayoutGuide";
 import { handleUploadEvidence } from "@/app/cases/actions";
+import { PHOTO_CONTEXT_OPTIONS, type PhotoContext } from "@/lib/photo-context";
 
 export default function UploadPage() {
   const params = useParams();
@@ -17,6 +18,7 @@ export default function UploadPage() {
   const [uploads, setUploads] = useState<{ id: string; name: string; mimeType: string }[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [photoContext, setPhotoContext] = useState<PhotoContext>("loose-item");
 
   async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -26,7 +28,7 @@ export default function UploadPage() {
 
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("containerContext", "bag-contents");
+    formData.append("containerContext", photoContext);
 
     try {
       const result = await handleUploadEvidence(caseId, formData);
@@ -70,7 +72,20 @@ export default function UploadPage() {
 
           <LayoutGuide />
 
-          <div style={{ marginTop: "24px" }}>
+          <div style={{ marginTop: "24px", display: "grid", gap: "12px" }}>
+            <label htmlFor="photo-context" style={{ display: "grid", gap: "5px", fontSize: "0.78rem", fontWeight: 700 }}>
+              Photo context
+              <select
+                id="photo-context"
+                value={photoContext}
+                onChange={(event) => setPhotoContext(event.target.value as PhotoContext)}
+                style={{ width: "100%", height: "42px", border: "1px solid var(--line)", borderRadius: "8px", background: "var(--paper)", paddingInline: "10px" }}
+              >
+                {PHOTO_CONTEXT_OPTIONS.map((option) => (
+                  <option value={option.value} key={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
             <input
               ref={fileInputRef}
               type="file"

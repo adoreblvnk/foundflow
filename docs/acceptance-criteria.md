@@ -8,6 +8,7 @@ FoundFlow's challenge MVP is accepted only when all criteria below pass using st
 - [x] A configured staff identity can sign in through an HTTP-only signed session cookie.
 - [x] Staff can create a case with location, found time, and outer-item description.
 - [x] PNG, JPEG, and WebP item photos can be uploaded at outer-item, bag-contents, or inner-container level.
+- [x] Photos may explicitly describe a loose or standalone item with no container; container nesting is optional rather than assumed.
 - [x] Claimed image files with invalid byte signatures are rejected.
 - [x] Item photos are stored outside Git and served through a non-cacheable application route.
 
@@ -31,6 +32,7 @@ FoundFlow's challenge MVP is accepted only when all criteria below pass using st
 
 - [x] Staff can add, edit, confirm, and delete nested records.
 - [x] Staff can select a record or box, compare cropped instances with the source photo, draw or remove boxes, and reassign boxes between records linked to the same photo.
+- [x] Visual verification occupies the wider inventory column so source images and region boxes remain large enough for practical review.
 - [x] Confirmed records with photo regions require one region per visible instance.
 - [x] Browser speech recognition fills a transcript; staff must review it and select **Apply** before a correction changes the item list.
 - [x] A deterministic text-command fallback exercises the same correction path when Web Speech API is unavailable.

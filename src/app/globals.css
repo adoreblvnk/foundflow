@@ -59,7 +59,7 @@ h2 { margin-bottom: 34px; font-size: clamp(2rem, 4vw, 3.5rem); line-height: 1; l
 .demo-page { min-height: 100vh; }
 .demo-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); padding-block: 22px; }
 .demo-header p { margin: 4px 0 0; color: var(--muted); font-size: 0.82rem; }
-.demo-layout { display: grid; grid-template-columns: 0.75fr 1.25fr; gap: 24px; padding-block: 32px 60px; }
+.demo-layout { display: grid; grid-template-columns: minmax(300px, 0.65fr) minmax(0, 1.35fr); gap: 24px; padding-block: 32px 60px; }
 .capture-panel, .review-panel { border: 1px solid var(--line); border-radius: 16px; background: var(--panel); padding: 28px; }
 .capture-panel h1 { font-size: 2.4rem; line-height: 1; letter-spacing: -0.05em; }
 .evidence-placeholder { min-height: 130px; display: flex; flex-direction: column; justify-content: flex-end; gap: 5px; border: 1px dashed #aeb9b1; border-radius: 12px; background: linear-gradient(145deg, #e3e8e2, #f7f8f5); padding: 18px; }

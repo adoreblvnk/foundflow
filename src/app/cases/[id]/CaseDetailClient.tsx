@@ -6,6 +6,7 @@ import { Case, ManifestItem } from "@/lib/db";
 import { hasFirstStaffCheck, requiresDoubleStaffCheck, summarizeCurrency } from "@/lib/validation";
 import { formatDecimal, multiplyDecimal, normalizeDecimal } from "@/lib/currency";
 import PhotoRegionVerifier, { RegionCrops } from "./PhotoRegionVerifier";
+import { formatPhotoContext, PHOTO_CONTEXT_OPTIONS } from "@/lib/photo-context";
 import {
   handleUploadEvidence,
   handleAiAnalysis,
@@ -535,25 +536,13 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                     />
                     <div style={{ padding: "8px", fontSize: "0.72rem" }}>
                       <strong style={{ display: "block", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{u.originalName}</strong>
-                      <span className="muted" style={{ display: "block" }}>Level: {u.containerContext}</span>
+                      <span className="muted" style={{ display: "block" }}>Context: {formatPhotoContext(u.containerContext)}</span>
                     </div>
                   </div>
                 ))}
               </div>
             )}
           </div>
-
-          {caseFile.uploads.length > 0 && (
-            <PhotoRegionVerifier
-              uploads={caseFile.uploads}
-              items={caseFile.manifest}
-              selectedItemId={selectedItemId}
-              readOnly={isFinalised}
-              onSelectItem={setSelectedItemId}
-              onUpdateItem={updatePhotoRegions}
-              onReassignRegion={reassignPhotoRegion}
-            />
-          )}
 
           {/* Evidence Upload Form */}
           {!isFinalised && (
@@ -588,7 +577,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                 </div>
 
                 <div style={{ display: "grid", gap: "4px" }}>
-                  <label htmlFor="containerContext" style={{ fontSize: "0.75rem", fontWeight: 700 }}>Container / Nesting Level</label>
+                  <label htmlFor="containerContext" style={{ fontSize: "0.75rem", fontWeight: 700 }}>Photo context</label>
                   <select
                     id="containerContext"
                     name="containerContext"
@@ -601,9 +590,9 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                       background: "var(--paper)"
                     }}
                   >
-                    <option value="outer-item">Outer Item (backpack/suitcase)</option>
-                    <option value="bag-contents">Bag Contents Level (general bag space)</option>
-                    <option value="inner-container">Inner Container Level (pouch/wallet/box)</option>
+                    {PHOTO_CONTEXT_OPTIONS.map((option) => (
+                      <option value={option.value} key={option.value}>{option.label}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -662,6 +651,18 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                 ? "Review the fresh extraction below before approval."
                 : "The staged image and sample inventory are ready for a reliable walkthrough; run image analysis to replace the sample with a fresh extraction."}
             </div>
+          )}
+
+          {caseFile.uploads.length > 0 && (
+            <PhotoRegionVerifier
+              uploads={caseFile.uploads}
+              items={caseFile.manifest}
+              selectedItemId={selectedItemId}
+              readOnly={isFinalised}
+              onSelectItem={setSelectedItemId}
+              onUpdateItem={updatePhotoRegions}
+              onReassignRegion={reassignPhotoRegion}
+            />
           )}
 
           {currencySummary.length > 0 && (

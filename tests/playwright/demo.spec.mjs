@@ -36,6 +36,11 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   await expect(page.getByText("MYR 50.40", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "First Check" })).toHaveCount(5);
   await expect(page.getByRole("region", { name: "Match records to the photo" })).toBeVisible();
+  const verifierBox = await page.getByRole("region", { name: "Match records to the photo" }).boundingBox();
+  const capturePanelBox = await page.locator(".capture-panel").boundingBox();
+  const reviewPanelBox = await page.locator(".review-panel").boundingBox();
+  expect(verifierBox?.x).toBeGreaterThanOrEqual(reviewPanelBox?.x ?? Number.MAX_SAFE_INTEGER);
+  expect(verifierBox?.width).toBeGreaterThan(capturePanelBox?.width ?? Number.MAX_SAFE_INTEGER);
 
   await page.getByRole("button", { name: "Show Plain kraft notebook on source photo" }).click();
   await page.getByRole("button", { name: "+ Draw region" }).click();
@@ -67,6 +72,9 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   await expect(chooseImage).toBeVisible();
   await expect(uploadPhoto).toBeDisabled();
   const photoInput = page.getByLabel("Select JPG / PNG / WebP");
+  const photoContext = page.getByLabel("Photo context");
+  await expect(photoContext).toHaveValue("loose-item");
+  await expect(photoContext.getByRole("option", { name: "Loose / standalone item (no container)" })).toHaveCount(1);
   await photoInput.setInputFiles("public/demo/found-property-evidence.webp");
   await expect(page.getByText("found-property-evidence.webp", { exact: true })).toBeVisible();
   await expect(uploadPhoto).toBeEnabled();
@@ -76,6 +84,7 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
 
   await page.goto("/cases/CT3A-20260721-DEMO/upload");
   await expect(page.getByRole("button", { name: "Choose Image or Take Photo" })).toBeVisible();
+  await expect(page.getByLabel("Photo context")).toHaveValue("loose-item");
   await page.goto("/cases/CT3A-20260721-DEMO");
 
   const openCaseSearch = await page.evaluate(async () => {

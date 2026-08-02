@@ -141,7 +141,7 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   await page.getByRole("button", { name: "Create claim record" }).click();
   await expect(page.getByRole("heading", { name: "Verification pending" })).toBeVisible();
   await page.getByLabel("Decision reason").fill("Identity and undisclosed content independently matched.");
-  await page.getByText("Claimant acknowledgement captured", { exact: true }).click();
+  await page.getByText("Staff attests claimant acknowledgement", { exact: true }).click();
   await page.getByRole("button", { name: "Approve and record handover" }).click();
   await expect(page.getByText("Handover complete", { exact: true })).toBeVisible();
   await page.reload();

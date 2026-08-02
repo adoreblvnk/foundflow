@@ -3,16 +3,13 @@
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
 import { createClaimRecord, decideClaimRecord, getCaseById } from "@/lib/db";
+import { caseContainsIdentityEvidence, claimVerificationMethods, evaluateClaimVerification } from "@/lib/claim-policy";
 
-const verificationMethodSchema = z.enum([
-  "lost-report-match",
-  "identity-match",
-  "singpass-or-government-id",
-  "undisclosed-contents",
-  "distinctive-features",
-  "receipt-or-serial",
-  "device-unlock",
-]);
+const verificationMethodSchema = z.enum(claimVerificationMethods);
+const staffNoteSchema = z.string().trim().min(3).max(1000).refine(
+  (value) => !/\b[STFGM]\d{7}[A-Z]\b/i.test(value),
+  "Do not enter a complete identity-document number; record only a masked identifier",
+);
 
 const createClaimSchema = z.object({
   caseId: z.string().min(1).max(100),
@@ -21,8 +18,8 @@ const createClaimSchema = z.object({
   claimantName: z.string().trim().min(2).max(120),
   claimantContact: z.string().trim().min(3).max(160),
   maskedIdentifier: z.string().trim().regex(/^\*{2,12}[A-Za-z0-9]{1,4}$/, "Use a masked identifier such as ****123A").nullable(),
-  verificationMethods: z.array(verificationMethodSchema).min(1).max(7),
-  verificationNotes: z.string().trim().min(3).max(1000),
+  verificationMethods: z.array(verificationMethodSchema).min(2).max(7),
+  verificationNotes: staffNoteSchema,
 }).superRefine((value, context) => {
   if (value.path === "lost-report" && !value.lostReportId) {
     context.addIssue({ code: "custom", path: ["lostReportId"], message: "Lost Report ID is required for this claim path" });
@@ -36,7 +33,7 @@ const decideClaimSchema = z.object({
   caseId: z.string().min(1).max(100),
   claimId: z.string().min(1).max(100),
   decision: z.enum(["approved", "rejected", "escalated"]),
-  decisionReason: z.string().trim().min(3).max(1000),
+  decisionReason: staffNoteSchema,
   acknowledgement: z.boolean(),
 });
 
@@ -53,6 +50,13 @@ export async function handleCreateClaim(input: z.input<typeof createClaimSchema>
   if (caseFile.claims?.some((claim) => claim.decision === "pending" || claim.decision === "approved")) {
     return { error: "This property already has an active or approved claim" };
   }
+  const verificationMethods = [...new Set(parsed.data.verificationMethods)];
+  const policy = evaluateClaimVerification({
+    path: parsed.data.path,
+    methods: verificationMethods,
+    identityEvidenceInProperty: caseContainsIdentityEvidence(caseFile),
+  });
+  if (!policy.allowed) return { error: policy.message };
 
   const claim = await createClaimRecord({
     caseId: parsed.data.caseId,
@@ -61,7 +65,7 @@ export async function handleCreateClaim(input: z.input<typeof createClaimSchema>
     claimantName: parsed.data.claimantName,
     claimantContact: parsed.data.claimantContact,
     maskedIdentifier: parsed.data.maskedIdentifier || null,
-    verificationMethods: [...new Set(parsed.data.verificationMethods)],
+    verificationMethods,
     verificationNotes: parsed.data.verificationNotes,
     createdBy: user.username,
   });
@@ -82,7 +86,12 @@ export async function handleDecideClaim(input: z.input<typeof decideClaimSchema>
   if (claim.decision !== "pending") return { error: "This claim has already been decided" };
 
   if (parsed.data.decision === "approved") {
-    if (claim.verificationMethods.length < 2) return { error: "Approval requires at least two recorded ownership checks" };
+    const policy = evaluateClaimVerification({
+      path: claim.path,
+      methods: claim.verificationMethods,
+      identityEvidenceInProperty: caseContainsIdentityEvidence(caseFile),
+    });
+    if (!policy.allowed) return { error: policy.message };
     if (!parsed.data.acknowledgement) return { error: "Claimant acknowledgement is required before handover" };
   }
 

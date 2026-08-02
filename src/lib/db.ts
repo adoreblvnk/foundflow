@@ -454,10 +454,16 @@ export async function decideClaimRecord(caseId: string, claimId: string, input: 
   const db = await getDbInstance();
   const decidedAt = new Date().toISOString();
   const collectedAt = input.decision === "approved" ? decidedAt : null;
-  await db.batch([
-    { sql: `UPDATE claims SET decision = ?, decisionReason = ?, acknowledgement = ?, decidedAt = ?, decidedBy = ?, collectedAt = ? WHERE id = ? AND caseId = ? AND decision = 'pending'`, args: [input.decision, input.decisionReason, input.acknowledgement ? 1 : 0, decidedAt, input.decidedBy, collectedAt, claimId, caseId] },
-    { sql: `INSERT INTO audit_logs (id, caseId, timestamp, userId, action, details) VALUES (?, ?, ?, ?, ?, ?)`, args: [`log-${crypto.randomUUID()}`, caseId, decidedAt, input.decidedBy, input.decision === "approved" ? "item_collected" : `claim_${input.decision}`, `Claim ${claimId} ${input.decision}${input.decision === "approved" ? " and item handed over" : ""}`] },
+  const auditAction = input.decision === "approved" ? "item_collected" : `claim_${input.decision}`;
+  const auditDetails = `Claim ${claimId} ${input.decision}${input.decision === "approved" ? " and item handed over" : ""}`;
+  const results = await db.batch([
+    { sql: `INSERT INTO audit_logs (id, caseId, timestamp, userId, action, details)
+      SELECT ?, ?, ?, ?, ?, ? FROM claims WHERE id = ? AND caseId = ? AND decision = 'pending'`,
+      args: [`log-${crypto.randomUUID()}`, caseId, decidedAt, input.decidedBy, auditAction, auditDetails, claimId, caseId] },
+    { sql: `UPDATE claims SET decision = ?, decisionReason = ?, acknowledgement = ?, decidedAt = ?, decidedBy = ?, collectedAt = ? WHERE id = ? AND caseId = ? AND decision = 'pending'`,
+      args: [input.decision, input.decisionReason, input.acknowledgement ? 1 : 0, decidedAt, input.decidedBy, collectedAt, claimId, caseId] },
   ], "write");
+  if (Number(results[1]?.rowsAffected) !== 1) return undefined;
   const result = await db.execute({ sql: "SELECT * FROM claims WHERE id = ? AND caseId = ?", args: [claimId, caseId] });
   const row = result.rows[0] as unknown as ClaimRow | undefined;
   if (!row) return undefined;

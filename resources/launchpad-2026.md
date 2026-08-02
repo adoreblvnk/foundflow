@@ -18,8 +18,8 @@
 ## Dates
 
 - Challenge began: 3 July 2026
-- Submission deadline: 31 July 2026, 23:59 SGT
-- Finalists announced: 7 August 2026
+- Submission deadline: 2 August 2026, 23:59 SGT
+- Finalists announced: 9 August 2026
 - Symposium: 17-18 August 2026 at NUS
 
 ## Project implication

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { Case, ClaimPath, ClaimRecord } from "@/lib/db";
+import { caseContainsIdentityEvidence, evaluateClaimVerification } from "@/lib/claim-policy";
 import { handleCreateClaim, handleDecideClaim } from "./actions";
 
 const verificationOptions = [
@@ -43,10 +44,12 @@ export default function ClaimWorkflow({ initialCase, currentUser }: { initialCas
 
   const activeClaim = claims.find((claim) => claim.decision === "pending" || claim.decision === "approved");
   const latestClaim = activeClaim || claims[0];
-  const hasIdentityEvidence = useMemo(() => initialCase.manifest.some((item) => {
-    const text = `${item.label} ${item.category || ""}`.toLowerCase();
-    return /passport|identity|identification|\bic\b|driver.?s licence|documents/.test(text);
-  }), [initialCase.manifest]);
+  const hasIdentityEvidence = useMemo(() => caseContainsIdentityEvidence(initialCase), [initialCase]);
+  const verificationPolicy = useMemo(() => evaluateClaimVerification({
+    path,
+    methods,
+    identityEvidenceInProperty: hasIdentityEvidence,
+  }), [hasIdentityEvidence, methods, path]);
 
   function toggleMethod(method: VerificationMethod) {
     setMethods((current) => current.includes(method) ? current.filter((entry) => entry !== method) : [...current, method]);
@@ -136,7 +139,7 @@ export default function ClaimWorkflow({ initialCase, currentUser }: { initialCas
                 <h2>How did the claimant arrive?</h2>
                 <div className="claim-paths" role="radiogroup" aria-label="Claim path">
                   <button type="button" role="radio" aria-checked={path === "lost-report"} className={path === "lost-report" ? "claim-path selected" : "claim-path"} onClick={() => setPath("lost-report")}>
-                    <strong>Existing lost report</strong><span>Link collection to a passenger-submitted report.</span>
+                    <strong>Existing lost report</strong><span>Record the passenger-submitted report ID and compare its details.</span>
                   </button>
                   <button type="button" role="radio" aria-checked={path === "walk-in"} className={path === "walk-in" ? "claim-path selected" : "claim-path"} onClick={() => setPath("walk-in")}>
                     <strong>No lost report</strong><span>Create a staff-initiated walk-in claim.</span>
@@ -144,7 +147,7 @@ export default function ClaimWorkflow({ initialCase, currentUser }: { initialCas
                 </div>
               </div>
 
-              {path === "lost-report" && <label>Lost Report ID<input style={fieldStyle} value={lostReportId} onChange={(event) => setLostReportId(event.target.value)} required placeholder="LR-2026-000123" /></label>}
+              {path === "lost-report" && <label>Lost Report ID recorded<input style={fieldStyle} value={lostReportId} onChange={(event) => setLostReportId(event.target.value)} required placeholder="LR-2026-000123" /></label>}
               <div className="claim-fields">
                 <label>Claimant name<input style={fieldStyle} value={claimantName} onChange={(event) => setClaimantName(event.target.value)} required /></label>
                 <label>Contact details<input style={fieldStyle} value={claimantContact} onChange={(event) => setClaimantContact(event.target.value)} required placeholder="Phone or email" /></label>
@@ -154,7 +157,7 @@ export default function ClaimWorkflow({ initialCase, currentUser }: { initialCas
               <div>
                 <p className="eyebrow">2 · Verify ownership</p>
                 <h2>Record the checks performed</h2>
-                <p className="muted">Select at least two checks before approval. Keep undisclosed details in the staff-only note.</p>
+                <p className="muted">Use at least two independent evidence groups. Keep undisclosed details in the staff-only note.</p>
                 <div className="verification-list">
                   {verificationOptions.filter((option) => path === "lost-report" || option.id !== "lost-report-match").map((option) => (
                     <label key={option.id} className={methods.includes(option.id) ? "verification-option selected" : "verification-option"}>
@@ -166,15 +169,17 @@ export default function ClaimWorkflow({ initialCase, currentUser }: { initialCas
               </div>
               <label>Staff-only verification note<textarea style={{ ...fieldStyle, minHeight: "92px", resize: "vertical" }} value={verificationNotes} onChange={(event) => setVerificationNotes(event.target.value)} required placeholder="Record what matched without copying full identity-document details." /></label>
 
+              {methods.length > 0 && !verificationPolicy.allowed && <div className="claim-message error">{verificationPolicy.message}</div>}
+
               {error && <div className="claim-message error" role="alert">{error}</div>}
               {success && <div className="claim-message success">{success}</div>}
-              <button className="button" disabled={busy || methods.length === 0}>{busy ? "Creating claim..." : "Create claim record"}</button>
+              <button className="button" disabled={busy || !verificationPolicy.allowed}>{busy ? "Creating claim..." : "Create claim record"}</button>
             </form>
           ) : (
             <div className="claim-form">
               <div className="claim-status-row">
                 <div><p className="eyebrow">Claim {latestClaim.id}</p><h2>{statusLabel(latestClaim)}</h2></div>
-                <span className={latestClaim.decision === "approved" ? "status status-complete" : "status"}>{latestClaim.path === "lost-report" ? "Lost report linked" : "Walk-in claim"}</span>
+                <span className={latestClaim.decision === "approved" ? "status status-complete" : "status"}>{latestClaim.path === "lost-report" ? "Lost Report ID recorded" : "Walk-in claim"}</span>
               </div>
 
               <div className="claim-record">
@@ -199,12 +204,11 @@ export default function ClaimWorkflow({ initialCase, currentUser }: { initialCas
                     <h2>Decide this claim</h2>
                   </div>
                   <label>Decision reason<textarea style={{ ...fieldStyle, minHeight: "82px", resize: "vertical" }} value={decisionReason} onChange={(event) => setDecisionReason(event.target.value)} required placeholder="Explain why the checks are sufficient, insufficient or require escalation." /></label>
-                  <label className="acknowledgement"><input type="checkbox" checked={acknowledgement} onChange={(event) => setAcknowledgement(event.target.checked)} /><span><strong>Claimant acknowledgement captured</strong><small>The claimant confirms receipt of this property. Required for approval and handover.</small></span></label>
-                  {latestClaim.verificationMethods.length < 2 && <div className="claim-message error">Approval is blocked: this claim has fewer than two ownership checks. Reject or escalate it.</div>}
+                  <label className="acknowledgement"><input type="checkbox" checked={acknowledgement} onChange={(event) => setAcknowledgement(event.target.checked)} /><span><strong>Staff attests claimant acknowledgement</strong><small>I confirm the claimant acknowledged receipt of this property. Required for approval and handover.</small></span></label>
                   {error && <div className="claim-message error" role="alert">{error}</div>}
                   {success && <div className="claim-message success">{success}</div>}
                   <div className="decision-actions">
-                    <button type="button" className="button" disabled={busy || !acknowledgement || latestClaim.verificationMethods.length < 2 || decisionReason.trim().length < 3} onClick={() => void decide("approved")}>Approve and record handover</button>
+                    <button type="button" className="button" disabled={busy || !acknowledgement || decisionReason.trim().length < 3} onClick={() => void decide("approved")}>Approve and record handover</button>
                     <button type="button" className="button button-secondary" disabled={busy || decisionReason.trim().length < 3} onClick={() => void decide("escalated")}>Escalate</button>
                     <button type="button" className="button danger-button" disabled={busy || decisionReason.trim().length < 3} onClick={() => void decide("rejected")}>Reject</button>
                   </div>

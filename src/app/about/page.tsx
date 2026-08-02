@@ -17,13 +17,12 @@ export default function AboutPage() {
             AI-Assisted Found-Property Intake
           </h1>
           <p style={{ fontSize: "1.05rem", lineHeight: 1.7, color: "var(--muted)" }}>
-            Today, airport staff log found property by photographing items and manually typing each
-            description into a mobile app, a process that takes 20 to 30 minutes for a bag with many items,
-            and is especially error-prone for mixed-currency cash that requires exact denomination counts.
+            Today, airport staff may document each object, quantity, identifier, currency and physical
+            description manually, a process that becomes slow and error-prone for bags with many nested items
+            or mixed-currency cash requiring exact denomination counts.
             FoundFlow replaces that manual typing with AI vision: airport staff photograph each layer of contents,
-            AI reads the image and drafts a complete structured inventory with nesting relationships and
-            computed currency totals, and staff simply review and confirm. A 15-item backpack that took
-            25 minutes of typing now takes under 5 minutes of verification.
+            AI reads the image and drafts a structured item list with nesting relationships and
+            computed currency totals. Staff review every uncertain or sensitive record before completion.
           </p>
         </section>
 

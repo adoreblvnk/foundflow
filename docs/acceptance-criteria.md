@@ -33,6 +33,17 @@ FoundFlow's challenge MVP is accepted only when all criteria below pass using st
 - [x] Completed cases are locked against further mutation.
 - [x] Confirmed item lists export as JSON and CSV; CSV cells resist spreadsheet-formula injection.
 
+## Collection and handover
+
+- [x] Every handover requires a persisted claim, staff decision, reason and claimant acknowledgement.
+- [x] Walk-in claims remain valid when ownership is established without a prior lost report.
+- [x] Claim creation and approval both enforce at least two independent evidence groups.
+- [x] Identity-bearing property requires an identity check plus an independent ownership signal.
+- [x] Lost-report claims record the supplied ID without falsely claiming an external-system link.
+- [x] Complete Singapore identity numbers are rejected from staff notes; masked references are validated.
+- [x] Concurrent or repeated decisions cannot create a second transition or false audit event.
+- [x] Rejected or escalated claims remain in activity history and permit a later claim; collected property does not.
+
 ## Required verification
 
 ```bash

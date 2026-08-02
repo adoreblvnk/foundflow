@@ -43,6 +43,7 @@ import { escapeCsvCell } from "../src/lib/csv-utils.ts";
 import { FIRST_STAFF_CHECK_PREFIX, hasCycle, hasFirstStaffCheck, isCurrencyItem, mergeAiDraftWithStaffItems, requiresDoubleStaffCheck, requiresSensitiveReview, summarizeCurrency, validateManifestStructure } from "../src/lib/validation.ts";
 import { addDecimals, isValidCurrencyCode, multiplyDecimal, normalizeDecimal } from "../src/lib/currency.ts";
 import { buildConfirmedSearchItems } from "../src/lib/search.ts";
+import { caseContainsIdentityEvidence, evaluateClaimVerification } from "../src/lib/claim-policy.ts";
 
 test("Database Layer, Seeding & Isolation", async (t) => {
   await t.test("should start with 0 cases on fresh setup", async () => {
@@ -130,6 +131,66 @@ test("Database Layer, Seeding & Isolation", async (t) => {
     assert.deepStrictEqual(retrieved!.claims?.[0].verificationMethods, ["identity-match", "undisclosed-contents"]);
     assert.ok(retrieved!.auditLogs.some((log) => log.action === "claim_created"));
     assert.ok(retrieved!.auditLogs.some((log) => log.action === "item_collected"));
+
+    const repeatedDecision = await decideClaimRecord("CT3A-20260721-DEMO", claim.id, {
+      decision: "rejected",
+      decisionReason: "A second transition must not be recorded.",
+      acknowledgement: false,
+      decidedBy: "second-test-staff",
+    });
+    assert.strictEqual(repeatedDecision, undefined);
+    const afterRepeat = await getCaseById("CT3A-20260721-DEMO");
+    assert.strictEqual(afterRepeat!.auditLogs.filter((log) => log.action === "item_collected" || log.action === "claim_rejected").length, 1);
+  });
+});
+
+test("Collection Verification Policy", async (t) => {
+  await t.test("rejects duplicate evidence groups", () => {
+    const result = evaluateClaimVerification({
+      path: "walk-in",
+      methods: ["identity-match", "singpass-or-government-id"],
+      identityEvidenceInProperty: true,
+    });
+    assert.strictEqual(result.allowed, false);
+    assert.match(result.message, /independent evidence groups/i);
+  });
+
+  await t.test("requires an identity check when identity evidence is inside the property", () => {
+    const result = evaluateClaimVerification({
+      path: "walk-in",
+      methods: ["undisclosed-contents", "receipt-or-serial"],
+      identityEvidenceInProperty: true,
+    });
+    assert.strictEqual(result.allowed, false);
+    assert.match(result.message, /identity check/i);
+  });
+
+  await t.test("accepts identity plus private knowledge for an identity-bearing property", () => {
+    const result = evaluateClaimVerification({
+      path: "walk-in",
+      methods: ["identity-match", "undisclosed-contents"],
+      identityEvidenceInProperty: true,
+    });
+    assert.strictEqual(result.allowed, true);
+  });
+
+  await t.test("requires a report-details match on the lost-report path", () => {
+    const result = evaluateClaimVerification({
+      path: "lost-report",
+      methods: ["distinctive-features", "receipt-or-serial"],
+      identityEvidenceInProperty: false,
+    });
+    assert.strictEqual(result.allowed, false);
+    assert.match(result.message, /Lost Report details/i);
+  });
+
+  await t.test("detects identity evidence from the recorded item list", async () => {
+    const caseFile = await getCaseById("CT3A-20260721-DEMO");
+    assert.ok(caseFile);
+    assert.strictEqual(caseContainsIdentityEvidence({
+      ...caseFile!,
+      manifest: [...caseFile!.manifest, { ...caseFile!.manifest[0], id: "synthetic-id", label: "Identification card" }],
+    }), true);
   });
 });
 

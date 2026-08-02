@@ -17,7 +17,7 @@ export default function Home() {
           FoundFlow
         </h1>
         <p style={{ fontSize: "1rem", color: "var(--muted)", lineHeight: 1.6, margin: "0 0 48px" }}>
-          Photograph. Scan. Verify. Replace 25 minutes of typing with 5 minutes of review.
+          Photograph. Scan. Verify. Build a complete, photo-linked item list for staff review.
         </p>
 
         <div style={{ marginBottom: "24px" }}>

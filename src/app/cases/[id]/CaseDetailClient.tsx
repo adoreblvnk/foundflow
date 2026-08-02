@@ -44,7 +44,7 @@ const activityLabels: Record<string, string> = {
   ai_analysis_complete: "PHOTO SCAN COMPLETE",
 
   case_finalised: "CASE COMPLETED",
-  manifest_exported: "ITEM LIST EXPORTED",
+
   claim_created: "CLAIM CREATED",
   photo_region_reassigned: "PHOTO REGION REASSIGNED",
   item_collected: "ITEM COLLECTED",
@@ -875,7 +875,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
             </section>
           )}
 
-          {/* Finalisation Control & Download Exports Panel */}
+          {/* Finalisation control */}
           <div className="finalise-row" style={{ borderTop: "1px solid var(--line)", paddingTop: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
             <div className="finalise-actions">
               <div className="finalise-copy">
@@ -936,40 +936,6 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
               </div>
             )}
 
-            {/* Approved manifest exports */}
-            {isFinalised && (
-              <div style={{
-                background: "#f3faf5",
-                border: "1px solid #def7ec",
-                borderRadius: "10px",
-                padding: "16px",
-                display: "grid",
-                gap: "10px"
-              }}>
-                <strong style={{ fontSize: "0.85rem", color: "var(--green)" }}>📥 Export Item Handover Data</strong>
-                <span className="muted" style={{ fontSize: "0.78rem" }}>
-                  Download the confirmed item list with nested container links and photo references.
-                </span>
-                <div style={{ display: "flex", gap: "12px", marginTop: "4px" }}>
-                  <a
-                    href={`/api/cases/${caseFile.id}/export/json`}
-                    download={`foundflow_item_list_${caseFile.id}.json`}
-                    className="button"
-                    style={{ flex: 1, minHeight: "36px", fontSize: "0.82rem", background: "var(--green)" }}
-                  >
-                    Download JSON Item List
-                  </a>
-                  <a
-                    href={`/api/cases/${caseFile.id}/export/csv`}
-                    download={`foundflow_item_list_${caseFile.id}.csv`}
-                    className="button button-secondary"
-                    style={{ flex: 1, minHeight: "36px", fontSize: "0.82rem" }}
-                  >
-                    Download CSV Item List
-                  </a>
-                </div>
-              </div>
-            )}
           </div>
 
         </section>

@@ -40,7 +40,7 @@ import {
 } from "../src/lib/auth-tokens.ts";
 
 import { verifyImageSignature } from "../src/lib/image-utils.ts";
-import { escapeCsvCell } from "../src/lib/csv-utils.ts";
+
 import { buildDetectedItemLabel, hasCycle, isCurrencyItem, isValidImageRegion, mergeAiDraftWithStaffItems, requiresSensitiveReview, summarizeCurrency, validateManifestStructure } from "../src/lib/validation.ts";
 import { addDecimals, isValidCurrencyCode, multiplyDecimal, normalizeDecimal } from "../src/lib/currency.ts";
 import { buildConfirmedSearchItems } from "../src/lib/search.ts";
@@ -490,20 +490,6 @@ test("Exact Currency Arithmetic & Review Boundaries", async (t) => {
   });
 });
 
-test("CSV Injection Protection (OWASP)", async (t) => {
-  await t.test("should escape formula trigger characters", () => {
-    assert.strictEqual(escapeCsvCell("=SUM(1,2)"), '"\'=SUM(1,2)"');
-    assert.strictEqual(escapeCsvCell("+100"), '"\'+100"');
-    assert.strictEqual(escapeCsvCell("-20"), '"\'-20"');
-    assert.strictEqual(escapeCsvCell("@ATTACK"), '"\'@ATTACK"');
-    assert.strictEqual(escapeCsvCell(" \t=CMD()"), '"\' \t=CMD()"');
-  });
-
-  await t.test("should quote benign values normally", () => {
-    assert.strictEqual(escapeCsvCell("Standard Backpack"), '"Standard Backpack"');
-    assert.strictEqual(escapeCsvCell("SGD 50 note"), '"SGD 50 note"');
-  });
-});
 
 test("Sensitive Item Review Policy", async (t) => {
   await t.test("flags money, identity documents, and serial identifiers", () => {

@@ -44,7 +44,7 @@ FoundFlow's challenge MVP is accepted only when all criteria below pass using st
 - [x] State mutations and their corresponding audit records commit atomically.
 - [x] Completion remains disabled until a photo exists and every review item is resolved.
 - [x] Completed cases are locked against further mutation.
-- [x] Confirmed item lists export photo regions in JSON and CSV; CSV cells resist spreadsheet-formula injection.
+
 
 ## Collection and handover
 

@@ -146,27 +146,9 @@ export default function FinalisePage() {
           )}
 
           {isFinalised && (
-            <div style={{ display: "grid", gap: "10px" }}>
-              <Link href={`/cases/${caseId}/claim`} className="button" style={{ textAlign: "center" }}>
-                {caseFile.claims?.length ? "View Collection Claim" : "Start Collection Claim"}
-              </Link>
-              <a
-                href={`/api/cases/${caseId}/export/json`}
-                download={`foundflow_${caseId}.json`}
-                className="button button-secondary"
-                style={{ textAlign: "center" }}
-              >
-                📥 Download JSON
-              </a>
-              <a
-                href={`/api/cases/${caseId}/export/csv`}
-                download={`foundflow_${caseId}.csv`}
-                className="button button-secondary"
-                style={{ textAlign: "center" }}
-              >
-                📥 Download CSV
-              </a>
-            </div>
+            <Link href={`/cases/${caseId}/claim`} className="button" style={{ textAlign: "center" }}>
+              {caseFile.claims?.length ? "View Collection Claim" : "Start Collection Claim"}
+            </Link>
           )}
 
           {error && (

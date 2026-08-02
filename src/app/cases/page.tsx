@@ -30,9 +30,9 @@ const processSteps = [
   },
   {
     number: "05",
-    title: "Confirm & Export",
-    description: "Complete the confirmed item list and export it as JSON or CSV.",
-    icon: "📤",
+    title: "Confirm & Complete",
+    description: "Complete the reviewed item list and continue to ownership verification.",
+    icon: "✅",
   },
 ];
 

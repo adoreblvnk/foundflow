@@ -151,30 +151,9 @@ try {
   assert.equal(await page.getByRole("button", { name: "+ Add Item Manually" }).count(), 0);
   assert.equal(await page.getByRole("button", { name: "Scan Evidence" }).count(), 0);
 
-  const jsonExport = await page.evaluate(async (id) => {
-    const response = await fetch(`/api/cases/${id}/export/json`, { cache: "no-store" });
-    return { status: response.status, body: await response.json() };
-  }, caseId);
-  assert.equal(jsonExport.status, 200);
-  assert.equal(jsonExport.body.caseId, caseId);
-  assert.ok(jsonExport.body.manifest.length > 1);
-  assert.ok(jsonExport.body.manifest.every((item) => ["ai", "staff", "system"].includes(item.source)));
-
-  const csvExport = await page.evaluate(async (id) => {
-    const response = await fetch(`/api/cases/${id}/export/csv`, { cache: "no-store" });
-    return {
-      status: response.status,
-      contentType: response.headers.get("content-type") ?? "",
-      body: await response.text(),
-    };
-  }, caseId);
-  assert.equal(csvExport.status, 200);
-  assert.match(csvExport.contentType, /text\/csv/);
-  assert.match(csvExport.body, /Orange luggage tag/i);
-
   await page.reload();
   const auditText = await page.locator("body").innerText();
-  for (const event of ["EVIDENCE UPLOADED", "AI ANALYSIS TRIGGERED", "ITEM ADDED", "ITEM CONFIRMED", "CASE FINALISED", "MANIFEST EXPORTED"]) {
+  for (const event of ["EVIDENCE UPLOADED", "AI ANALYSIS TRIGGERED", "ITEM ADDED", "ITEM CONFIRMED", "CASE FINALISED"]) {
     assert.match(auditText, new RegExp(event));
   }
 

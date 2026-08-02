@@ -18,7 +18,7 @@ Existing systems can store and search lost-property records. FoundFlow improves 
 4. Link every proposed item to its source photo.
 5. Highlight uncertainty and require staff review.
 6. Finalise only after mandatory fields and uncertain items are resolved.
-7. Export the confirmed item list to an existing system.
+7. Use the confirmed item list for ownership verification and collection.
 
 ## Non-negotiable product rules
 

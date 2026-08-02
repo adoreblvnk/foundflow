@@ -23,7 +23,7 @@ FoundFlow helps airport and transit staff document complex found-property cases.
   - Require one explicit staff confirmation for review items, including money, identification documents, and perishables.
 - **Collection Claim (`/cases/[id]/claim`)**: Records report-backed or walk-in claims, requires independent ownership-evidence groups, masks identity references, and atomically records the staff decision and handover.
 - **Private Photos (`/api/uploads/[id]`)**: Application endpoint for stored item photos.
-- **Confirmed Exports (`/api/cases/[id]/export/json` and `/api/cases/[id]/export/csv`)**: Completed item lists with parent relationships, OCR text, and attributes, protected against CSV formula injection.
+
 
 ---
 
@@ -76,7 +76,7 @@ npm ci
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000), sign in when authentication is enabled, then create a found-property case from **Staff Intake**. The automated test suite seeds a deterministic staged backpack case with one synthetic item photo, an eleven-record nested item list, five denomination-level currency reviews, exact totals of SGD 104.00 and MYR 50.40, completion and JSON / CSV exports.
+Open [http://localhost:3000](http://localhost:3000), sign in when authentication is enabled, then create a found-property case from **Staff Intake**. The automated test suite seeds a deterministic staged backpack case with one synthetic item photo, an eleven-record nested item list, five denomination-level currency reviews, exact totals of SGD 104.00 and MYR 50.40, completion, ownership verification, and collection.
 
 ### Run Static Typecheck
 ```bash
@@ -89,7 +89,7 @@ npm run lint
 ```
 
 ### Run Automated Unit/Domain Tests
-Runs the comprehensive test suite validating session parsing, magic number validations, cycle detection, CSV formula escaping, and finalisation rules:
+Runs the comprehensive test suite validating session parsing, magic number validations, cycle detection, ownership verification, and finalisation rules:
 ```bash
 npm run test
 ```
@@ -142,7 +142,7 @@ FoundFlow uses the `@ai-sdk/openai` provider with AI SDK v6 to call OpenAI's vis
 - **Durable Shared Persistence**: One async libSQL data layer uses a local file in development and Turso on Vercel. Case mutations and audit entries are committed in atomic batches.
 - **Private Photo Storage**: Item photos stay under `DATA_DIR` locally and in a private Vercel Blob store when hosted.
 - **Upload Hardening**: magic number file-signature checks (JPG/PNG/WebP), cryptographically secure UUID file IDs, and strict path protection.
-- **CSV Formula Escape**: Guards formula prefixes (`=`, `+`, `-`, `@`) even after leading whitespace before CSV generation.
+
 - **Constant-Time Verification**: Cryptographic HMAC session verification with SHA-256 timing-safe string comparison. Require exactly two token segments for parsed authentication tokens.
 - **Atomic Transactions**: All state mutations and their corresponding timeline log records are wrapped inside a single database transaction, ensuring no orphan logs or desynced states occur.
 

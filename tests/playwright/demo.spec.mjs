@@ -225,44 +225,7 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   expect(completedCaseSearch.results).toHaveLength(13);
   expect(completedCaseSearch.results.every((item) => item.caseId === "CT3A-20260721-DEMO")).toBe(true);
 
-  const exports = await page.evaluate(async () => {
-    const [jsonResponse, csvResponse] = await Promise.all([
-      fetch("/api/cases/CT3A-20260721-DEMO/export/json", { cache: "no-store" }),
-      fetch("/api/cases/CT3A-20260721-DEMO/export/csv", { cache: "no-store" }),
-    ]);
-    return {
-      jsonStatus: jsonResponse.status,
-      json: await jsonResponse.json(),
-      csvStatus: csvResponse.status,
-      csv: await csvResponse.text(),
-    };
-  });
-  expect(exports.jsonStatus).toBe(200);
-  expect(exports.csvStatus).toBe(200);
-  expect(exports.json.manifest).toHaveLength(13);
-  expect(exports.json.manifest.find((item) => item.id === "sgd-1-coins").regions).toHaveLength(3);
-  expect(exports.csv).toContain("Photo Regions");
-  expect(exports.json.currencySummary).toEqual([
-    { currencyCode: "MYR", total: "50.4" },
-    { currencyCode: "SGD", total: "104" },
-  ]);
-  expect(exports.json.manifest.every((item) => ["demo-evidence-1", "staff-added"].includes(item.evidenceId))).toBe(true);
-  expect(exports.json.manifest.filter((item) => item.itemType === "currency").map((item) => ({ code: item.currencyCode, denomination: item.denomination, quantity: item.quantity, total: item.currencyTotal }))).toEqual([
-    { code: "SGD", denomination: "100", quantity: 1, total: "100" },
-    { code: "SGD", denomination: "1", quantity: 3, total: "3" },
-    { code: "SGD", denomination: "0.5", quantity: 2, total: "1" },
-    { code: "MYR", denomination: "50", quantity: 1, total: "50" },
-    { code: "MYR", denomination: "0.2", quantity: 2, total: "0.4" },
-  ]);
-  expect(exports.csv).toContain("Currency Code");
-  expect(exports.csv).toContain("Case Currency Total");
-  expect(exports.csv).toContain("104.00");
-  expect(exports.csv).toContain("50.40");
-  expect(exports.csv).toContain("SGD");
-  expect(exports.csv).toContain("MYR");
-  expect(exports.csv).toContain("SAMPLE-0241");
-
   await page.goto("/cases/CT3A-20260721-DEMO");
-  await expect(page.getByText(/ITEM LIST EXPORTED/).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: /Download (?:JSON|CSV)/ })).toHaveCount(0);
   await expect(page.getByText(/ITEM COLLECTED/).first()).toBeVisible();
 });

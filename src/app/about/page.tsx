@@ -83,14 +83,32 @@ export default function AboutPage() {
           </div>
 
           <div>
-            <h2 style={{ fontSize: "1.4rem", marginBottom: "12px" }}>Constraints & Limitations</h2>
-            <ul style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "var(--muted)", paddingLeft: "20px", margin: 0, display: "grid", gap: "6px" }}>
-              <li>Single-server SQLite storage: not horizontally scalable for multi-server production</li>
-              <li>Kiosk camera mode requires HTTPS for browser getUserMedia access</li>
-              <li>AI is not 100% accurate: low-confidence items and unreadable currency are always flagged for human review</li>
-              <li>No multi-user real-time collaboration (one officer per case at a time)</li>
-              <li>Search uses keyword + AI semantic ranking, not a dedicated vector database</li>
-              <li>No OCR fallback if the OpenAI API is unreachable</li>
+            <h2 style={{ fontSize: "1.4rem", marginBottom: "12px" }}>Constraints, Mitigations & Limitations</h2>
+            <ul style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "var(--muted)", paddingLeft: "20px", margin: 0, display: "grid", gap: "10px" }}>
+              <li>
+                <strong>Single-server SQLite storage</strong> - not horizontally scalable.
+                <br /><em>Mitigation:</em> Swap to Turso (libSQL) or Vercel Postgres with minimal schema changes since our queries are standard SQL.
+              </li>
+              <li>
+                <strong>Kiosk camera requires HTTPS</strong> - browser getUserMedia demands a secure context.
+                <br /><em>Mitigation:</em> Vercel deploys with HTTPS by default. For local dev, use mkcert for trusted local certificates.
+              </li>
+              <li>
+                <strong>AI accuracy varies</strong> - low-confidence items and unreadable currency are flagged for review.
+                <br /><em>Mitigation:</em> Layout guide reduces misreads. Officers can edit items or split mixed-currency groups into individual denominations. The system blocks confirmation until details are exact.
+              </li>
+              <li>
+                <strong>No multi-user collaboration</strong> - one officer per case at a time.
+                <br /><em>Mitigation:</em> Add optimistic locking (version column) to prevent overwrites. Real-time sync possible with Supabase Realtime or Ably.
+              </li>
+              <li>
+                <strong>Search is not vector-indexed</strong> - uses keyword matching + AI re-ranking.
+                <br /><em>Mitigation:</em> For production scale, add pgvector embeddings on item descriptions for sub-second semantic search without per-query AI calls.
+              </li>
+              <li>
+                <strong>No offline fallback</strong> - requires network for AI scan and data persistence.
+                <br /><em>Mitigation:</em> Service worker with IndexedDB queue. Officers capture photos offline, sync and scan when reconnected.
+              </li>
             </ul>
           </div>
 

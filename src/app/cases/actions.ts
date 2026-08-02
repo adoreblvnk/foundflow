@@ -35,6 +35,7 @@ const manualItemInputSchema = z.object({
 const createCaseInputSchema = z.object({
   location: z.string().trim().min(1).max(200),
   foundTime: z.string().refine((value) => Number.isFinite(Date.parse(value)), "Found time is invalid"),
+  foundBy: z.string().max(200),
   outerItemDescription: z.string().trim().min(1).max(200),
   notes: z.string().max(2000),
 });
@@ -70,6 +71,7 @@ export async function handleCreateCase(formData: FormData) {
   const parsed = createCaseInputSchema.parse({
     location: formData.get("location"),
     foundTime: formData.get("foundTime"),
+    foundBy: formData.get("foundBy") ?? "",
     outerItemDescription: formData.get("outerItemDescription"),
     notes: formData.get("notes") ?? "",
   });

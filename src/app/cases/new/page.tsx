@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isAuthenticated, getCurrentUser } from "@/lib/auth";
 import { handleCreateCase } from "@/app/cases/actions";
+import { LOCATION_PRESETS } from "@/lib/constants";
 
 export default async function NewCasePage() {
   const authed = await isAuthenticated();
@@ -77,14 +78,37 @@ export default async function NewCasePage() {
 
             <div style={{ display: "grid", gap: "6px" }}>
               <label htmlFor="location" style={{ fontWeight: 600, fontSize: "0.88rem" }}>
-                Intake / Found Location <span style={{ color: "var(--green)" }}>*</span>
+                Found Location <span style={{ color: "var(--green)" }}>*</span>
               </label>
-              <input
+              <select
                 id="location"
                 name="location"
-                type="text"
-                placeholder="e.g. Changi Airport T3 Transit Hall, Hotel Lobby Couch"
                 required
+                style={{
+                  minHeight: "44px",
+                  paddingInline: "12px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--line)",
+                  background: "var(--paper)",
+                  fontSize: "0.95rem"
+                }}
+              >
+                <option value="">Select location...</option>
+                {LOCATION_PRESETS.map((loc) => (
+                  <option key={loc.value} value={loc.value}>{loc.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: "grid", gap: "6px" }}>
+              <label htmlFor="foundBy" style={{ fontWeight: 600, fontSize: "0.88rem" }}>
+                Found / Handed In By
+              </label>
+              <input
+                id="foundBy"
+                name="foundBy"
+                type="text"
+                placeholder="e.g. Officer Tan, Passenger (self-report), Cleaner"
                 style={{
                   minHeight: "44px",
                   paddingInline: "12px",

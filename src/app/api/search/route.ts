@@ -4,25 +4,31 @@ import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 
+interface SearchFilters {
+  location?: string;
+  category?: string;
+  foundBy?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { query, mode } = body as { query: string; mode: "text" | "ai" };
-
-  if (!query || typeof query !== "string" || query.trim().length === 0) {
-    return NextResponse.json({ results: [] });
-  }
+  const { query, mode, filters } = body as { query: string; mode: "text" | "ai"; filters?: SearchFilters };
 
   const cases = getCases();
 
   // Build flat list of all items with case metadata
-  const allItems = cases.flatMap((c) =>
+  let allItems = cases.flatMap((c) =>
     c.manifest.map((item) => ({
       id: item.id,
       label: item.label,
       caseId: c.id,
       location: c.location,
       foundTime: c.foundTime,
+      foundBy: c.foundBy || "",
       itemType: item.itemType || "property",
+      category: item.category || "other",
       currencyCode: item.currencyCode || null,
       currencyTotal: item.currencyTotal || null,
       ocrText: item.ocrText || "",
@@ -31,11 +37,38 @@ export async function POST(request: NextRequest) {
     }))
   );
 
+  // Apply structured filters
+  if (filters) {
+    if (filters.location) {
+      const loc = filters.location.toLowerCase();
+      allItems = allItems.filter((i) => i.location.toLowerCase().includes(loc));
+    }
+    if (filters.category) {
+      allItems = allItems.filter((i) => i.category === filters.category);
+    }
+    if (filters.foundBy) {
+      const by = filters.foundBy.toLowerCase();
+      allItems = allItems.filter((i) => i.foundBy.toLowerCase().includes(by));
+    }
+    if (filters.dateFrom) {
+      const from = new Date(filters.dateFrom).getTime();
+      allItems = allItems.filter((i) => new Date(i.foundTime).getTime() >= from);
+    }
+    if (filters.dateTo) {
+      const to = new Date(filters.dateTo).getTime() + 86400000; // end of day
+      allItems = allItems.filter((i) => new Date(i.foundTime).getTime() <= to);
+    }
+  }
+
+  // If no text query, just return filtered results
+  if (!query || query.trim().length === 0) {
+    return NextResponse.json({ results: allItems.slice(0, 50) });
+  }
+
   if (mode === "text") {
-    // Simple text matching across label, ocrText, visibleAttributes, location
     const terms = query.toLowerCase().split(/\s+/);
     const results = allItems.filter((item) => {
-      const haystack = `${item.label} ${item.ocrText} ${item.visibleAttributes} ${item.location} ${item.currencyCode || ""} ${item.itemType}`.toLowerCase();
+      const haystack = `${item.label} ${item.ocrText} ${item.visibleAttributes} ${item.location} ${item.currencyCode || ""} ${item.itemType} ${item.category} ${item.foundBy}`.toLowerCase();
       return terms.every((term) => haystack.includes(term));
     }).slice(0, 50);
 
@@ -47,12 +80,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ results: [] });
   }
 
-  // Limit to 100 items for the AI call
   const candidateItems = allItems.slice(0, 100);
 
   try {
     const itemDescriptions = candidateItems.map((item, i) => (
-      `[${i}] "${item.label}" | Type: ${item.itemType} | Location: ${item.location} | OCR: "${item.ocrText}" | Attributes: "${item.visibleAttributes}" | Currency: ${item.currencyCode || "none"} ${item.currencyTotal || ""}`
+      `[${i}] "${item.label}" | Category: ${item.category} | Location: ${item.location} | Found: ${item.foundTime} | By: ${item.foundBy || "unknown"} | OCR: "${item.ocrText}" | Attributes: "${item.visibleAttributes}" | Currency: ${item.currencyCode || "none"} ${item.currencyTotal || ""}`
     )).join("\n");
 
     const result = await generateObject({
@@ -86,7 +118,7 @@ export async function POST(request: NextRequest) {
     // Fallback to text search
     const terms = query.toLowerCase().split(/\s+/);
     const results = allItems.filter((item) => {
-      const haystack = `${item.label} ${item.ocrText} ${item.visibleAttributes} ${item.location} ${item.currencyCode || ""} ${item.itemType}`.toLowerCase();
+      const haystack = `${item.label} ${item.ocrText} ${item.visibleAttributes} ${item.location} ${item.category} ${item.foundBy}`.toLowerCase();
       return terms.some((term) => haystack.includes(term));
     }).slice(0, 20);
 

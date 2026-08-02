@@ -30,6 +30,7 @@ export interface ManifestItem {
   currencyCode?: string | null;
   denomination?: string | null;
   currencyTotal?: string | null;
+  category?: string;
   source?: "ai" | "staff" | "system";
 }
 
@@ -46,6 +47,7 @@ export interface Case {
   isDemo?: boolean;
   location: string;
   foundTime: string;
+  foundBy: string;
   outerItemDescription: string;
   notes: string;
   status: "reviewing" | "finalised";
@@ -135,6 +137,16 @@ export function getDbInstance(): DatabaseSync {
     );
   `);
 
+  // Add columns if missing (safe migrations for existing databases)
+  const caseColumns = dbInstance.prepare("PRAGMA table_info(cases)").all() as { name: string }[];
+  if (!caseColumns.some((c) => c.name === "foundBy")) {
+    dbInstance.exec("ALTER TABLE cases ADD COLUMN foundBy TEXT DEFAULT ''");
+  }
+  const itemColumns = dbInstance.prepare("PRAGMA table_info(manifest_items)").all() as { name: string }[];
+  if (!itemColumns.some((c) => c.name === "category")) {
+    dbInstance.exec("ALTER TABLE manifest_items ADD COLUMN category TEXT DEFAULT 'other'");
+  }
+
   let manifestColumns = dbInstance.prepare("PRAGMA table_info(manifest_items)").all() as unknown as Array<{ name: string; type: string }>;
   const refreshManifestColumns = () => {
     manifestColumns = dbInstance!.prepare("PRAGMA table_info(manifest_items)").all() as unknown as Array<{ name: string; type: string }>;
@@ -212,6 +224,7 @@ interface CaseRow {
   isDemo: number;
   location: string;
   foundTime: string;
+  foundBy: string;
   outerItemDescription: string;
   notes: string;
   status: string;
@@ -246,6 +259,7 @@ interface ManifestItemRow {
   currencyCode: string | null;
   denomination: string | number | null;
   currencyTotal: string | number | null;
+  category: string | null;
   source: string;
 }
 
@@ -304,6 +318,7 @@ export function getCaseById(id: string): Case | undefined {
     denomination: normalizeDecimal(m.denomination),
     currencyTotal: normalizeDecimal(m.currencyTotal),
     source: m.source === "ai" || m.source === "system" ? m.source : "staff",
+    category: m.category || "other",
   }));
 
   // Retrieve audit logs
@@ -321,6 +336,7 @@ export function getCaseById(id: string): Case | undefined {
     isDemo: Boolean(caseRow.isDemo),
     location: caseRow.location,
     foundTime: caseRow.foundTime,
+    foundBy: caseRow.foundBy || "",
     outerItemDescription: caseRow.outerItemDescription,
     notes: caseRow.notes || "",
     status: caseRow.status as "reviewing" | "finalised",
@@ -361,6 +377,7 @@ export function createCase(caseData: Partial<Case> & { location: string; foundTi
   const isDemo = caseData.isDemo ? 1 : 0;
   const location = caseData.location;
   const foundTime = caseData.foundTime;
+  const foundBy = caseData.foundBy || "";
   const outerItemDescription = caseData.outerItemDescription;
   const notes = caseData.notes || "";
   const status = "reviewing";
@@ -370,9 +387,9 @@ export function createCase(caseData: Partial<Case> & { location: string; foundTi
 
   runInTransaction(() => {
     db.prepare(`
-      INSERT INTO cases (id, isDemo, location, foundTime, outerItemDescription, notes, status, finalisedAt, finalisedBy, createdAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, isDemo, location, foundTime, outerItemDescription, notes, status, finalisedAt, finalisedBy, createdAt);
+      INSERT INTO cases (id, isDemo, location, foundTime, foundBy, outerItemDescription, notes, status, finalisedAt, finalisedBy, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, isDemo, location, foundTime, foundBy, outerItemDescription, notes, status, finalisedAt, finalisedBy, createdAt);
 
     // Initial manifest item (root) representing the outer container
     db.prepare(`

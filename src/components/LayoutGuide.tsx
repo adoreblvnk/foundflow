@@ -30,7 +30,7 @@ export default function LayoutGuide({ defaultOpen = false }: { defaultOpen?: boo
           color: "var(--green)",
         }}
       >
-        <span>📐 How to Arrange Items for Scanning</span>
+        <span>How to Arrange Items for Scanning</span>
         <span style={{ fontSize: "0.9rem" }}>{open ? "▾" : "▸"}</span>
       </button>
 
@@ -51,7 +51,7 @@ export default function LayoutGuide({ defaultOpen = false }: { defaultOpen?: boo
               background: "#e8f5e9",
               border: "1px solid #c8e6c9",
             }}>
-              <strong style={{ fontSize: "0.76rem", display: "block", marginBottom: "6px" }}>✅ Good</strong>
+              <strong style={{ fontSize: "0.76rem", display: "block", marginBottom: "6px" }}>Good</strong>
               <ul style={{ margin: 0, paddingLeft: "16px", fontSize: "0.75rem", color: "var(--muted)" }}>
                 <li>Items spread apart</li>
                 <li>Text facing camera</li>
@@ -65,7 +65,7 @@ export default function LayoutGuide({ defaultOpen = false }: { defaultOpen?: boo
               background: "#fff3e0",
               border: "1px solid #ffe0b2",
             }}>
-              <strong style={{ fontSize: "0.76rem", display: "block", marginBottom: "6px" }}>❌ Avoid</strong>
+              <strong style={{ fontSize: "0.76rem", display: "block", marginBottom: "6px" }}>Avoid</strong>
               <ul style={{ margin: 0, paddingLeft: "16px", fontSize: "0.75rem", color: "var(--muted)" }}>
                 <li>Piled or stacked items</li>
                 <li>Currency folded/overlapping</li>

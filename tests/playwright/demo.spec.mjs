@@ -18,6 +18,7 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
 
   await page.goto("/kiosk");
   await expect(page.getByRole("heading", { name: "Kiosk Intake" })).toBeVisible();
+  expect(await page.locator("main").innerText()).not.toMatch(/[\u2600-\u27BF\u{1F300}-\u{1FAFF}]/u);
 
   await page.goto("/cases");
   await expect(page).toHaveURL(/\/login$/);

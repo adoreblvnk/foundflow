@@ -47,7 +47,7 @@ export default function AppHeader() {
               color: pathname === "/search" ? "var(--green)" : "var(--muted)",
             }}
           >
-            🔍 Search
+            Search
           </Link>
 
           {/* Mode Toggle */}

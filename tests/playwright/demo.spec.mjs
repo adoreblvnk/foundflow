@@ -33,6 +33,23 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   await expect(page.getByRole("heading", { name: "Cases" })).toBeVisible();
   await expect(page.getByText("Step-by-Step Intake Process", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Load Demo|Reset Demo/ })).toHaveCount(0);
+
+  await page.goto("/cases/new/intake");
+  await expect(page).toHaveURL(/\/cases\/new$/);
+  await expect(page.getByRole("heading", { name: "Intake order" })).toBeVisible();
+  await page.getByRole("button", { name: "Acknowledge & Continue" }).click();
+  await expect(page).toHaveURL(/\/cases\/new$/);
+  await page.getByText("I understand and will follow this intake order.", { exact: true }).click();
+  await page.getByRole("button", { name: "Acknowledge & Continue" }).click();
+  await expect(page).toHaveURL(/\/cases\/new\/intake$/);
+  await expect(page.getByRole("heading", { name: "Property details" })).toBeVisible();
+  await page.getByLabel(/Outer item/).fill("Test umbrella");
+  await page.getByLabel(/Found location/).selectOption({ index: 1 });
+  await page.getByRole("button", { name: "Create Case" }).click();
+  await expect(page).toHaveURL(/\/cases\/(?!new)[^/]+$/);
+  await expect(page.getByText("INSTRUCTIONS ACKNOWLEDGED", { exact: true })).toBeVisible();
+
+  await page.goto("/cases");
   await page.locator('a[href="/cases/CT3A-20260721-DEMO"]').first().click();
   await expect(page).toHaveURL(/\/cases\/CT3A-20260721-DEMO$/);
   await expect(page.getByText("Item Photos (1)", { exact: true })).toBeVisible();

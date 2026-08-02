@@ -3,6 +3,7 @@
 import { createCase, getCaseById, updateCaseWithAudit, Case, EvidenceUpload, ManifestItem } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
@@ -13,6 +14,7 @@ import { buildDetectedItemLabel, hasCycle, isCurrencyItem, isValidImageRegion, m
 import { isValidCurrencyCode, multiplyDecimal, normalizeDecimal } from "@/lib/currency";
 import { deleteEvidence, readEvidence, writeEvidence } from "@/lib/evidence-storage";
 import { PHOTO_CONTEXT_VALUES } from "@/lib/photo-context";
+import { INTAKE_ACKNOWLEDGEMENT_COOKIE } from "@/lib/intake";
 
 const imageRegionSchema = z.object({
   id: z.string().min(1).max(100),
@@ -70,6 +72,11 @@ export async function handleCreateCase(formData: FormData) {
     throw new Error("Unauthenticated");
   }
 
+  const cookieStore = await cookies();
+  if (cookieStore.get(INTAKE_ACKNOWLEDGEMENT_COOKIE)?.value !== user.username) {
+    redirect("/cases/new");
+  }
+
   const parsed = createCaseInputSchema.parse({
     location: formData.get("location"),
     foundTime: formData.get("foundTime"),
@@ -83,7 +90,32 @@ export async function handleCreateCase(formData: FormData) {
     finalisedBy: user.username,
   });
 
+  await updateCaseWithAudit(
+    newCase.id,
+    newCase,
+    user.username,
+    "intake_instructions_acknowledged",
+    "Staff acknowledged the guided photo and review order before creating the case.",
+  );
+  cookieStore.delete(INTAKE_ACKNOWLEDGEMENT_COOKIE);
+
   redirect(`/cases/${newCase.id}`);
+}
+
+export async function handleAcknowledgeIntakeInstructions(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) throw new Error("Unauthenticated");
+  z.literal("yes").parse(formData.get("acknowledged"));
+
+  const cookieStore = await cookies();
+  cookieStore.set(INTAKE_ACKNOWLEDGEMENT_COOKIE, user.username, {
+    httpOnly: true,
+    sameSite: "strict",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 15 * 60,
+    path: "/cases/new",
+  });
+  redirect("/cases/new/intake");
 }
 
 export async function handleUploadEvidence(caseId: string, formData: FormData) {

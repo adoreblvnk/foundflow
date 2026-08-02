@@ -44,6 +44,7 @@ const activityLabels: Record<string, string> = {
   ai_analysis_complete: "PHOTO SCAN COMPLETE",
 
   case_finalised: "CASE COMPLETED",
+  intake_instructions_acknowledged: "INSTRUCTIONS ACKNOWLEDGED",
 
   claim_created: "CLAIM CREATED",
   photo_region_reassigned: "PHOTO REGION REASSIGNED",

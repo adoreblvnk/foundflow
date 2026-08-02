@@ -12,28 +12,29 @@ Existing systems can store and search lost-property records. FoundFlow improves 
 
 ## Core workflow
 
-1. Create a case and capture the outer property.
-2. Add contents one container level at a time.
-3. Generate a structured draft from images and optional speech.
-4. Link every proposed item to its source photo.
-5. Highlight uncertainty and require staff review.
-6. Finalise only after mandatory fields and uncertain items are resolved.
-7. Use the confirmed item list for ownership verification and collection.
+1. Staff acknowledge the concise guided-photo and review order.
+2. Create a case and capture the outer property.
+3. Add contents one container level at a time.
+4. Generate a structured draft from images and optional speech.
+5. Link every proposed item to its source photo.
+6. Highlight uncertainty and require staff review.
+7. Finalise only after mandatory fields and uncertain items are resolved.
+8. Use the confirmed item list for ownership verification and collection.
 
 ## Non-negotiable product rules
 
 - AI drafts; authorised staff make the final decision.
 - Every final item must link to a captured photo or be explicitly added by a staff member.
-- Nested container relationships must survive extraction, correction and export.
+- Nested container relationships must survive extraction, correction, completion and collection.
 - Notes and coins must be separated by currency and denomination, with exact denomination × quantity totals; unreadable values remain unresolved and cannot be guessed.
 - Uncertain quantities, currencies and identifiers require explicit review.
-- Money, identification documents and perishable items require two explicit staff checks before confirmation.
+- Money, identification documents and perishable items require explicit staff confirmation.
 - The challenge dataset must use staged property and synthetic identifiers, not real passenger data.
 - Live-provider failure must not destroy a case or prevent manual completion.
 
 ## Challenge scope
 
-Build a polished vertical slice covering landing → guided intake → nested draft → correction → approval → export. Include deterministic demonstration data and a live AI adapter only after its image and structured-output capabilities are verified.
+Build a polished vertical slice covering operations → guided intake → nested draft → correction → completion → verified collection. Include deterministic demonstration data and a live AI adapter only after its image and structured-output capabilities are verified.
 
 Out of scope for the initial challenge build: public marketplace, chat, maps, social posting, continuous CCTV, autonomous ownership approval and nationwide record exchange.
 

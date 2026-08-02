@@ -6,6 +6,7 @@ FoundFlow's challenge MVP is accepted only when all criteria below pass using st
 
 - [x] When authentication is enabled, an unauthenticated request to a case or photo resource is rejected or redirected to login. The hosted demo may temporarily set `AUTH_DISABLED=true`.
 - [x] A configured staff identity can sign in through an HTTP-only signed session cookie.
+- [x] Staff must acknowledge a concise photo and review order before the case-details form is available; the acknowledgement is recorded on the created case.
 - [x] Staff can create a case with location, found time, and outer-item description.
 - [x] PNG, JPEG, and WebP item photos can be uploaded at outer-item, bag-contents, or inner-container level.
 - [x] Photos may explicitly describe a loose or standalone item with no container; container nesting is optional rather than assumed.

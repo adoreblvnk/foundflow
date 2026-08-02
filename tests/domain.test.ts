@@ -41,7 +41,7 @@ import {
 
 import { verifyImageSignature } from "../src/lib/image-utils.ts";
 import { escapeCsvCell } from "../src/lib/csv-utils.ts";
-import { FIRST_STAFF_CHECK_PREFIX, hasCycle, hasFirstStaffCheck, isCurrencyItem, isValidImageRegion, mergeAiDraftWithStaffItems, requiresDoubleStaffCheck, requiresSensitiveReview, summarizeCurrency, validateManifestStructure } from "../src/lib/validation.ts";
+import { buildDetectedItemLabel, FIRST_STAFF_CHECK_PREFIX, hasCycle, hasFirstStaffCheck, isCurrencyItem, isValidImageRegion, mergeAiDraftWithStaffItems, requiresDoubleStaffCheck, requiresSensitiveReview, summarizeCurrency, validateManifestStructure } from "../src/lib/validation.ts";
 import { addDecimals, isValidCurrencyCode, multiplyDecimal, normalizeDecimal } from "../src/lib/currency.ts";
 import { buildConfirmedSearchItems } from "../src/lib/search.ts";
 import { caseContainsIdentityEvidence, evaluateClaimVerification } from "../src/lib/claim-policy.ts";
@@ -290,6 +290,13 @@ test("Authentication & Security Session Tokens", async (t) => {
     }
     assert.strictEqual(isAuthDisabled(), false);
   });
+});
+
+test("Brand-aware item labels", () => {
+  assert.strictEqual(buildDetectedItemLabel("tote bag", "Louis Vuitton", "Neverfull MM"), "Louis Vuitton Neverfull MM tote bag");
+  assert.strictEqual(buildDetectedItemLabel("Apple iPhone", "Apple", "iPhone 15 Pro"), "Apple iPhone 15 Pro");
+  assert.strictEqual(buildDetectedItemLabel("watch", "Apple", "Apple Watch Ultra 2"), "Apple Watch Ultra 2");
+  assert.strictEqual(buildDetectedItemLabel("black backpack", null, null), "black backpack");
 });
 
 test("Search Visibility", () => {

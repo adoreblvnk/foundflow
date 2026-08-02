@@ -8,6 +8,25 @@ const doubleCheckItemPattern = /\b(?:cash|money|currency|banknotes?|notes?|coins
 
 export const FIRST_STAFF_CHECK_PREFIX = "First staff check completed";
 
+export function buildDetectedItemLabel(label: string, brand: string | null, model: string | null): string {
+  const cleanBrand = brand?.trim() ?? "";
+  let cleanModel = model?.trim() ?? "";
+  if (cleanBrand && cleanModel.toLocaleLowerCase().startsWith(`${cleanBrand.toLocaleLowerCase()} `)) {
+    cleanModel = cleanModel.slice(cleanBrand.length).trim();
+  }
+
+  const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  let genericLabel = label.trim();
+  for (const identity of [cleanBrand, cleanModel]) {
+    if (identity) genericLabel = genericLabel.replace(new RegExp(escapeRegExp(identity), "i"), "").trim();
+  }
+  if (cleanModel && genericLabel && cleanModel.toLocaleLowerCase().includes(genericLabel.toLocaleLowerCase())) {
+    genericLabel = "";
+  }
+
+  return [cleanBrand, cleanModel, genericLabel].filter(Boolean).join(" ").trim().slice(0, 160);
+}
+
 export function isValidImageRegion(region: ImageRegion): boolean {
   return typeof region.id === "string" && region.id.length > 0
     && [region.x, region.y, region.width, region.height].every((value) => Number.isFinite(value))

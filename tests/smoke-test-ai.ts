@@ -6,6 +6,8 @@ import { z } from "zod";
 const schema = z.object({
   items: z.array(z.object({
     label: z.string().min(1),
+    brand: z.string().min(1).nullable(),
+    model: z.string().min(1).nullable(),
     quantity: z.number().int().positive().nullable(),
     evidenceId: z.literal("smoke-evidence"),
     regions: z.array(z.object({
@@ -26,7 +28,7 @@ async function runSmokeTest() {
     messages: [{
       role: "user",
       content: [
-        { type: "text", text: "Catalog at least one clearly visible property item. Use evidenceId smoke-evidence. Return one tight normalized x/y/width/height bounding box per visible instance; coordinates are fractions of the full image. Do not guess an unreadable quantity." },
+        { type: "text", text: "Catalog at least one clearly visible property item. Return brand and model only when visibly verifiable; otherwise use null. Keep label as the generic item type. Use evidenceId smoke-evidence. Return one tight normalized x/y/width/height bounding box per visible instance; coordinates are fractions of the full image. Do not guess an unreadable quantity." },
         { type: "file", mediaType: "image/webp", data: image },
       ],
     }],

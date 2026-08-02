@@ -34,6 +34,10 @@ const activityLabels: Record<string, string> = {
   sensitive_item_first_check: "FIRST STAFF CHECK",
   case_finalised: "CASE COMPLETED",
   manifest_exported: "ITEM LIST EXPORTED",
+  claim_created: "CLAIM CREATED",
+  item_collected: "ITEM COLLECTED",
+  claim_rejected: "CLAIM REJECTED",
+  claim_escalated: "CLAIM ESCALATED",
 };
 
 function formatActivityDetails(details: string): string {
@@ -883,6 +887,28 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                 </button>
               )}
             </div>
+
+            {/* Collection workflow */}
+            {isFinalised && (
+              <div style={{
+                background: caseFile.claims?.some((claim) => claim.decision === "approved") ? "#f3faf5" : "var(--paper)",
+                border: "1px solid var(--line)",
+                borderRadius: "10px",
+                padding: "16px",
+                display: "grid",
+                gap: "10px"
+              }}>
+                <strong style={{ fontSize: "0.85rem", color: "var(--green-dark)" }}>
+                  {caseFile.claims?.some((claim) => claim.decision === "approved") ? "Collection completed" : "Ownership verification and collection"}
+                </strong>
+                <span className="muted" style={{ fontSize: "0.78rem" }}>
+                  Every handover requires a claim record. Link an existing lost report or create a staff-initiated walk-in claim.
+                </span>
+                <Link href={`/cases/${caseFile.id}/claim`} className="button" style={{ minHeight: "38px", fontSize: "0.82rem" }}>
+                  {caseFile.claims?.length ? "View collection claim" : "Start collection claim"}
+                </Link>
+              </div>
+            )}
 
             {/* Approved manifest exports */}
             {isFinalised && (

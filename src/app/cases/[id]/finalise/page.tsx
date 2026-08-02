@@ -147,10 +147,13 @@ export default function FinalisePage() {
 
           {isFinalised && (
             <div style={{ display: "grid", gap: "10px" }}>
+              <Link href={`/cases/${caseId}/claim`} className="button" style={{ textAlign: "center" }}>
+                {caseFile.claims?.length ? "View Collection Claim" : "Start Collection Claim"}
+              </Link>
               <a
                 href={`/api/cases/${caseId}/export/json`}
                 download={`foundflow_${caseId}.json`}
-                className="button"
+                className="button button-secondary"
                 style={{ textAlign: "center" }}
               >
                 📥 Download JSON

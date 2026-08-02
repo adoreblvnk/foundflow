@@ -136,7 +136,9 @@ export default async function CasesPage() {
 
               // Determine current step
               let currentStep = "Create";
-              if (c.status === "finalised") {
+              if (c.claims?.some((claim) => claim.decision === "approved")) {
+                currentStep = "Collected";
+              } else if (c.status === "finalised") {
                 currentStep = "Complete";
               } else if (totalItems > 0 && unresolvedCount === 0) {
                 currentStep = "Ready to Finalise";

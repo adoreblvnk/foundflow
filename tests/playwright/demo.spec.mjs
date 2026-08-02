@@ -130,6 +130,24 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   await finalise.click();
   await expect(page.getByText(/Property Record Completed/)).toBeVisible();
 
+  await page.getByRole("link", { name: "Start collection claim" }).click();
+  await expect(page).toHaveURL(/\/cases\/CT3A-20260721-DEMO\/claim$/);
+  await expect(page.getByRole("radio", { name: /No lost report/ })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("textbox", { name: "Claimant name", exact: true }).fill("Synthetic Passenger");
+  await page.getByRole("textbox", { name: "Contact details", exact: true }).fill("synthetic@example.test");
+  await page.getByRole("textbox", { name: /Masked identifier/, exact: false }).fill("****123A");
+  await page.getByText("Identity-bearing item matches claimant", { exact: true }).click();
+  await page.getByText("Undisclosed contents described", { exact: true }).click();
+  await page.getByLabel("Staff-only verification note").fill("Synthetic ID matched and claimant named the hidden notebook.");
+  await page.getByRole("button", { name: "Create claim record" }).click();
+  await expect(page.getByRole("heading", { name: "Verification pending" })).toBeVisible();
+  await page.getByLabel("Decision reason").fill("Identity and undisclosed content independently matched.");
+  await page.getByText("Claimant acknowledgement captured", { exact: true }).click();
+  await page.getByRole("button", { name: "Approve and record handover" }).click();
+  await expect(page.getByText("Handover complete", { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Collected" })).toBeVisible();
+
   const completedCaseSearch = await page.evaluate(async () => {
     const response = await fetch("/api/search", {
       method: "POST",
@@ -176,6 +194,7 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   expect(exports.csv).toContain("MYR");
   expect(exports.csv).toContain("SAMPLE-0241");
 
-  await page.reload();
+  await page.goto("/cases/CT3A-20260721-DEMO");
   await expect(page.getByText(/ITEM LIST EXPORTED/).first()).toBeVisible();
+  await expect(page.getByText(/ITEM COLLECTED/).first()).toBeVisible();
 });

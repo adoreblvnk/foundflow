@@ -24,6 +24,8 @@ import {
   getCases,
   getCaseById,
   createCase,
+  createClaimRecord,
+  decideClaimRecord,
   seedDemoCase,
   closeDb
 } from "../src/lib/db.ts";
@@ -97,6 +99,37 @@ test("Database Layer, Seeding & Isolation", async (t) => {
 
     const createdLog = retrieved!.auditLogs.find(l => l.action === "case_created");
     assert.ok(createdLog);
+  });
+
+  await t.test("should persist a walk-in claim, decision, handover time and audit history", async () => {
+    const claim = await createClaimRecord({
+      caseId: "CT3A-20260721-DEMO",
+      path: "walk-in",
+      lostReportId: null,
+      claimantName: "Synthetic Claimant",
+      claimantContact: "synthetic@example.test",
+      maskedIdentifier: "****123A",
+      verificationMethods: ["identity-match", "undisclosed-contents"],
+      verificationNotes: "Synthetic identity and hidden bag content matched.",
+      createdBy: "test-staff",
+    });
+    assert.strictEqual(claim.decision, "pending");
+
+    const decided = await decideClaimRecord("CT3A-20260721-DEMO", claim.id, {
+      decision: "approved",
+      decisionReason: "Two independent ownership checks matched.",
+      acknowledgement: true,
+      decidedBy: "test-staff",
+    });
+    assert.ok(decided);
+    assert.strictEqual(decided!.decision, "approved");
+    assert.ok(decided!.collectedAt);
+
+    const retrieved = await getCaseById("CT3A-20260721-DEMO");
+    assert.strictEqual(retrieved!.claims?.[0].id, claim.id);
+    assert.deepStrictEqual(retrieved!.claims?.[0].verificationMethods, ["identity-match", "undisclosed-contents"]);
+    assert.ok(retrieved!.auditLogs.some((log) => log.action === "claim_created"));
+    assert.ok(retrieved!.auditLogs.some((log) => log.action === "item_collected"));
   });
 });
 

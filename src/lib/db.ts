@@ -43,6 +43,29 @@ export interface AuditLog {
   details: string;
 }
 
+export type ClaimPath = "lost-report" | "walk-in";
+export type ClaimDecision = "pending" | "approved" | "rejected" | "escalated";
+
+export interface ClaimRecord {
+  id: string;
+  caseId: string;
+  path: ClaimPath;
+  lostReportId: string | null;
+  claimantName: string;
+  claimantContact: string;
+  maskedIdentifier: string | null;
+  verificationMethods: string[];
+  verificationNotes: string;
+  decision: ClaimDecision;
+  decisionReason: string | null;
+  acknowledgement: boolean;
+  createdAt: string;
+  createdBy: string;
+  decidedAt: string | null;
+  decidedBy: string | null;
+  collectedAt: string | null;
+}
+
 export interface Case {
   id: string;
   isDemo?: boolean;
@@ -57,6 +80,7 @@ export interface Case {
   uploads: EvidenceUpload[];
   manifest: ManifestItem[];
   auditLogs: AuditLog[];
+  claims?: ClaimRecord[];
   createdAt: string;
 }
 
@@ -147,6 +171,26 @@ async function initializeSchema(db: DbClient): Promise<void> {
       details TEXT NOT NULL,
       FOREIGN KEY (caseId) REFERENCES cases(id) ON DELETE CASCADE
     )`, args: [] },
+    { sql: `CREATE TABLE IF NOT EXISTS claims (
+      id TEXT PRIMARY KEY,
+      caseId TEXT NOT NULL,
+      path TEXT NOT NULL,
+      lostReportId TEXT,
+      claimantName TEXT NOT NULL,
+      claimantContact TEXT NOT NULL,
+      maskedIdentifier TEXT,
+      verificationMethods TEXT NOT NULL DEFAULT '[]',
+      verificationNotes TEXT NOT NULL DEFAULT '',
+      decision TEXT NOT NULL DEFAULT 'pending',
+      decisionReason TEXT,
+      acknowledgement INTEGER NOT NULL DEFAULT 0,
+      createdAt TEXT NOT NULL,
+      createdBy TEXT NOT NULL,
+      decidedAt TEXT,
+      decidedBy TEXT,
+      collectedAt TEXT,
+      FOREIGN KEY (caseId) REFERENCES cases(id) ON DELETE CASCADE
+    )`, args: [] },
   ], "write");
 
   const caseColumns = (await db.execute("PRAGMA table_info(cases)")).rows as unknown as Array<{ name: string }>;
@@ -225,6 +269,12 @@ interface ManifestItemRow {
 interface AuditLogRow {
   id: string; timestamp: string; userId: string; action: string; details: string;
 }
+interface ClaimRow {
+  id: string; caseId: string; path: string; lostReportId: string | null; claimantName: string;
+  claimantContact: string; maskedIdentifier: string | null; verificationMethods: string;
+  verificationNotes: string; decision: string; decisionReason: string | null; acknowledgement: number;
+  createdAt: string; createdBy: string; decidedAt: string | null; decidedBy: string | null; collectedAt: string | null;
+}
 
 export async function getCases(): Promise<Case[]> {
   const db = await getDbInstance();
@@ -235,11 +285,12 @@ export async function getCases(): Promise<Case[]> {
 
 export async function getCaseById(id: string): Promise<Case | undefined> {
   const db = await getDbInstance();
-  const [caseResult, uploadResult, manifestResult, auditResult] = await Promise.all([
+  const [caseResult, uploadResult, manifestResult, auditResult, claimResult] = await Promise.all([
     db.execute({ sql: "SELECT * FROM cases WHERE id = ?", args: [id] }),
     db.execute({ sql: "SELECT * FROM uploads WHERE caseId = ? ORDER BY uploadedAt ASC", args: [id] }),
     db.execute({ sql: "SELECT * FROM manifest_items WHERE caseId = ?", args: [id] }),
     db.execute({ sql: "SELECT * FROM audit_logs WHERE caseId = ? ORDER BY timestamp ASC", args: [id] }),
+    db.execute({ sql: "SELECT * FROM claims WHERE caseId = ? ORDER BY createdAt DESC", args: [id] }),
   ]);
   const caseRow = caseResult.rows[0] as unknown as CaseRow | undefined;
   if (!caseRow) return undefined;
@@ -273,6 +324,13 @@ export async function getCaseById(id: string): Promise<Case | undefined> {
     source: (item.source === "ai" || item.source === "system" ? item.source : "staff") as ManifestItem["source"],
   }));
   const auditLogs = (auditResult.rows as unknown as AuditLogRow[]).map((log) => ({ ...log }));
+  const claims = (claimResult.rows as unknown as ClaimRow[]).map((claim) => ({
+    ...claim,
+    path: claim.path as ClaimPath,
+    decision: claim.decision as ClaimDecision,
+    acknowledgement: Boolean(claim.acknowledgement),
+    verificationMethods: JSON.parse(claim.verificationMethods) as string[],
+  }));
 
   return {
     id: caseRow.id,
@@ -288,6 +346,7 @@ export async function getCaseById(id: string): Promise<Case | undefined> {
     uploads,
     manifest,
     auditLogs,
+    claims,
     createdAt: caseRow.createdAt,
   };
 }
@@ -370,6 +429,41 @@ export async function addAuditLog(id: string, userId: string, action: string, de
     args: [`log-${crypto.randomUUID()}`, id, new Date().toISOString(), userId, action, details] });
 }
 
+export async function createClaimRecord(input: Omit<ClaimRecord, "id" | "createdAt" | "decision" | "decisionReason" | "acknowledgement" | "decidedAt" | "decidedBy" | "collectedAt">): Promise<ClaimRecord> {
+  const db = await getDbInstance();
+  const claim: ClaimRecord = {
+    ...input,
+    id: `CLM-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
+    createdAt: new Date().toISOString(),
+    decision: "pending",
+    decisionReason: null,
+    acknowledgement: false,
+    decidedAt: null,
+    decidedBy: null,
+    collectedAt: null,
+  };
+  await db.batch([
+    { sql: `INSERT INTO claims (id, caseId, path, lostReportId, claimantName, claimantContact, maskedIdentifier, verificationMethods, verificationNotes, decision, decisionReason, acknowledgement, createdAt, createdBy, decidedAt, decidedBy, collectedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args: [claim.id, claim.caseId, claim.path, claim.lostReportId, claim.claimantName, claim.claimantContact, claim.maskedIdentifier, JSON.stringify(claim.verificationMethods), claim.verificationNotes, claim.decision, null, 0, claim.createdAt, claim.createdBy, null, null, null] },
+    { sql: `INSERT INTO audit_logs (id, caseId, timestamp, userId, action, details) VALUES (?, ?, ?, ?, ?, ?)`, args: [`log-${crypto.randomUUID()}`, claim.caseId, claim.createdAt, claim.createdBy, "claim_created", `Created ${claim.path === "lost-report" ? "lost-report-linked" : "walk-in"} claim ${claim.id}`] },
+  ], "write");
+  return claim;
+}
+
+export async function decideClaimRecord(caseId: string, claimId: string, input: { decision: Exclude<ClaimDecision, "pending">; decisionReason: string; acknowledgement: boolean; decidedBy: string }): Promise<ClaimRecord | undefined> {
+  const db = await getDbInstance();
+  const decidedAt = new Date().toISOString();
+  const collectedAt = input.decision === "approved" ? decidedAt : null;
+  await db.batch([
+    { sql: `UPDATE claims SET decision = ?, decisionReason = ?, acknowledgement = ?, decidedAt = ?, decidedBy = ?, collectedAt = ? WHERE id = ? AND caseId = ? AND decision = 'pending'`, args: [input.decision, input.decisionReason, input.acknowledgement ? 1 : 0, decidedAt, input.decidedBy, collectedAt, claimId, caseId] },
+    { sql: `INSERT INTO audit_logs (id, caseId, timestamp, userId, action, details) VALUES (?, ?, ?, ?, ?, ?)`, args: [`log-${crypto.randomUUID()}`, caseId, decidedAt, input.decidedBy, input.decision === "approved" ? "item_collected" : `claim_${input.decision}`, `Claim ${claimId} ${input.decision}${input.decision === "approved" ? " and item handed over" : ""}`] },
+  ], "write");
+  const result = await db.execute({ sql: "SELECT * FROM claims WHERE id = ? AND caseId = ?", args: [claimId, caseId] });
+  const row = result.rows[0] as unknown as ClaimRow | undefined;
+  if (!row) return undefined;
+  return { ...row, path: row.path as ClaimPath, decision: row.decision as ClaimDecision, acknowledgement: Boolean(row.acknowledgement), verificationMethods: JSON.parse(row.verificationMethods) as string[] };
+}
+
 export async function seedDemoCase(): Promise<Case> {
   const db = await getDbInstance();
   const id = "CT3A-20260721-DEMO";
@@ -402,10 +496,12 @@ export async function seedDemoCase(): Promise<Case> {
     else if (!item.category) item.category = "other";
   }
   const statements: Statement[] = [
+    { sql: "DELETE FROM claims WHERE caseId = ?", args: ["FF-0241"] },
     { sql: "DELETE FROM audit_logs WHERE caseId = ?", args: ["FF-0241"] },
     { sql: "DELETE FROM manifest_items WHERE caseId = ?", args: ["FF-0241"] },
     { sql: "DELETE FROM uploads WHERE caseId = ?", args: ["FF-0241"] },
     { sql: "DELETE FROM cases WHERE id = ? AND isDemo = 1", args: ["FF-0241"] },
+    { sql: "DELETE FROM claims WHERE caseId = ?", args: [id] },
     { sql: "DELETE FROM audit_logs WHERE caseId = ?", args: [id] },
     { sql: "DELETE FROM manifest_items WHERE caseId = ?", args: [id] },
     { sql: "DELETE FROM uploads WHERE caseId = ?", args: [id] },

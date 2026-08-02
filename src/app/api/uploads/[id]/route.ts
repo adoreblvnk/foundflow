@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthenticated } from "@/lib/auth";
 import { getCases } from "@/lib/db";
-import fs from "fs";
-import path from "path";
-
-const DATA_DIR = process.env.DATA_DIR || "./data";
-const UPLOADS_DIR = path.join(DATA_DIR, "uploads");
+import { readEvidence } from "@/lib/evidence-storage";
 
 export async function GET(
   request: NextRequest,
@@ -20,10 +16,10 @@ export async function GET(
   const { id } = await params;
 
   // Find the upload record in our database
-  const cases = getCases();
+  const cases = await getCases();
   let uploadRecord = null;
-  for (const c of cases) {
-    const upload = c.uploads.find((u) => u.id === id);
+  for (const caseFile of cases) {
+    const upload = caseFile.uploads.find((candidate) => candidate.id === id);
     if (upload) {
       uploadRecord = upload;
       break;
@@ -34,17 +30,14 @@ export async function GET(
     return new NextResponse("Not Found", { status: 404 });
   }
 
-  const filePath = path.join(UPLOADS_DIR, uploadRecord.filename);
-  if (!fs.existsSync(filePath)) {
-    return new NextResponse("File Not Found on Disk", { status: 404 });
-  }
-
   try {
-    const fileBuffer = fs.readFileSync(filePath);
-    return new Response(fileBuffer, {
+    const fileBuffer = await readEvidence(uploadRecord.filename);
+    if (!fileBuffer) return new NextResponse("File Not Found", { status: 404 });
+    return new Response(new Uint8Array(fileBuffer), {
       headers: {
         "Content-Type": uploadRecord.mimeType,
         "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
       },
     });
   } catch (error) {

@@ -27,10 +27,10 @@ FoundFlow is a secure, single-server prototype designed to help frontline airpor
 
 ## 🛠️ Local Setup & Environment Configuration
 
-FoundFlow requires zero third-party cloud database accounts or external OAuth credentials.
+Local development requires no cloud database or object-storage account. The Vercel deployment uses managed Turso and private Vercel Blob resources.
 
 ### Prerequisites
-- **Node.js v24.11.1+ Required**: Built-in synchronous SQLite is powered by the native `node:sqlite` module, requiring Node 24.
+- **Node.js v24.11.1+ Required**: Matches the CI and Vercel runtime.
 - **OpenAI API Key**: Required to invoke the vision model for AI analysis.
 
 ### 1. Initialize Configuration
@@ -51,10 +51,11 @@ LOGIN_USERNAME=
 # Required password for prototype login (minimum 8 characters)
 LOGIN_PASSWORD=
 
-# OpenAI API Key - required for AI vision analysis
+# OpenAI API key and optional model override
 OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4.1-mini
 
-# Directory path for local SQLite database and uploads
+# Local libSQL database and uploads
 DATA_DIR=./data
 ```
 
@@ -95,6 +96,7 @@ Verifies OpenAI API connectivity and structured multimodal responses using harml
 ```bash
 npm run test:ai
 ```
+For the optional local-only Codex backup provider, run `npm run test:ai:codex`. Production never invokes Codex CLI.
 
 ### Run Playwright CLI Production Demo Verification
 Builds the production app, starts an isolated server through Playwright CLI, signs in, loads the evidence-backed fixture, checks the 375×500 mobile dialog, resolves all reviews, finalises the case and verifies both exports and their audit events:
@@ -134,7 +136,8 @@ FoundFlow uses the `@ai-sdk/openai` provider with AI SDK v6 to call OpenAI's vis
 
 ## 🛡️ Prototype Design & Security Safeguards
 
-- **Durable SQLite Persistence**: Normalized local tables and transactional state/audit mutations using Node 24 native `node:sqlite`. No native C++ compilation dependency.
+- **Durable Shared Persistence**: One async libSQL data layer uses a local file in development and Turso on Vercel. Case mutations and audit entries are committed in atomic batches.
+- **Private Evidence Storage**: Evidence stays under `DATA_DIR` locally and in a private Vercel Blob store when hosted.
 - **Upload Hardening**: magic number file-signature checks (JPG/PNG/WebP), cryptographically secure UUID file IDs, and strict path protection.
 - **CSV Formula Escape**: Guards formula prefixes (`=`, `+`, `-`, `@`) even after leading whitespace before CSV generation.
 - **Constant-Time Verification**: Cryptographic HMAC session verification with SHA-256 timing-safe string comparison. Require exactly two token segments for parsed authentication tokens.
@@ -144,4 +147,4 @@ FoundFlow uses the `@ai-sdk/openai` provider with AI SDK v6 to call OpenAI's vis
 
 ## ⚠️ Deployment Limits & Constraints
 
-- **Single-Server / Local Storage Only**: File uploads and database are stored inside the local `DATA_DIR` directory. Scale-out multi-server deployments require distributed file storage and a shared DB, which is out-of-scope.
+- **Hosted Prototype**: Vercel, Turso, and private Blob support stateless function instances. This remains a controlled prototype, not a production custody system.

@@ -1,8 +1,9 @@
-import { DatabaseSync } from "node:sqlite";
-import path from "path";
-import fs from "fs";
-import crypto from "crypto";
+import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import { createClient } from "@libsql/client";
 import { normalizeDecimal } from "./currency.ts";
+import { readDemoEvidence, writeEvidence } from "./evidence-storage.ts";
 
 export interface EvidenceUpload {
   id: string;
@@ -11,7 +12,7 @@ export interface EvidenceUpload {
   mimeType: string;
   size: number;
   uploadedAt: string;
-  containerContext?: string; // e.g. "bag", "pouch", "outer-item"
+  containerContext?: string;
 }
 
 export interface ManifestItem {
@@ -24,7 +25,7 @@ export interface ManifestItem {
   status: "confirmed" | "review";
   confidence: number;
   reviewReason: string | null;
-  evidenceId: string | null; // linked to EvidenceUpload.id, "staff-added", or "manual-creation"
+  evidenceId: string | null;
   ocrText?: string;
   visibleAttributes?: string;
   currencyCode?: string | null;
@@ -38,12 +39,12 @@ export interface AuditLog {
   id: string;
   timestamp: string;
   userId: string;
-  action: string; // "case_created", "evidence_uploaded", "ai_analysis_triggered", "item_confirmed", "item_updated", "item_added", "item_deleted", "case_finalised", "manifest_exported", "demo_seeded"
+  action: string;
   details: string;
 }
 
 export interface Case {
-  id: string; // cryptographically random UUID; the optional demo fixture keeps its human-readable ID
+  id: string;
   isDemo?: boolean;
   location: string;
   foundTime: string;
@@ -59,40 +60,52 @@ export interface Case {
   createdAt: string;
 }
 
-let dbInstance: DatabaseSync | null = null;
-
-export function getDbPath(): string {
-  const DATA_DIR = process.env.DATA_DIR || "./data";
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-  return path.join(/*turbopackIgnore: true*/ DATA_DIR, "foundflow.db");
+interface Statement {
+  sql: string;
+  args: Array<string | number | null>;
 }
 
-export function getDbInstance(): DatabaseSync {
-  if (dbInstance) return dbInstance;
-  const dbPath = getDbPath();
-  dbInstance = new DatabaseSync(dbPath);
+type DbClient = ReturnType<typeof createClient>;
+let dbInstance: DbClient | null = null;
+let schemaPromise: Promise<void> | null = null;
 
-  // Enable foreign keys
-  dbInstance.exec("PRAGMA foreign_keys = ON;");
+function usesRemoteDatabase(): boolean {
+  return process.env.DATABASE_MODE === "turso" || Boolean(process.env.VERCEL);
+}
 
-  // Create tables with normalized schema
-  dbInstance.exec(`
-    CREATE TABLE IF NOT EXISTS cases (
+export function getDbPath(): string {
+  const dataDir = process.env.DATA_DIR || "./data";
+  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+  return path.resolve(dataDir, "foundflow.db");
+}
+
+function createDbClient(): DbClient {
+  if (usesRemoteDatabase()) {
+    const url = process.env.TURSO_DATABASE_URL;
+    const authToken = process.env.TURSO_AUTH_TOKEN;
+    if (!url || !authToken) throw new Error("Turso database credentials are not configured");
+    return createClient({ url, authToken });
+  }
+  return createClient({ url: `file:${getDbPath()}` });
+}
+
+async function initializeSchema(db: DbClient): Promise<void> {
+  await db.batch([
+    { sql: "PRAGMA foreign_keys = ON", args: [] },
+    { sql: `CREATE TABLE IF NOT EXISTS cases (
       id TEXT PRIMARY KEY,
       isDemo INTEGER DEFAULT 0,
       location TEXT NOT NULL,
       foundTime TEXT NOT NULL,
+      foundBy TEXT DEFAULT '',
       outerItemDescription TEXT NOT NULL,
       notes TEXT,
       status TEXT NOT NULL,
       finalisedAt TEXT,
       finalisedBy TEXT,
       createdAt TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS uploads (
+    )`, args: [] },
+    { sql: `CREATE TABLE IF NOT EXISTS uploads (
       id TEXT PRIMARY KEY,
       caseId TEXT NOT NULL,
       filename TEXT NOT NULL,
@@ -102,9 +115,8 @@ export function getDbInstance(): DatabaseSync {
       uploadedAt TEXT NOT NULL,
       containerContext TEXT,
       FOREIGN KEY (caseId) REFERENCES cases(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS manifest_items (
+    )`, args: [] },
+    { sql: `CREATE TABLE IF NOT EXISTS manifest_items (
       id TEXT,
       caseId TEXT,
       label TEXT NOT NULL,
@@ -121,12 +133,12 @@ export function getDbInstance(): DatabaseSync {
       currencyCode TEXT,
       denomination TEXT,
       currencyTotal TEXT,
+      category TEXT DEFAULT 'other',
       source TEXT NOT NULL DEFAULT 'staff',
       PRIMARY KEY (id, caseId),
       FOREIGN KEY (caseId) REFERENCES cases(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS audit_logs (
+    )`, args: [] },
+    { sql: `CREATE TABLE IF NOT EXISTS audit_logs (
       id TEXT PRIMARY KEY,
       caseId TEXT NOT NULL,
       timestamp TEXT NOT NULL,
@@ -134,202 +146,133 @@ export function getDbInstance(): DatabaseSync {
       action TEXT NOT NULL,
       details TEXT NOT NULL,
       FOREIGN KEY (caseId) REFERENCES cases(id) ON DELETE CASCADE
-    );
-  `);
+    )`, args: [] },
+  ], "write");
 
-  // Add columns if missing (safe migrations for existing databases)
-  const caseColumns = dbInstance.prepare("PRAGMA table_info(cases)").all() as { name: string }[];
-  if (!caseColumns.some((c) => c.name === "foundBy")) {
-    dbInstance.exec("ALTER TABLE cases ADD COLUMN foundBy TEXT DEFAULT ''");
-  }
-  const itemColumns = dbInstance.prepare("PRAGMA table_info(manifest_items)").all() as { name: string }[];
-  if (!itemColumns.some((c) => c.name === "category")) {
-    dbInstance.exec("ALTER TABLE manifest_items ADD COLUMN category TEXT DEFAULT 'other'");
+  const caseColumns = (await db.execute("PRAGMA table_info(cases)")).rows as unknown as Array<{ name: string }>;
+  if (!caseColumns.some((column) => column.name === "foundBy")) {
+    await db.execute("ALTER TABLE cases ADD COLUMN foundBy TEXT DEFAULT ''");
   }
 
-  let manifestColumns = dbInstance.prepare("PRAGMA table_info(manifest_items)").all() as unknown as Array<{ name: string; type: string }>;
-  const refreshManifestColumns = () => {
-    manifestColumns = dbInstance!.prepare("PRAGMA table_info(manifest_items)").all() as unknown as Array<{ name: string; type: string }>;
+  let columns = (await db.execute("PRAGMA table_info(manifest_items)")).rows as unknown as Array<{ name: string; type: string }>;
+  const refresh = async () => {
+    columns = (await db.execute("PRAGMA table_info(manifest_items)")).rows as unknown as Array<{ name: string; type: string }>;
   };
-  const addColumn = (name: string, definition: string) => {
-    if (!manifestColumns.some((column) => column.name === name)) {
-      dbInstance!.exec(`ALTER TABLE manifest_items ADD COLUMN ${name} ${definition}`);
-      refreshManifestColumns();
+  const addColumn = async (name: string, definition: string) => {
+    if (!columns.some((column) => column.name === name)) {
+      await db.execute(`ALTER TABLE manifest_items ADD COLUMN ${name} ${definition}`);
+      await refresh();
     }
   };
 
-  if (!manifestColumns.some((column) => column.name === "source")) {
-    dbInstance.exec("ALTER TABLE manifest_items ADD COLUMN source TEXT NOT NULL DEFAULT 'staff'");
-    dbInstance.exec("UPDATE manifest_items SET source = 'system' WHERE id = 'outer-item-root'");
-    refreshManifestColumns();
+  if (!columns.some((column) => column.name === "source")) {
+    await db.batch([
+      { sql: "ALTER TABLE manifest_items ADD COLUMN source TEXT NOT NULL DEFAULT 'staff'", args: [] },
+      { sql: "UPDATE manifest_items SET source = 'system' WHERE id = 'outer-item-root'", args: [] },
+    ], "write");
+    await refresh();
   }
-  addColumn("quantityKnown", "INTEGER NOT NULL DEFAULT 1");
-  addColumn("itemType", "TEXT NOT NULL DEFAULT 'property'");
-  addColumn("currencyCode", "TEXT");
+  await addColumn("quantityKnown", "INTEGER NOT NULL DEFAULT 1");
+  await addColumn("itemType", "TEXT NOT NULL DEFAULT 'property'");
+  await addColumn("currencyCode", "TEXT");
+  await addColumn("category", "TEXT DEFAULT 'other'");
 
   for (const name of ["denomination", "currencyTotal"] as const) {
-    const column = manifestColumns.find((candidate) => candidate.name === name);
+    const column = columns.find((candidate) => candidate.name === name);
     if (!column) {
-      addColumn(name, "TEXT");
+      await addColumn(name, "TEXT");
     } else if (column.type.toUpperCase() !== "TEXT") {
       const legacyName = `${name}Legacy`;
-      dbInstance.exec(`ALTER TABLE manifest_items RENAME COLUMN ${name} TO ${legacyName}`);
-      dbInstance.exec(`ALTER TABLE manifest_items ADD COLUMN ${name} TEXT`);
-      dbInstance.exec(`UPDATE manifest_items SET ${name} = CAST(${legacyName} AS TEXT) WHERE ${legacyName} IS NOT NULL`);
-      refreshManifestColumns();
+      await db.batch([
+        { sql: `ALTER TABLE manifest_items RENAME COLUMN ${name} TO ${legacyName}`, args: [] },
+        { sql: `ALTER TABLE manifest_items ADD COLUMN ${name} TEXT`, args: [] },
+        { sql: `UPDATE manifest_items SET ${name} = CAST(${legacyName} AS TEXT) WHERE ${legacyName} IS NOT NULL`, args: [] },
+      ], "write");
+      await refresh();
     }
   }
-  dbInstance.exec(`
-    UPDATE manifest_items
-    SET itemType = 'currency'
-    WHERE currencyCode IS NOT NULL OR denomination IS NOT NULL OR currencyTotal IS NOT NULL
-  `);
+  await db.execute(`UPDATE manifest_items SET itemType = 'currency'
+    WHERE currencyCode IS NOT NULL OR denomination IS NOT NULL OR currencyTotal IS NOT NULL`);
+}
 
+export async function getDbInstance(): Promise<DbClient> {
+  if (!dbInstance) dbInstance = createDbClient();
+  if (!schemaPromise) schemaPromise = initializeSchema(dbInstance);
+  await schemaPromise;
   return dbInstance;
 }
 
-// Reset the singleton instance (primarily for testing with isolated databases)
-export function closeDb() {
-  if (dbInstance) {
-    dbInstance.close();
-  }
+export function closeDb(): void {
+  dbInstance?.close();
   dbInstance = null;
-}
-
-// Global flag to track active transaction
-let inTransaction = false;
-
-// Transaction execution wrapper
-export function runInTransaction<T>(fn: () => T): T {
-  if (inTransaction) {
-    return fn(); // Already nested inside a transaction
-  }
-  const db = getDbInstance();
-  db.exec("BEGIN TRANSACTION");
-  inTransaction = true;
-  try {
-    const result = fn();
-    db.exec("COMMIT");
-    return result;
-  } catch (error) {
-    db.exec("ROLLBACK");
-    throw error;
-  } finally {
-    inTransaction = false;
-  }
+  schemaPromise = null;
 }
 
 interface CaseRow {
-  id: string;
-  isDemo: number;
-  location: string;
-  foundTime: string;
-  foundBy: string;
-  outerItemDescription: string;
-  notes: string;
-  status: string;
-  finalisedAt: string | null;
-  finalisedBy: string | null;
-  createdAt: string;
+  id: string; isDemo: number; location: string; foundTime: string; foundBy: string; outerItemDescription: string;
+  notes: string; status: string; finalisedAt: string | null; finalisedBy: string | null; createdAt: string;
 }
-
 interface UploadRow {
-  id: string;
-  filename: string;
-  originalName: string;
-  mimeType: string;
-  size: number;
-  uploadedAt: string;
-  containerContext: string | null;
+  id: string; filename: string; originalName: string; mimeType: string; size: number;
+  uploadedAt: string; containerContext: string | null;
 }
-
 interface ManifestItemRow {
-  id: string;
-  label: string;
-  parentId: string | null;
-  quantity: number;
-  quantityKnown: number;
-  itemType: string;
-  status: string;
-  confidence: number;
-  reviewReason: string | null;
-  evidenceId: string | null;
-  ocrText: string | null;
-  visibleAttributes: string | null;
-  currencyCode: string | null;
-  denomination: string | number | null;
-  currencyTotal: string | number | null;
-  category: string | null;
-  source: string;
+  id: string; label: string; parentId: string | null; quantity: number; quantityKnown: number; itemType: string;
+  status: string; confidence: number; reviewReason: string | null; evidenceId: string | null; ocrText: string | null;
+  visibleAttributes: string | null; currencyCode: string | null; denomination: string | number | null;
+  currencyTotal: string | number | null; category: string | null; source: string;
 }
-
 interface AuditLogRow {
-  id: string;
-  timestamp: string;
-  userId: string;
-  action: string;
-  details: string;
+  id: string; timestamp: string; userId: string; action: string; details: string;
 }
 
-export function getCases(): Case[] {
-  const db = getDbInstance();
-  const rows = db.prepare("SELECT id FROM cases ORDER BY createdAt DESC").all() as { id: string }[];
-  const cases: Case[] = [];
-  for (const r of rows) {
-    const c = getCaseById(r.id);
-    if (c) cases.push(c);
-  }
-  return cases;
+export async function getCases(): Promise<Case[]> {
+  const db = await getDbInstance();
+  const rows = (await db.execute("SELECT id FROM cases ORDER BY createdAt DESC")).rows as unknown as Array<{ id: string }>;
+  const cases = await Promise.all(rows.map((row) => getCaseById(row.id)));
+  return cases.filter((entry): entry is Case => Boolean(entry));
 }
 
-export function getCaseById(id: string): Case | undefined {
-  const db = getDbInstance();
-  const caseRow = db.prepare("SELECT * FROM cases WHERE id = ?").get(id) as CaseRow | undefined;
+export async function getCaseById(id: string): Promise<Case | undefined> {
+  const db = await getDbInstance();
+  const [caseResult, uploadResult, manifestResult, auditResult] = await Promise.all([
+    db.execute({ sql: "SELECT * FROM cases WHERE id = ?", args: [id] }),
+    db.execute({ sql: "SELECT * FROM uploads WHERE caseId = ? ORDER BY uploadedAt ASC", args: [id] }),
+    db.execute({ sql: "SELECT * FROM manifest_items WHERE caseId = ?", args: [id] }),
+    db.execute({ sql: "SELECT * FROM audit_logs WHERE caseId = ? ORDER BY timestamp ASC", args: [id] }),
+  ]);
+  const caseRow = caseResult.rows[0] as unknown as CaseRow | undefined;
   if (!caseRow) return undefined;
 
-  // Retrieve uploads
-  const uploadRows = db.prepare("SELECT * FROM uploads WHERE caseId = ? ORDER BY uploadedAt ASC").all(id) as unknown as UploadRow[];
-  const uploads: EvidenceUpload[] = uploadRows.map((u) => ({
-    id: u.id,
-    filename: u.filename,
-    originalName: u.originalName,
-    mimeType: u.mimeType,
-    size: Number(u.size),
-    uploadedAt: u.uploadedAt,
-    containerContext: u.containerContext || undefined,
+  const uploads = (uploadResult.rows as unknown as UploadRow[]).map((upload) => ({
+    id: upload.id,
+    filename: upload.filename,
+    originalName: upload.originalName,
+    mimeType: upload.mimeType,
+    size: Number(upload.size),
+    uploadedAt: upload.uploadedAt,
+    containerContext: upload.containerContext || undefined,
   }));
-
-  // Retrieve manifest items
-  const manifestRows = db.prepare("SELECT * FROM manifest_items WHERE caseId = ?").all(id) as unknown as ManifestItemRow[];
-  const manifest: ManifestItem[] = manifestRows.map((m) => ({
-    id: m.id,
-    label: m.label,
-    parentId: m.parentId || null,
-    quantity: Number(m.quantity),
-    quantityKnown: Boolean(m.quantityKnown),
-    itemType: m.itemType === "currency" ? "currency" : "property",
-    status: m.status as "confirmed" | "review",
-    confidence: Number(m.confidence),
-    reviewReason: m.reviewReason || null,
-    evidenceId: m.evidenceId || null,
-    ocrText: m.ocrText || undefined,
-    visibleAttributes: m.visibleAttributes || undefined,
-    currencyCode: m.currencyCode || null,
-    denomination: normalizeDecimal(m.denomination),
-    currencyTotal: normalizeDecimal(m.currencyTotal),
-    source: m.source === "ai" || m.source === "system" ? m.source : "staff",
-    category: m.category || "other",
+  const manifest = (manifestResult.rows as unknown as ManifestItemRow[]).map((item) => ({
+    id: item.id,
+    label: item.label,
+    parentId: item.parentId || null,
+    quantity: Number(item.quantity),
+    quantityKnown: Boolean(item.quantityKnown),
+    itemType: item.itemType === "currency" ? "currency" as const : "property" as const,
+    status: item.status as "confirmed" | "review",
+    confidence: Number(item.confidence),
+    reviewReason: item.reviewReason || null,
+    evidenceId: item.evidenceId || null,
+    ocrText: item.ocrText || undefined,
+    visibleAttributes: item.visibleAttributes || undefined,
+    currencyCode: item.currencyCode || null,
+    denomination: normalizeDecimal(item.denomination),
+    currencyTotal: normalizeDecimal(item.currencyTotal),
+    category: item.category || "other",
+    source: (item.source === "ai" || item.source === "system" ? item.source : "staff") as ManifestItem["source"],
   }));
-
-  // Retrieve audit logs
-  const auditRows = db.prepare("SELECT * FROM audit_logs WHERE caseId = ? ORDER BY timestamp ASC").all(id) as unknown as AuditLogRow[];
-  const auditLogs: AuditLog[] = auditRows.map((a) => ({
-    id: a.id,
-    timestamp: a.timestamp,
-    userId: a.userId,
-    action: a.action,
-    details: a.details,
-  }));
+  const auditLogs = (auditResult.rows as unknown as AuditLogRow[]).map((log) => ({ ...log }));
 
   return {
     id: caseRow.id,
@@ -350,292 +293,142 @@ export function getCaseById(id: string): Case | undefined {
 }
 
 export function generateCaseId(location?: string): string {
-  const now = new Date();
-  const datePart = now.toISOString().slice(0, 10).replace(/-/g, ""); // 20260802
-
-  // Extract short location tag: use first word or abbreviation, uppercase, max 6 chars
-  let locTag = "LOC";
+  const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  let locationTag = "LOC";
   if (location) {
-    const cleaned = location.trim().replace(/[^a-zA-Z0-9\s]/g, "");
-    const words = cleaned.split(/\s+/).filter(Boolean);
-    if (words.length >= 2) {
-      // Use initials of first two words: "Terminal 3" → "T3", "Gate B12" → "GB12"
-      locTag = (words[0][0] + words[1]).toUpperCase().slice(0, 5);
-    } else if (words.length === 1) {
-      locTag = words[0].toUpperCase().slice(0, 5);
-    }
+    const words = location.trim().replace(/[^a-zA-Z0-9\s]/g, "").split(/\s+/).filter(Boolean);
+    if (words.length >= 2) locationTag = `${words[0][0]}${words[1]}`.toUpperCase().slice(0, 5);
+    else if (words.length === 1) locationTag = words[0].toUpperCase().slice(0, 5);
   }
-
-  // Add random 4-char suffix for uniqueness
-  const suffix = crypto.randomUUID().slice(0, 4).toUpperCase();
-  return `${locTag}-${datePart}-${suffix}`;
+  return `${locationTag}-${datePart}-${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
 }
 
-export function createCase(caseData: Partial<Case> & { location: string; foundTime: string; outerItemDescription: string }): Case {
-  const db = getDbInstance();
+export async function createCase(caseData: Partial<Case> & { location: string; foundTime: string; outerItemDescription: string }): Promise<Case> {
+  const db = await getDbInstance();
   const id = generateCaseId(caseData.location);
-  const isDemo = caseData.isDemo ? 1 : 0;
-  const location = caseData.location;
-  const foundTime = caseData.foundTime;
-  const foundBy = caseData.foundBy || "";
-  const outerItemDescription = caseData.outerItemDescription;
-  const notes = caseData.notes || "";
-  const status = "reviewing";
-  const finalisedAt = null;
-  const finalisedBy = null;
   const createdAt = new Date().toISOString();
-
-  runInTransaction(() => {
-    db.prepare(`
-      INSERT INTO cases (id, isDemo, location, foundTime, foundBy, outerItemDescription, notes, status, finalisedAt, finalisedBy, createdAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, isDemo, location, foundTime, foundBy, outerItemDescription, notes, status, finalisedAt, finalisedBy, createdAt);
-
-    // Initial manifest item (root) representing the outer container
-    db.prepare(`
-      INSERT INTO manifest_items (id, caseId, label, parentId, quantity, status, confidence, reviewReason, evidenceId, source)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      "outer-item-root",
-      id,
-      outerItemDescription,
-      null,
-      1,
-      "confirmed",
-      1.0,
-      null,
-      "manual-creation",
-      "system"
-    );
-
-    // Initial audit log
-    const logId = `log-${crypto.randomUUID()}`;
-    db.prepare(`
-      INSERT INTO audit_logs (id, caseId, timestamp, userId, action, details)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(
-      logId,
-      id,
-      createdAt,
-      caseData.finalisedBy || "staff",
-      "case_created",
-      `Case created with outer property: ${outerItemDescription} at ${location}`
-    );
-  });
-
-  const created = getCaseById(id);
+  const logId = `log-${crypto.randomUUID()}`;
+  await db.batch([
+    { sql: `INSERT INTO cases (id, isDemo, location, foundTime, foundBy, outerItemDescription, notes, status, finalisedAt, finalisedBy, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args: [id, caseData.isDemo ? 1 : 0, caseData.location, caseData.foundTime, caseData.foundBy || "", caseData.outerItemDescription, caseData.notes || "", "reviewing", null, null, createdAt] },
+    { sql: `INSERT INTO manifest_items (id, caseId, label, parentId, quantity, status, confidence, reviewReason, evidenceId, source)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args: ["outer-item-root", id, caseData.outerItemDescription, null, 1, "confirmed", 1, null, "manual-creation", "system"] },
+    { sql: `INSERT INTO audit_logs (id, caseId, timestamp, userId, action, details) VALUES (?, ?, ?, ?, ?, ?)`,
+      args: [logId, id, createdAt, caseData.finalisedBy || "staff", "case_created", `Case created with outer property: ${caseData.outerItemDescription} at ${caseData.location}`] },
+  ], "write");
+  const created = await getCaseById(id);
   if (!created) throw new Error("CRITICAL DATABASE ERROR: Failed to create and retrieve case.");
   return created;
 }
 
-export function updateCase(id: string, updatedCase: Case): Case {
-  const db = getDbInstance();
-
-  // Verify case existence
-  const existing = db.prepare("SELECT 1 FROM cases WHERE id = ?").get(id);
-  if (!existing) {
-    throw new Error(`Case ${id} not found`);
+function updateStatements(id: string, updatedCase: Case): Statement[] {
+  const statements: Statement[] = [
+    { sql: `UPDATE cases SET location = ?, foundTime = ?, foundBy = ?, outerItemDescription = ?, notes = ?, status = ?, finalisedAt = ?, finalisedBy = ? WHERE id = ?`,
+      args: [updatedCase.location, updatedCase.foundTime, updatedCase.foundBy, updatedCase.outerItemDescription, updatedCase.notes, updatedCase.status, updatedCase.finalisedAt, updatedCase.finalisedBy, id] },
+    { sql: "DELETE FROM uploads WHERE caseId = ?", args: [id] },
+  ];
+  for (const upload of updatedCase.uploads) {
+    statements.push({ sql: `INSERT INTO uploads (id, caseId, filename, originalName, mimeType, size, uploadedAt, containerContext) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [upload.id, id, upload.filename, upload.originalName, upload.mimeType, upload.size, upload.uploadedAt, upload.containerContext || null] });
   }
+  statements.push({ sql: "DELETE FROM manifest_items WHERE caseId = ?", args: [id] });
+  for (const item of updatedCase.manifest) {
+    statements.push({ sql: `INSERT INTO manifest_items (id, caseId, label, parentId, quantity, quantityKnown, itemType, status, confidence, reviewReason, evidenceId, ocrText, visibleAttributes, currencyCode, denomination, currencyTotal, category, source)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args: [item.id, id, item.label, item.parentId, item.quantity, item.quantityKnown === false ? 0 : 1, item.itemType ?? "property", item.status, item.confidence, item.reviewReason, item.evidenceId, item.ocrText || null, item.visibleAttributes || null, item.currencyCode || null, item.denomination ?? null, item.currencyTotal ?? null, item.category || "other", item.source || (item.id === "outer-item-root" ? "system" : "staff")] });
+  }
+  return statements;
+}
 
-  runInTransaction(() => {
-    // Update main case details
-    db.prepare(`
-      UPDATE cases
-      SET location = ?, foundTime = ?, outerItemDescription = ?, notes = ?, status = ?, finalisedAt = ?, finalisedBy = ?
-      WHERE id = ?
-    `).run(
-      updatedCase.location,
-      updatedCase.foundTime,
-      updatedCase.outerItemDescription,
-      updatedCase.notes,
-      updatedCase.status,
-      updatedCase.finalisedAt,
-      updatedCase.finalisedBy,
-      id
-    );
-
-    // Re-sync uploads
-    db.prepare("DELETE FROM uploads WHERE caseId = ?").run(id);
-    const insertUpload = db.prepare(`
-      INSERT INTO uploads (id, caseId, filename, originalName, mimeType, size, uploadedAt, containerContext)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    for (const u of updatedCase.uploads) {
-      insertUpload.run(
-        u.id,
-        id,
-        u.filename,
-        u.originalName,
-        u.mimeType,
-        u.size,
-        u.uploadedAt,
-        u.containerContext || null
-      );
-    }
-
-    // Re-sync manifest items (audit logs are completely untouched and append-only)
-    db.prepare("DELETE FROM manifest_items WHERE caseId = ?").run(id);
-    const insertItem = db.prepare(`
-      INSERT INTO manifest_items (id, caseId, label, parentId, quantity, quantityKnown, itemType, status, confidence, reviewReason, evidenceId, ocrText, visibleAttributes, currencyCode, denomination, currencyTotal, source)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    for (const m of updatedCase.manifest) {
-      insertItem.run(
-        m.id,
-        id,
-        m.label,
-        m.parentId,
-        m.quantity,
-        m.quantityKnown === false ? 0 : 1,
-        m.itemType ?? "property",
-        m.status,
-        m.confidence,
-        m.reviewReason,
-        m.evidenceId,
-        m.ocrText || null,
-        m.visibleAttributes || null,
-        m.currencyCode || null,
-        m.denomination ?? null,
-        m.currencyTotal ?? null,
-        m.source || (m.id === "outer-item-root" ? "system" : "staff")
-      );
-    }
-  });
-
-  const updated = getCaseById(id);
+export async function updateCase(id: string, updatedCase: Case): Promise<Case> {
+  const db = await getDbInstance();
+  const existing = await db.execute({ sql: "SELECT 1 FROM cases WHERE id = ?", args: [id] });
+  if (existing.rows.length === 0) throw new Error(`Case ${id} not found`);
+  await db.batch(updateStatements(id, updatedCase), "write");
+  const updated = await getCaseById(id);
   if (!updated) throw new Error("CRITICAL DATABASE ERROR: Failed to update and retrieve case.");
   return updated;
 }
 
-export function addAuditLog(id: string, userId: string, action: string, details: string) {
-  const db = getDbInstance();
-
-  // Verify case existence
-  const existing = db.prepare("SELECT 1 FROM cases WHERE id = ?").get(id);
-  if (!existing) return;
-
-  const logId = `log-${crypto.randomUUID()}`;
-  const timestamp = new Date().toISOString();
-
-  db.prepare(`
-    INSERT INTO audit_logs (id, caseId, timestamp, userId, action, details)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(logId, id, timestamp, userId, action, details);
+export async function updateCaseWithAudit(id: string, updatedCase: Case, userId: string, action: string, details: string): Promise<Case> {
+  const db = await getDbInstance();
+  const existing = await db.execute({ sql: "SELECT 1 FROM cases WHERE id = ?", args: [id] });
+  if (existing.rows.length === 0) throw new Error(`Case ${id} not found`);
+  const statements = updateStatements(id, updatedCase);
+  statements.push({ sql: `INSERT INTO audit_logs (id, caseId, timestamp, userId, action, details) VALUES (?, ?, ?, ?, ?, ?)`,
+    args: [`log-${crypto.randomUUID()}`, id, new Date().toISOString(), userId, action, details] });
+  await db.batch(statements, "write");
+  const updated = await getCaseById(id);
+  if (!updated) throw new Error("CRITICAL DATABASE ERROR: Failed to update and retrieve case.");
+  return updated;
 }
 
-// Explicitly controlled seeding for the deterministic demo case.
-export function seedDemoCase(): Case {
-  const db = getDbInstance();
+export async function addAuditLog(id: string, userId: string, action: string, details: string): Promise<void> {
+  const db = await getDbInstance();
+  const existing = await db.execute({ sql: "SELECT 1 FROM cases WHERE id = ?", args: [id] });
+  if (existing.rows.length === 0) return;
+  await db.execute({ sql: `INSERT INTO audit_logs (id, caseId, timestamp, userId, action, details) VALUES (?, ?, ?, ?, ?, ?)`,
+    args: [`log-${crypto.randomUUID()}`, id, new Date().toISOString(), userId, action, details] });
+}
+
+export async function seedDemoCase(): Promise<Case> {
+  const db = await getDbInstance();
   const id = "CT3A-20260721-DEMO";
   const createdAt = "2026-07-21T09:30:00.000Z";
   const evidenceId = "demo-evidence-1";
   const evidenceFilename = "demo-staged-evidence.webp";
-  const sourcePath = path.join(process.cwd(), "public", "demo", "found-property-evidence.webp");
-  const uploadsDir = path.join(process.env.DATA_DIR || "./data", "uploads");
-  const destinationPath = path.join(uploadsDir, evidenceFilename);
-  const existing = db.prepare("SELECT isDemo FROM cases WHERE id = ?").get(id) as { isDemo: number } | undefined;
+  const existingResult = await db.execute({ sql: "SELECT isDemo FROM cases WHERE id = ?", args: [id] });
+  const existing = existingResult.rows[0] as unknown as { isDemo: number } | undefined;
+  if (existing && !existing.isDemo) throw new Error(`Cannot replace non-demo case ${id}`);
 
-  if (existing && !existing.isDemo) {
-    throw new Error(`Cannot replace non-demo case ${id}`);
+  const evidence = await readDemoEvidence();
+  await writeEvidence(evidenceFilename, evidence, "image/webp");
+  const items: ManifestItem[] = [
+    { id: "outer-item-root", label: "Black backpack", parentId: null, quantity: 1, confidence: 1, status: "confirmed", reviewReason: null, evidenceId, ocrText: "", visibleAttributes: "Colour: black; condition: clean; main compartment open", category: "bags", source: "system" },
+    { id: "pouch", label: "Brown coin pouch", parentId: "outer-item-root", quantity: 1, confidence: 0.98, status: "confirmed", reviewReason: null, evidenceId, ocrText: "", visibleAttributes: "Brown leather; zip closure; open", category: "bags", source: "system" },
+    { id: "sgd-100", label: "Singapore 100-dollar specimen note", parentId: "pouch", quantity: 1, quantityKnown: true, itemType: "currency", confidence: 0.99, status: "review", reviewReason: "Currency amount requires staff confirmation before custody approval.", evidenceId, ocrText: "SPECIMEN · SINGAPORE · 100 · ZX0000241", visibleAttributes: "Orange specimen note", currencyCode: "SGD", denomination: "100", currencyTotal: "100", source: "system" },
+    { id: "sgd-1-coins", label: "Singapore 1-dollar specimen coins", parentId: "pouch", quantity: 3, quantityKnown: true, itemType: "currency", confidence: 0.98, status: "review", reviewReason: "Coin count and denomination require staff confirmation.", evidenceId, ocrText: "SGD 1", visibleAttributes: "Three gold-colour synthetic coins marked SGD 1", currencyCode: "SGD", denomination: "1", currencyTotal: "3", source: "system" },
+    { id: "sgd-050-coins", label: "Singapore 50-cent specimen coins", parentId: "pouch", quantity: 2, quantityKnown: true, itemType: "currency", confidence: 0.98, status: "review", reviewReason: "Coin count and denomination require staff confirmation.", evidenceId, ocrText: "SGD 0.50", visibleAttributes: "Two silver-colour synthetic coins marked SGD 0.50", currencyCode: "SGD", denomination: "0.5", currencyTotal: "1", source: "system" },
+    { id: "myr-50", label: "Malaysian 50-ringgit specimen note", parentId: "pouch", quantity: 1, quantityKnown: true, itemType: "currency", confidence: 0.99, status: "review", reviewReason: "Currency amount requires staff confirmation before custody approval.", evidenceId, ocrText: "SPECIMEN · BANK NEGARA MALAYSIA · 50 · MYX0000241", visibleAttributes: "Blue-green specimen note", currencyCode: "MYR", denomination: "50", currencyTotal: "50", source: "system" },
+    { id: "myr-020-coins", label: "Malaysian 20-sen specimen coins", parentId: "pouch", quantity: 2, quantityKnown: true, itemType: "currency", confidence: 0.98, status: "review", reviewReason: "Coin count and denomination require staff confirmation.", evidenceId, ocrText: "MYR 0.20", visibleAttributes: "Two gold-colour synthetic coins marked MYR 0.20", currencyCode: "MYR", denomination: "0.2", currencyTotal: "0.4", source: "system" },
+    { id: "cable", label: "White USB-C charging cable", parentId: "outer-item-root", quantity: 1, confidence: 0.99, status: "confirmed", reviewReason: null, evidenceId, ocrText: "", visibleAttributes: "White; coiled; USB-C connectors", source: "system" },
+    { id: "cardholder", label: "Black leather cardholder", parentId: "outer-item-root", quantity: 1, confidence: 0.98, status: "confirmed", reviewReason: null, evidenceId, ocrText: "", visibleAttributes: "Black leather; empty card slots", source: "system" },
+    { id: "notebook", label: "Plain kraft notebook", parentId: "outer-item-root", quantity: 1, confidence: 0.97, status: "confirmed", reviewReason: null, evidenceId, ocrText: "", visibleAttributes: "Plain brown cover; no visible writing", source: "system" },
+    { id: "tag", label: "Orange luggage tag", parentId: "outer-item-root", quantity: 1, confidence: 0.99, status: "confirmed", reviewReason: null, evidenceId, ocrText: "SAMPLE-0241", visibleAttributes: "Orange synthetic demo tag", source: "system" },
+  ];
+  for (const item of items) {
+    if (item.itemType === "currency") item.category = "cash";
+    else if (item.id === "cable") item.category = "electronics";
+    else if (item.id === "notebook") item.category = "books";
+    else if (!item.category) item.category = "other";
   }
-  if (!fs.existsSync(sourcePath)) {
-    throw new Error(`Demo evidence fixture is missing: ${sourcePath}`);
+  const statements: Statement[] = [
+    { sql: "DELETE FROM audit_logs WHERE caseId = ?", args: ["FF-0241"] },
+    { sql: "DELETE FROM manifest_items WHERE caseId = ?", args: ["FF-0241"] },
+    { sql: "DELETE FROM uploads WHERE caseId = ?", args: ["FF-0241"] },
+    { sql: "DELETE FROM cases WHERE id = ? AND isDemo = 1", args: ["FF-0241"] },
+    { sql: "DELETE FROM audit_logs WHERE caseId = ?", args: [id] },
+    { sql: "DELETE FROM manifest_items WHERE caseId = ?", args: [id] },
+    { sql: "DELETE FROM uploads WHERE caseId = ?", args: [id] },
+    { sql: "DELETE FROM cases WHERE id = ?", args: [id] },
+    { sql: `INSERT INTO cases (id, isDemo, location, foundTime, foundBy, outerItemDescription, notes, status, finalisedAt, finalisedBy, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [id, 1, "Changi Airport Terminal 3 Arrivals", createdAt, "Demo staff", "Black backpack", "Staged synthetic property for the FoundFlow demonstration. No passenger data is present.", "reviewing", null, null, createdAt] },
+    { sql: `INSERT INTO uploads (id, caseId, filename, originalName, mimeType, size, uploadedAt, containerContext) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [evidenceId, id, evidenceFilename, "staged-found-property.webp", "image/webp", evidence.byteLength, "2026-07-21T09:31:00.000Z", "bag-contents"] },
+  ];
+  for (const item of items) {
+    statements.push({ sql: `INSERT INTO manifest_items (id, caseId, label, parentId, quantity, quantityKnown, itemType, status, confidence, reviewReason, evidenceId, ocrText, visibleAttributes, currencyCode, denomination, currencyTotal, category, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [item.id, id, item.label, item.parentId, item.quantity, item.quantityKnown === false ? 0 : 1, item.itemType ?? "property", item.status, item.confidence, item.reviewReason, item.evidenceId, item.ocrText ?? null, item.visibleAttributes ?? null, item.currencyCode ?? null, item.denomination ?? null, item.currencyTotal ?? null, item.category ?? "other", item.source ?? "system"] });
   }
-  fs.mkdirSync(uploadsDir, { recursive: true });
-  fs.copyFileSync(sourcePath, destinationPath);
-  const evidenceSize = fs.statSync(destinationPath).size;
-
-  runInTransaction(() => {
-    if (existing) {
-      db.prepare("DELETE FROM cases WHERE id = ?").run(id);
-    }
-
-    db.prepare(`
-      INSERT INTO cases (id, isDemo, location, foundTime, outerItemDescription, notes, status, finalisedAt, finalisedBy, createdAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      id,
-      1,
-      "Changi Airport Terminal 3 Arrivals",
-      createdAt,
-      "Black backpack",
-      "Staged synthetic property for the FoundFlow demonstration. No passenger data is present.",
-      "reviewing",
-      null,
-      null,
-      createdAt
-    );
-
-    db.prepare(`
-      INSERT INTO uploads (id, caseId, filename, originalName, mimeType, size, uploadedAt, containerContext)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      evidenceId,
-      id,
-      evidenceFilename,
-      "staged-found-property.webp",
-      "image/webp",
-      evidenceSize,
-      "2026-07-21T09:31:00.000Z",
-      "bag-contents"
-    );
-
-    const items: ManifestItem[] = [
-      { id: "outer-item-root", label: "Black backpack", parentId: null, quantity: 1, confidence: 1.0, status: "confirmed", reviewReason: null, evidenceId, ocrText: "", visibleAttributes: "Colour: black; condition: clean; main compartment open", source: "system" },
-      { id: "pouch", label: "Brown coin pouch", parentId: "outer-item-root", quantity: 1, confidence: 0.98, status: "confirmed", reviewReason: null, evidenceId, ocrText: "", visibleAttributes: "Brown leather; zip closure; open", source: "system" },
-      { id: "sgd-100", label: "Singapore 100-dollar specimen note", parentId: "pouch", quantity: 1, quantityKnown: true, itemType: "currency", confidence: 0.99, status: "review", reviewReason: "Currency amount requires staff confirmation before custody approval.", evidenceId, ocrText: "SPECIMEN · SINGAPORE · 100 · ZX0000241", visibleAttributes: "Orange specimen note", currencyCode: "SGD", denomination: "100", currencyTotal: "100", source: "system" },
-      { id: "sgd-1-coins", label: "Singapore 1-dollar specimen coins", parentId: "pouch", quantity: 3, quantityKnown: true, itemType: "currency", confidence: 0.98, status: "review", reviewReason: "Coin count and denomination require staff confirmation.", evidenceId, ocrText: "SGD 1", visibleAttributes: "Three gold-colour synthetic coins marked SGD 1", currencyCode: "SGD", denomination: "1", currencyTotal: "3", source: "system" },
-      { id: "sgd-050-coins", label: "Singapore 50-cent specimen coins", parentId: "pouch", quantity: 2, quantityKnown: true, itemType: "currency", confidence: 0.98, status: "review", reviewReason: "Coin count and denomination require staff confirmation.", evidenceId, ocrText: "SGD 0.50", visibleAttributes: "Two silver-colour synthetic coins marked SGD 0.50", currencyCode: "SGD", denomination: "0.5", currencyTotal: "1", source: "system" },
-      { id: "myr-50", label: "Malaysian 50-ringgit specimen note", parentId: "pouch", quantity: 1, quantityKnown: true, itemType: "currency", confidence: 0.99, status: "review", reviewReason: "Currency amount requires staff confirmation before custody approval.", evidenceId, ocrText: "SPECIMEN · BANK NEGARA MALAYSIA · 50 · MYX0000241", visibleAttributes: "Blue-green specimen note", currencyCode: "MYR", denomination: "50", currencyTotal: "50", source: "system" },
-      { id: "myr-020-coins", label: "Malaysian 20-sen specimen coins", parentId: "pouch", quantity: 2, quantityKnown: true, itemType: "currency", confidence: 0.98, status: "review", reviewReason: "Coin count and denomination require staff confirmation.", evidenceId, ocrText: "MYR 0.20", visibleAttributes: "Two gold-colour synthetic coins marked MYR 0.20", currencyCode: "MYR", denomination: "0.2", currencyTotal: "0.4", source: "system" },
-      { id: "cable", label: "White USB-C charging cable", parentId: "outer-item-root", quantity: 1, confidence: 0.99, status: "confirmed", reviewReason: null, evidenceId, ocrText: "", visibleAttributes: "White; coiled; USB-C connectors", source: "system" },
-      { id: "cardholder", label: "Black leather cardholder", parentId: "outer-item-root", quantity: 1, confidence: 0.98, status: "confirmed", reviewReason: null, evidenceId, ocrText: "", visibleAttributes: "Black leather; empty card slots", source: "system" },
-      { id: "notebook", label: "Plain kraft notebook", parentId: "outer-item-root", quantity: 1, confidence: 0.97, status: "confirmed", reviewReason: null, evidenceId, ocrText: "", visibleAttributes: "Plain brown cover; no visible writing", source: "system" },
-      { id: "tag", label: "Orange luggage tag", parentId: "outer-item-root", quantity: 1, confidence: 0.99, status: "confirmed", reviewReason: null, evidenceId, ocrText: "SAMPLE-0241", visibleAttributes: "Orange synthetic demo tag", source: "system" },
-    ];
-
-    const insertItem = db.prepare(`
-      INSERT INTO manifest_items (id, caseId, label, parentId, quantity, quantityKnown, itemType, status, confidence, reviewReason, evidenceId, ocrText, visibleAttributes, currencyCode, denomination, currencyTotal, source)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    for (const item of items) {
-      insertItem.run(
-        item.id,
-        id,
-        item.label,
-        item.parentId,
-        item.quantity,
-        item.quantityKnown === false ? 0 : 1,
-        item.itemType ?? "property",
-        item.status,
-        item.confidence,
-        item.reviewReason,
-        item.evidenceId,
-        item.ocrText ?? null,
-        item.visibleAttributes ?? null,
-        item.currencyCode ?? null,
-        item.denomination ?? null,
-        item.currencyTotal ?? null,
-        item.source ?? "system"
-      );
-    }
-
-    const logs = [
-      { id: "log-1", timestamp: createdAt, userId: "demo-staff", action: "case_created", details: "Demo case created from a staged synthetic found-property set" },
-      { id: "log-2", timestamp: "2026-07-21T09:31:00.000Z", userId: "demo-staff", action: "evidence_uploaded", details: "Staged synthetic evidence linked to the bag-contents level" },
-      { id: "log-3", timestamp: "2026-07-21T09:32:00.000Z", userId: "demo-staff", action: "demo_seeded", details: "Deterministic sample manifest loaded; no live AI call was made" },
-    ];
-
-    const insertLog = db.prepare(`
-      INSERT INTO audit_logs (id, caseId, timestamp, userId, action, details)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-    for (const log of logs) {
-      insertLog.run(log.id, id, log.timestamp, log.userId, log.action, log.details);
-    }
-  });
-
-  const seeded = getCaseById(id);
+  const logs = [
+    ["log-1", createdAt, "demo-staff", "case_created", "Demo case created from a staged synthetic found-property set"],
+    ["log-2", "2026-07-21T09:31:00.000Z", "demo-staff", "evidence_uploaded", "Staged synthetic evidence linked to the bag-contents level"],
+    ["log-3", "2026-07-21T09:32:00.000Z", "demo-staff", "demo_seeded", "Deterministic sample manifest loaded; no live AI call was made"],
+  ];
+  for (const [logId, timestamp, userId, action, details] of logs) {
+    statements.push({ sql: `INSERT INTO audit_logs (id, caseId, timestamp, userId, action, details) VALUES (?, ?, ?, ?, ?, ?)`, args: [logId, id, timestamp, userId, action, details] });
+  }
+  await db.batch(statements, "write");
+  const seeded = await getCaseById(id);
   if (!seeded) throw new Error("CRITICAL DATABASE ERROR: Failed to seed demo case");
   return seeded;
 }

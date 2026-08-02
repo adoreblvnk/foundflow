@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const { query, mode, filters } = body as { query: string; mode: "text" | "ai"; filters?: SearchFilters };
 
-  const cases = getCases();
+  const cases = await getCases();
 
   // Build flat list of all items with case metadata
   let allItems = cases.flatMap((c) =>

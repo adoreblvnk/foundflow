@@ -6,13 +6,15 @@ export async function POST(request: NextRequest) {
 
   const location = (formData.get("location") as string) || "Unknown";
   const foundTime = (formData.get("foundTime") as string) || new Date().toISOString();
+  const foundBy = (formData.get("foundBy") as string) || "Kiosk officer";
   const outerItemDescription = (formData.get("outerItemDescription") as string) || "Found property";
   const notes = (formData.get("notes") as string) || "";
 
   try {
-    const newCase = createCase({
+    const newCase = await createCase({
       location,
       foundTime,
+      foundBy,
       outerItemDescription,
       notes,
       finalisedBy: "kiosk-officer",

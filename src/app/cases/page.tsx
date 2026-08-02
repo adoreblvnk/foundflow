@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { getCases } from "@/lib/db";
 import { handleSeedDemo } from "@/app/cases/actions";
+import { isAuthenticated } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 const processSteps = [
   {
@@ -36,7 +38,8 @@ const processSteps = [
 ];
 
 export default async function CasesPage() {
-  const cases = getCases();
+  if (!(await isAuthenticated())) redirect("/login");
+  const cases = await getCases();
 
   return (
     <main className="demo-page" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>

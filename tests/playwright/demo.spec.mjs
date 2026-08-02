@@ -16,8 +16,8 @@ test("evidence-backed demo completes the custody workflow", async ({ page }) => 
   await page.getByRole("button", { name: "Sign in to FoundFlow" }).click();
   await expect(page).toHaveURL(/\/cases$/);
 
-  await page.getByRole("button", { name: "Load Demo Case" }).click();
-  await page.getByRole("link", { name: "Open Case File →" }).click();
+  await page.getByRole("button", { name: /Load Demo|Reset Demo/ }).click();
+  await page.locator('a[href="/cases/CT3A-20260721-DEMO"]').first().click();
   await expect(page).toHaveURL(/\/cases\/CT3A-20260721-DEMO$/);
   await expect(page.getByText("Evidence Gallery (1)", { exact: true })).toBeVisible();
   await expect(page.getByText("11 records", { exact: true })).toBeVisible();
@@ -30,7 +30,7 @@ test("evidence-backed demo completes the custody workflow", async ({ page }) => 
   expect(await evidence.evaluate((image) => image.complete && image.naturalWidth > 0)).toBe(true);
 
   await page.setViewportSize({ width: 375, height: 500 });
-  await page.getByRole("button", { name: "+ Add Item Manually" }).click();
+  await page.getByRole("button", { name: "+ Add Item", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Add New Manifest Record" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Item Label")).toBeFocused();

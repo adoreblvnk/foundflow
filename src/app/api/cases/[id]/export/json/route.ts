@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthenticated, getCurrentUser } from "@/lib/auth";
-import { getCaseById, addAuditLog, runInTransaction } from "@/lib/db";
+import { getCaseById, addAuditLog } from "@/lib/db";
 import { summarizeCurrency } from "@/lib/validation";
 
 export async function GET(
@@ -14,7 +14,7 @@ export async function GET(
 
   const user = await getCurrentUser();
   const { id } = await params;
-  const caseFile = getCaseById(id);
+  const caseFile = await getCaseById(id);
 
   if (!caseFile) {
     return new NextResponse("Not Found", { status: 404 });
@@ -27,9 +27,7 @@ export async function GET(
 
   try {
     // Record audit event for export
-    runInTransaction(() => {
-      addAuditLog(id, user!.username, "manifest_exported", "Exported approved JSON manifest data.");
-    });
+    await addAuditLog(id, user!.username, "manifest_exported", "Exported approved JSON manifest data.");
 
     // Clean payload for system ingestion with complete attributes and OCR references
     const exportData = {

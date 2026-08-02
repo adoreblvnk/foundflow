@@ -1,10 +1,8 @@
 "use server";
 
-import { createCase, getCaseById, updateCase, addAuditLog, seedDemoCase, Case, EvidenceUpload, ManifestItem, runInTransaction } from "@/lib/db";
+import { createCase, getCaseById, updateCaseWithAudit, seedDemoCase, Case, EvidenceUpload, ManifestItem } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import fs from "fs";
-import path from "path";
 import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
@@ -13,6 +11,7 @@ import crypto from "crypto";
 import { verifyImageSignature } from "@/lib/image-utils";
 import { hasCycle, isCurrencyItem, mergeAiDraftWithStaffItems, requiresSensitiveReview, validateManifestStructure } from "@/lib/validation";
 import { isValidCurrencyCode, multiplyDecimal, normalizeDecimal } from "@/lib/currency";
+import { deleteEvidence, readEvidence, writeEvidence } from "@/lib/evidence-storage";
 
 // Schema for manual add/edit validations
 const manualItemInputSchema = z.object({
@@ -54,14 +53,6 @@ function markStaffLineage(caseFile: Case, itemId: string): void {
   }
 }
 
-const DATA_DIR = process.env.DATA_DIR || "./data";
-const UPLOADS_DIR = path.join(DATA_DIR, "uploads");
-
-// Ensure uploads folder exists
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-}
-
 export async function handleCreateCase(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) {
@@ -76,7 +67,7 @@ export async function handleCreateCase(formData: FormData) {
     notes: formData.get("notes") ?? "",
   });
 
-  const newCase = createCase({
+  const newCase = await createCase({
     ...parsed,
     finalisedBy: user.username,
   });
@@ -90,7 +81,7 @@ export async function handleUploadEvidence(caseId: string, formData: FormData) {
     return { error: "Unauthenticated" };
   }
 
-  const caseFile = getCaseById(caseId);
+  const caseFile = await getCaseById(caseId);
   if (!caseFile) {
     return { error: "Case not found" };
   }
@@ -127,7 +118,6 @@ export async function handleUploadEvidence(caseId: string, formData: FormData) {
 
   const fileId = `ev-${crypto.randomUUID()}`;
   const filename = `${fileId}.${extension}`;
-  const filePath = path.join(UPLOADS_DIR, filename);
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -137,7 +127,7 @@ export async function handleUploadEvidence(caseId: string, formData: FormData) {
       return { error: "Security validation failed: File contents do not match the expected image signature." };
     }
 
-    fs.writeFileSync(filePath, buffer);
+    await writeEvidence(filename, buffer, file.type);
 
     const safeOriginalName = file.name.slice(0, 255);
     const uploadRecord: EvidenceUpload = {
@@ -151,22 +141,20 @@ export async function handleUploadEvidence(caseId: string, formData: FormData) {
     };
 
     caseFile.uploads.push(uploadRecord);
-
-    // Run within a transaction to ensure atomic DB + timeline logging
-    runInTransaction(() => {
-      updateCase(caseId, caseFile);
-      addAuditLog(caseId, user.username, "evidence_uploaded", `Uploaded image "${safeOriginalName}" linked to container level: "${containerContext}"`);
-    });
+    await updateCaseWithAudit(
+      caseId,
+      caseFile,
+      user.username,
+      "evidence_uploaded",
+      `Uploaded image "${safeOriginalName}" linked to container level: "${containerContext}"`,
+    );
 
     return { success: true, upload: uploadRecord };
   } catch (error: unknown) {
-    // Delete file if it was written but DB persistence failed
-    if (fs.existsSync(filePath)) {
-      try {
-        fs.unlinkSync(filePath);
-      } catch (cleanupErr) {
-        console.error("Failed to clean up orphaned evidence file:", cleanupErr);
-      }
+    try {
+      await deleteEvidence(filename);
+    } catch (cleanupErr) {
+      console.error("Failed to clean up orphaned evidence file:", cleanupErr);
     }
     console.error("Evidence upload failed:", error);
     const message = error instanceof Error ? error.message : "Failed to process uploaded file";
@@ -174,7 +162,7 @@ export async function handleUploadEvidence(caseId: string, formData: FormData) {
   }
 }
 
-// Zod Schema for Structured Codex CLI extraction (AI SDK v6)
+// Structured multimodal extraction schema (AI SDK v6)
 const aiManifestItemSchema = z.object({
   tempId: z.string().min(1).max(64).describe("A temporary unique identifier for this item, e.g., 'item_01', 'item_02'"),
   label: z.string().min(1).max(160).describe("Descriptive label of the detected property item"),
@@ -202,7 +190,7 @@ export async function handleAiAnalysis(caseId: string) {
     return { error: "Unauthenticated" };
   }
 
-  const caseFile = getCaseById(caseId);
+  const caseFile = await getCaseById(caseId);
   if (!caseFile) {
     return { error: "Case not found" };
   }
@@ -247,23 +235,25 @@ Respond strictly in the requested structured schema.`
 
     let usableFilesCount = 0;
     for (const upload of caseFile.uploads) {
-      const filePath = path.join(UPLOADS_DIR, upload.filename);
-      if (fs.existsSync(filePath)) {
-        const imageBuffer = fs.readFileSync(filePath);
+      const imageBuffer = await readEvidence(upload.filename);
+      if (imageBuffer) {
         contentPayload.push({
           type: "file",
           mediaType: upload.mimeType,
-          data: imageBuffer
+          data: imageBuffer,
         });
         usableFilesCount++;
       }
     }
 
     if (usableFilesCount === 0) {
-      return { error: "No usable image files exist on disk for AI analysis." };
+      return { error: "No usable evidence images are available for AI analysis." };
+    }
+    if (!process.env.OPENAI_API_KEY) {
+      return { error: "Production AI is not configured. Continue with manual review." };
     }
 
-    const model = openai("gpt-5.5");
+    const model = openai(process.env.OPENAI_MODEL || "gpt-4.1-mini");
 
     const result = await generateObject({
       model,
@@ -448,15 +438,13 @@ Respond strictly in the requested structured schema.`
     }
     caseFile.manifest = mergedManifest;
 
-    runInTransaction(() => {
-      updateCase(caseId, caseFile);
-      addAuditLog(
-        caseId,
-        user.username,
-        "ai_analysis_triggered",
-        `Executed live AI vision draft extraction. Discovered ${mappedItems.length - 1} nested item records.`
-      );
-    });
+    await updateCaseWithAudit(
+      caseId,
+      caseFile,
+      user.username,
+      "ai_analysis_triggered",
+      `Executed live OpenAI vision draft extraction. Discovered ${mappedItems.length - 1} nested item records.`,
+    );
 
     return { success: true, manifest: mergedManifest };
   } catch (error: unknown) {
@@ -470,7 +458,7 @@ export async function handleConfirmItem(caseId: string, itemId: string) {
   const user = await getCurrentUser();
   if (!user) return { error: "Unauthenticated" };
 
-  const caseFile = getCaseById(caseId);
+  const caseFile = await getCaseById(caseId);
   if (!caseFile) return { error: "Case not found" };
   if (caseFile.status === "finalised") return { error: "Cannot modify a finalised case" };
 
@@ -489,10 +477,7 @@ export async function handleConfirmItem(caseId: string, itemId: string) {
     return { error: `Validation failed: ${validationError}` };
   }
 
-  runInTransaction(() => {
-    updateCase(caseId, caseFile);
-    addAuditLog(caseId, user.username, "item_confirmed", `Confirmed item "${item.label}"`);
-  });
+  await updateCaseWithAudit(caseId, caseFile, user.username, "item_confirmed", `Confirmed item "${item.label}"`);
   return { success: true, manifest: caseFile.manifest };
 }
 
@@ -500,7 +485,7 @@ export async function handleUpdateItem(caseId: string, updatedItem: ManifestItem
   const user = await getCurrentUser();
   if (!user) return { error: "Unauthenticated" };
 
-  const caseFile = getCaseById(caseId);
+  const caseFile = await getCaseById(caseId);
   if (!caseFile) return { error: "Case not found" };
   if (caseFile.status === "finalised") return { error: "Cannot modify a finalised case" };
 
@@ -617,15 +602,13 @@ export async function handleUpdateItem(caseId: string, updatedItem: ManifestItem
       return { error: `Validation failed: ${validationError}` };
     }
 
-    runInTransaction(() => {
-      updateCase(caseId, caseFile);
-      addAuditLog(
-        caseId,
-        user.username,
-        "item_updated",
-        `Updated item "${originalItem.label}" to "${parsed.label}" (Qty: ${parsed.quantity}, Parent: ${parsed.parentId || "None"})`
-      );
-    });
+    await updateCaseWithAudit(
+      caseId,
+      caseFile,
+      user.username,
+      "item_updated",
+      `Updated item "${originalItem.label}" to "${parsed.label}" (Qty: ${parsed.quantity}, Parent: ${parsed.parentId || "None"})`,
+    );
     return { success: true, manifest: caseFile.manifest };
   } catch (error: unknown) {
     console.error("Manual item update validation failed:", error);
@@ -638,7 +621,7 @@ export async function handleAddItem(caseId: string, itemData: Omit<ManifestItem,
   const user = await getCurrentUser();
   if (!user) return { error: "Unauthenticated" };
 
-  const caseFile = getCaseById(caseId);
+  const caseFile = await getCaseById(caseId);
   if (!caseFile) return { error: "Case not found" };
   if (caseFile.status === "finalised") return { error: "Cannot modify a finalised case" };
 
@@ -717,10 +700,7 @@ export async function handleAddItem(caseId: string, itemData: Omit<ManifestItem,
       return { error: `Validation failed: ${validationError}` };
     }
 
-    runInTransaction(() => {
-      updateCase(caseId, caseFile);
-      addAuditLog(caseId, user.username, "item_added", `Manually added new item "${newItem.label}" (Qty: ${newItem.quantity})`);
-    });
+    await updateCaseWithAudit(caseId, caseFile, user.username, "item_added", `Manually added new item "${newItem.label}" (Qty: ${newItem.quantity})`);
     return { success: true, manifest: caseFile.manifest };
   } catch (error: unknown) {
     console.error("Manual item insertion validation failed:", error);
@@ -733,7 +713,7 @@ export async function handleDeleteItem(caseId: string, itemId: string) {
   const user = await getCurrentUser();
   if (!user) return { error: "Unauthenticated" };
 
-  const caseFile = getCaseById(caseId);
+  const caseFile = await getCaseById(caseId);
   if (!caseFile) return { error: "Case not found" };
   if (caseFile.status === "finalised") return { error: "Cannot modify a finalised case" };
 
@@ -764,10 +744,7 @@ export async function handleDeleteItem(caseId: string, itemId: string) {
     return { error: `Validation failed: ${validationError}` };
   }
 
-  runInTransaction(() => {
-    updateCase(caseId, caseFile);
-    addAuditLog(caseId, user.username, "item_deleted", `Deleted item "${itemToDelete.label}". Any child items were re-parented to protect nesting.`);
-  });
+  await updateCaseWithAudit(caseId, caseFile, user.username, "item_deleted", `Deleted item "${itemToDelete.label}". Any child items were re-parented to protect nesting.`);
   return { success: true, manifest: caseFile.manifest };
 }
 
@@ -775,7 +752,7 @@ export async function handleFinaliseCase(caseId: string) {
   const user = await getCurrentUser();
   if (!user) return { error: "Unauthenticated" };
 
-  const caseFile = getCaseById(caseId);
+  const caseFile = await getCaseById(caseId);
   if (!caseFile) return { error: "Case not found" };
   if (caseFile.status === "finalised") return { error: "Case is already finalised" };
 
@@ -804,10 +781,7 @@ export async function handleFinaliseCase(caseId: string) {
   caseFile.finalisedAt = new Date().toISOString();
   caseFile.finalisedBy = user.username;
 
-  runInTransaction(() => {
-    updateCase(caseId, caseFile);
-    addAuditLog(caseId, user.username, "case_finalised", `Case finalised and locked by ${user.username}`);
-  });
+  await updateCaseWithAudit(caseId, caseFile, user.username, "case_finalised", `Case finalised and locked by ${user.username}`);
   return { success: true, case: caseFile };
 }
 
@@ -816,6 +790,6 @@ export async function handleSeedDemo() {
   if (!user) {
     throw new Error("Unauthenticated");
   }
-  seedDemoCase();
+  await seedDemoCase();
   redirect("/cases");
 }

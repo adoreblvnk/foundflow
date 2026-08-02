@@ -14,7 +14,7 @@ export default async function CaseDetailPage({
   }
 
   const { id } = await params;
-  const caseFile = getCaseById(id);
+  const caseFile = await getCaseById(id);
   if (!caseFile) {
     notFound();
   }

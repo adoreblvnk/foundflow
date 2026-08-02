@@ -14,7 +14,7 @@ export async function GET(
   }
 
   const { id } = await params;
-  const caseFile = getCaseById(id);
+  const caseFile = await getCaseById(id);
 
   if (!caseFile) {
     return NextResponse.json({ error: "Case not found" }, { status: 404 });

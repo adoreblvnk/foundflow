@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthenticated, getCurrentUser } from "@/lib/auth";
-import { getCaseById, addAuditLog, runInTransaction } from "@/lib/db";
+import { getCaseById, addAuditLog } from "@/lib/db";
 import { escapeCsvCell } from "@/lib/csv-utils";
 import { summarizeCurrency } from "@/lib/validation";
 import { formatDecimal } from "@/lib/currency";
@@ -16,7 +16,7 @@ export async function GET(
 
   const user = await getCurrentUser();
   const { id } = await params;
-  const caseFile = getCaseById(id);
+  const caseFile = await getCaseById(id);
 
   if (!caseFile) {
     return new NextResponse("Not Found", { status: 404 });
@@ -29,9 +29,7 @@ export async function GET(
 
   try {
     // Record audit event for export
-    runInTransaction(() => {
-      addAuditLog(id, user!.username, "manifest_exported", "Exported approved CSV manifest report.");
-    });
+    await addAuditLog(id, user!.username, "manifest_exported", "Exported approved CSV manifest report.");
 
     // Header Row
     const headers = [

@@ -41,13 +41,13 @@ import { hasCycle, isCurrencyItem, mergeAiDraftWithStaffItems, requiresSensitive
 import { addDecimals, isValidCurrencyCode, multiplyDecimal, normalizeDecimal } from "../src/lib/currency.ts";
 
 test("Database Layer, Seeding & Isolation", async (t) => {
-  await t.test("should start with 0 cases on fresh setup", () => {
-    const cases = getCases();
+  await t.test("should start with 0 cases on fresh setup", async () => {
+    const cases = await getCases();
     assert.strictEqual(cases.length, 0);
   });
 
-  await t.test("should explicitly seed a complete evidence-backed demo case", () => {
-    const demo = seedDemoCase();
+  await t.test("should explicitly seed a complete evidence-backed demo case", async () => {
+    const demo = await seedDemoCase();
     assert.strictEqual(demo.id, "CT3A-20260721-DEMO");
     assert.strictEqual(demo.isDemo, true);
     assert.strictEqual(demo.uploads.length, 1);
@@ -64,20 +64,21 @@ test("Database Layer, Seeding & Isolation", async (t) => {
     assert.strictEqual(validateManifestStructure(demo), null);
     assert.ok(demo.auditLogs.some((log) => log.action === "demo_seeded" && log.details.includes("no live AI call")));
 
-    const cases = getCases();
+    const cases = await getCases();
     assert.strictEqual(cases.length, 1);
   });
 
-  await t.test("should retrieve demo case by id", () => {
-    const caseFile = getCaseById("CT3A-20260721-DEMO");
+  await t.test("should retrieve demo case by id", async () => {
+    const caseFile = await getCaseById("CT3A-20260721-DEMO");
     assert.ok(caseFile);
     assert.strictEqual(caseFile!.id, "CT3A-20260721-DEMO");
   });
 
-  await t.test("should create a new case and persist audit event", () => {
-    const newCase = createCase({
+  await t.test("should create a new case and persist audit event", async () => {
+    const newCase = await createCase({
       location: "Gate B22 Arrivals",
       foundTime: new Date().toISOString(),
+      foundBy: "Officer Test",
       outerItemDescription: "Blue Suitcase",
       notes: "Test Suitcase",
     });
@@ -88,7 +89,7 @@ test("Database Layer, Seeding & Isolation", async (t) => {
     assert.strictEqual(newCase.manifest.length, 1);
     assert.strictEqual(newCase.manifest[0].id, "outer-item-root");
 
-    const retrieved = getCaseById(newCase.id);
+    const retrieved = await getCaseById(newCase.id);
     assert.ok(retrieved);
     assert.strictEqual(retrieved!.location, "Gate B22 Arrivals");
 
@@ -235,8 +236,8 @@ test("Domain, Cycles & Finalisation Validations", async (t) => {
     assert.ok(error && error.includes("evidence"));
   });
 
-  await t.test("requires exact denomination totals before currency confirmation", () => {
-    const demo = getCaseById("CT3A-20260721-DEMO")!;
+  await t.test("requires exact denomination totals before currency confirmation", async () => {
+    const demo = (await getCaseById("CT3A-20260721-DEMO"))!;
     const currency = demo.manifest.find((item) => item.id === "sgd-1-coins")!;
     currency.status = "confirmed";
     currency.currencyCode = null;
@@ -259,16 +260,16 @@ test("Exact Currency Arithmetic & Review Boundaries", async (t) => {
     ]), [{ currencyCode: "KWD", total: "0.003" }]);
   });
 
-  await t.test("recognizes generic currency wording even when amount fields are unreadable", () => {
+  await t.test("recognizes generic currency wording even when amount fields are unreadable", async () => {
     const item: ManifestItem = { id: "note", label: "Singapore note", parentId: "outer-item-root", quantity: 1, quantityKnown: false, status: "confirmed", confidence: 0.5, reviewReason: null, evidenceId: "demo-evidence-1" };
     assert.strictEqual(isCurrencyItem(item), true);
-    const demo = getCaseById("CT3A-20260721-DEMO")!;
+    const demo = (await getCaseById("CT3A-20260721-DEMO"))!;
     demo.manifest.push(item);
     assert.match(validateManifestStructure(demo) ?? "", /valid ISO 4217 currency code/);
   });
 
-  await t.test("blocks confirmation when the observed count is unknown", () => {
-    const demo = getCaseById("CT3A-20260721-DEMO")!;
+  await t.test("blocks confirmation when the observed count is unknown", async () => {
+    const demo = (await getCaseById("CT3A-20260721-DEMO"))!;
     const item = demo.manifest.find((candidate) => candidate.id === "sgd-100")!;
     item.status = "confirmed";
     item.quantityKnown = false;
@@ -276,10 +277,10 @@ test("Exact Currency Arithmetic & Review Boundaries", async (t) => {
     assert.match(validateManifestStructure(demo) ?? "", /known quantity/);
   });
 
-  await t.test("rejects invented three-letter currency codes", () => {
+  await t.test("rejects invented three-letter currency codes", async () => {
     assert.strictEqual(isValidCurrencyCode("SGD"), true);
     assert.strictEqual(isValidCurrencyCode("ZZZ"), false);
-    const demo = getCaseById("CT3A-20260721-DEMO")!;
+    const demo = (await getCaseById("CT3A-20260721-DEMO"))!;
     const item = demo.manifest.find((candidate) => candidate.id === "sgd-100")!;
     item.status = "confirmed";
     item.currencyCode = "ZZZ";

@@ -13,7 +13,7 @@ FoundFlow's challenge MVP is accepted only when all criteria below pass using st
 
 ## AI draft and review
 
-- [x] Live analysis sends actual uploaded image bytes to the AI SDK v6 Codex CLI provider and returns schema-validated nested records.
+- [x] Production analysis sends actual uploaded image bytes to the AI SDK v6 OpenAI provider and returns schema-validated nested records.
 - [x] OCR text, visible attributes, confidence, review reason, parent relationship, quantity, and evidence ID are retained.
 - [x] Invalid evidence IDs, invalid parents, duplicate temporary IDs, cycles, and sensitive categories are rejected, normalised, or forced into review without being silently trusted.
 - [x] Cash, currency, identity documents, valuables, and serial identifiers cannot be finalised without staff confirmation.
@@ -26,7 +26,7 @@ FoundFlow's challenge MVP is accepted only when all criteria below pass using st
 - [x] Staff can add, edit, confirm, and delete nested records.
 - [x] Browser speech recognition fills a transcript; staff must review it and select **Apply** before a correction changes the manifest.
 - [x] A deterministic text-command fallback exercises the same correction path when Web Speech API is unavailable.
-- [x] Cases, uploads, source provenance, and append-only audit events survive a process restart in SQLite.
+- [x] Cases, private evidence, source provenance, and append-only audit events survive serverless function restarts through Turso and Vercel Blob.
 - [x] State mutations and their corresponding audit records commit atomically.
 - [x] Finalisation remains disabled until evidence exists and every review item is resolved.
 - [x] Finalised cases are locked against further mutation.
@@ -49,6 +49,6 @@ The browser test additionally requires a running production server, configured t
 
 - Authentication is a single configured staff identity, not production RBAC or identity federation.
 - Speech recognition depends on browser Web Speech API support; the checked transcript is the officer-confirmed action.
-- Codex CLI inference uses the signed-in provider account and may send staged evidence to that provider; it is not local inference.
-- `node:sqlite` is emitted with Node's experimental-feature warning on the tested Node 24 runtime.
+- Production inference uses the configured OpenAI API account and sends selected evidence to that provider; it is not local inference.
+- Codex CLI remains an optional local backup smoke path and is not used by the Vercel deployment.
 - No FindX or external records-system write integration is claimed.

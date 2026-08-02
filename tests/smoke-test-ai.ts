@@ -1,79 +1,32 @@
+import { readFile } from "node:fs/promises";
 import { openai } from "@ai-sdk/openai";
-import { z } from "zod";
-import fs from "fs";
 import { generateObject } from "ai";
+import { z } from "zod";
+
+const schema = z.object({
+  items: z.array(z.object({
+    label: z.string(),
+    quantity: z.number().int().positive().nullable(),
+    evidenceId: z.literal("smoke-evidence"),
+  })).min(1),
+});
 
 async function runSmokeTest() {
-  console.log("Starting live AI vision smoke test...");
-
-  // 1. Create a harmless staged PNG (1x1 pixel)
-  const stagedImgPath = "./tests/staged_evidence.png";
-  const pngBytes = Buffer.from(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
-    "base64"
-  );
-  fs.writeFileSync(stagedImgPath, pngBytes);
-  console.log("Harmless staged image written to disk:", stagedImgPath);
-
-  // 2. Define schema matching app expectations
-  const schema = z.object({
-    items: z.array(
-      z.object({
-        tempId: z.string().describe("temporary item id"),
-        label: z.string().describe("item label"),
-        parentId: z.string().nullable().describe("parent tempId or null"),
-        quantity: z.number().int().positive().describe("quantity"),
-        confidence: z.number().min(0).max(1).describe("confidence score"),
-        status: z.enum(["confirmed", "review"]).describe("status"),
-        reviewReason: z.string().nullable().describe("reason if review is needed"),
-        evidenceId: z.string().describe("linked evidence ID"),
-        ocrText: z.string().describe("extracted text or empty string"),
-        visibleAttributes: z.string().describe("visible attributes or empty string"),
-      })
-    ),
+  if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
+  const image = await readFile("./public/demo/found-property-evidence.webp");
+  const result = await generateObject({
+    model: openai(process.env.OPENAI_MODEL || "gpt-4.1-mini"),
+    schema,
+    messages: [{
+      role: "user",
+      content: [
+        { type: "text", text: "Catalog at least one clearly visible property item. Use evidenceId smoke-evidence and do not guess an unreadable quantity." },
+        { type: "file", mediaType: "image/webp", data: image },
+      ],
+    }],
   });
-
-  try {
-    // 3. Invoke OpenAI provider
-    const model = openai("gpt-5.5");
-    console.log("Invoking OpenAI model (gpt-5.5)...");
-
-    const result = await generateObject({
-      model,
-      schema,
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: "Please catalog the items in this image of found-property evidence. Return a nested manifest structure." },
-            {
-              type: "file",
-              mediaType: "image/png",
-              data: pngBytes
-            }
-          ]
-        }
-      ]
-    });
-
-    console.log("Live AI vision call returned successfully!");
-    console.log("Output Object:", JSON.stringify(result.object, null, 2));
-
-    if (result.object && Array.isArray(result.object.items)) {
-      console.log("SMOKE TEST PASSED: Structure is schema-valid.");
-    } else {
-      console.error("SMOKE TEST FAILED: Schema is invalid or empty.");
-      process.exit(1);
-    }
-  } catch (error) {
-    console.error("SMOKE TEST FAILED with error:", error);
-    process.exit(1);
-  } finally {
-    // Cleanup
-    if (fs.existsSync(stagedImgPath)) {
-      fs.unlinkSync(stagedImgPath);
-    }
-  }
+  if (!result.object.items.length) throw new Error("OpenAI returned no schema-valid items");
+  console.log(`OpenAI vision smoke test passed (${result.object.items.length} items).`);
 }
 
-void runSmokeTest();
+await runSmokeTest();

@@ -83,7 +83,7 @@ h2 { margin-bottom: 34px; font-size: clamp(2rem, 4vw, 3.5rem); line-height: 1; l
 .finalise-copy { min-width: 0; display: grid; gap: 4px; }
 .finalise-actions > .button { flex: none; }
 .modal-backdrop { box-sizing: border-box; padding: 20px; overflow-y: auto; }
-.modal-panel { box-sizing: border-box; width: min(480px, calc(100vw - 40px)) !important; max-width: none !important; max-height: calc(100dvh - 40px); overflow-x: hidden; overflow-y: auto; }
+.modal-panel { box-sizing: border-box; width: min(640px, calc(100vw - 40px)) !important; max-width: none !important; max-height: calc(100dvh - 40px); overflow-x: hidden; overflow-y: auto; }
 .modal-panel form, .modal-panel form > div, .modal-panel fieldset { min-width: 0; }
 .modal-panel fieldset { margin-inline: 0; }
 .modal-panel input:not([type="checkbox"]), .modal-panel select, .modal-panel textarea { display: block; width: 100%; min-width: 0; padding-inline: 12px !important; }

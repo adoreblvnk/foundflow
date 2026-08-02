@@ -118,6 +118,12 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   for (const label of ["Identification card", "Chicken sandwich"]) {
     await page.getByRole("button", { name: "+ Add Item", exact: true }).click();
     const addDialog = page.getByRole("dialog", { name: "Add Item" });
+    const desktopModalMetrics = await addDialog.evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }));
+    expect(desktopModalMetrics.clientWidth).toBeGreaterThanOrEqual(600);
+    expect(desktopModalMetrics.scrollWidth).toBeLessThanOrEqual(desktopModalMetrics.clientWidth);
     await addDialog.getByLabel("Item Label").fill(label);
     await addDialog.getByRole("button", { name: "Add Item" }).click();
     await expect(addDialog).toBeHidden();

@@ -86,6 +86,8 @@ export interface Case {
   status: "reviewing" | "finalised";
   finalisedAt: string | null;
   finalisedBy: string | null;
+  archivedAt?: string | null;
+  archivedBy?: string | null;
   uploads: EvidenceUpload[];
   manifest: ManifestItem[];
   auditLogs: AuditLog[];
@@ -136,6 +138,8 @@ async function initializeSchema(db: DbClient): Promise<void> {
       status TEXT NOT NULL,
       finalisedAt TEXT,
       finalisedBy TEXT,
+      archivedAt TEXT,
+      archivedBy TEXT,
       createdAt TEXT NOT NULL
     )`, args: [] },
     { sql: `CREATE TABLE IF NOT EXISTS uploads (
@@ -206,6 +210,12 @@ async function initializeSchema(db: DbClient): Promise<void> {
   const caseColumns = (await db.execute("PRAGMA table_info(cases)")).rows as unknown as Array<{ name: string }>;
   if (!caseColumns.some((column) => column.name === "foundBy")) {
     await db.execute("ALTER TABLE cases ADD COLUMN foundBy TEXT DEFAULT ''");
+  }
+  if (!caseColumns.some((column) => column.name === "archivedAt")) {
+    await db.execute("ALTER TABLE cases ADD COLUMN archivedAt TEXT");
+  }
+  if (!caseColumns.some((column) => column.name === "archivedBy")) {
+    await db.execute("ALTER TABLE cases ADD COLUMN archivedBy TEXT");
   }
 
   let columns = (await db.execute("PRAGMA table_info(manifest_items)")).rows as unknown as Array<{ name: string; type: string }>;
@@ -282,7 +292,7 @@ function parseRegions(value: string | null | undefined): ImageRegion[] {
 
 interface CaseRow {
   id: string; isDemo: number; location: string; foundTime: string; foundBy: string; outerItemDescription: string;
-  notes: string; status: string; finalisedAt: string | null; finalisedBy: string | null; createdAt: string;
+  notes: string; status: string; finalisedAt: string | null; finalisedBy: string | null; archivedAt: string | null; archivedBy: string | null; createdAt: string;
 }
 interface UploadRow {
   id: string; filename: string; originalName: string; mimeType: string; size: number;
@@ -372,6 +382,8 @@ export async function getCaseById(id: string): Promise<Case | undefined> {
     status: caseRow.status as "reviewing" | "finalised",
     finalisedAt: caseRow.finalisedAt || null,
     finalisedBy: caseRow.finalisedBy || null,
+    archivedAt: caseRow.archivedAt || null,
+    archivedBy: caseRow.archivedBy || null,
     uploads,
     manifest,
     auditLogs,
@@ -411,8 +423,8 @@ export async function createCase(caseData: Partial<Case> & { location: string; f
 
 function updateStatements(id: string, updatedCase: Case): Statement[] {
   const statements: Statement[] = [
-    { sql: `UPDATE cases SET location = ?, foundTime = ?, foundBy = ?, outerItemDescription = ?, notes = ?, status = ?, finalisedAt = ?, finalisedBy = ? WHERE id = ?`,
-      args: [updatedCase.location, updatedCase.foundTime, updatedCase.foundBy, updatedCase.outerItemDescription, updatedCase.notes, updatedCase.status, updatedCase.finalisedAt, updatedCase.finalisedBy, id] },
+    { sql: `UPDATE cases SET location = ?, foundTime = ?, foundBy = ?, outerItemDescription = ?, notes = ?, status = ?, finalisedAt = ?, finalisedBy = ?, archivedAt = ?, archivedBy = ? WHERE id = ?`,
+      args: [updatedCase.location, updatedCase.foundTime, updatedCase.foundBy, updatedCase.outerItemDescription, updatedCase.notes, updatedCase.status, updatedCase.finalisedAt, updatedCase.finalisedBy, updatedCase.archivedAt ?? null, updatedCase.archivedBy ?? null, id] },
     { sql: "DELETE FROM uploads WHERE caseId = ?", args: [id] },
   ];
   for (const upload of updatedCase.uploads) {

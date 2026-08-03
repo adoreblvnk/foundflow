@@ -8,7 +8,8 @@ FoundFlow's challenge MVP is accepted only when all criteria below pass using st
 - [x] A configured staff identity can sign in through an HTTP-only signed session cookie.
 - [x] Staff must acknowledge a concise photo and review order before the case-details form is available; the acknowledgement is recorded on the created case.
 - [x] Staff can create a case with location, found time, and outer-item description.
-- [x] Cases are separated into Pending Review, Ready to Complete, Confirmed Cases, and Collected.
+- [x] Cases are separated into Pending Review, Ready to Complete, Confirmed Cases, Collected, and Archived.
+- [x] Staff can archive and restore any case without deleting its audit history or photos.
 - [x] Staff can delete non-finalised cases after confirmation; completed records are retained.
 - [x] PNG, JPEG, and WebP item photos can be uploaded at outer-item, bag-contents, or inner-container level.
 - [x] Staff can delete a photo before completion; linked items lose their photo boxes and return to review.

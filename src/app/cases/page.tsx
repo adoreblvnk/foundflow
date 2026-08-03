@@ -2,15 +2,16 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCases, type Case } from "@/lib/db";
 import { isAuthenticated } from "@/lib/auth";
-import DeleteCaseButton from "./DeleteCaseButton";
+import CaseActions from "./CaseActions";
 
 type CaseGroup = {
-  key: "pending" | "ready" | "confirmed" | "collected";
+  key: "pending" | "ready" | "confirmed" | "collected" | "archived";
   title: string;
   cases: Case[];
 };
 
 function caseStage(caseFile: Case): CaseGroup["key"] {
+  if (caseFile.archivedAt) return "archived";
   if (caseFile.claims?.some((claim) => claim.collectedAt)) return "collected";
   if (caseFile.status === "finalised") return "confirmed";
   const unresolved = caseFile.manifest.some((item) => item.status === "review");
@@ -27,6 +28,7 @@ function CaseCard({ caseFile, stage }: { caseFile: Case; stage: CaseGroup["key"]
     ready: "Ready to complete",
     confirmed: "Confirmed",
     collected: "Collected",
+    archived: "Archived",
   }[stage];
 
   return (
@@ -58,11 +60,9 @@ function CaseCard({ caseFile, stage }: { caseFile: Case; stage: CaseGroup["key"]
         )}
       </Link>
 
-      {caseFile.status !== "finalised" && (
-        <div style={{ borderTop: "1px solid var(--line)", padding: "8px 20px" }}>
-          <DeleteCaseButton caseId={caseFile.id} />
-        </div>
-      )}
+      <div style={{ borderTop: "1px solid var(--line)", padding: "8px 20px" }}>
+        <CaseActions caseId={caseFile.id} archived={Boolean(caseFile.archivedAt)} canDelete={caseFile.status !== "finalised"} />
+      </div>
     </article>
   );
 }
@@ -75,6 +75,7 @@ export default async function CasesPage() {
     { key: "ready", title: "Ready to Complete", cases: [] },
     { key: "confirmed", title: "Confirmed Cases", cases: [] },
     { key: "collected", title: "Collected", cases: [] },
+    { key: "archived", title: "Archived", cases: [] },
   ];
   for (const caseFile of cases) groups.find((group) => group.key === caseStage(caseFile))!.cases.push(caseFile);
 

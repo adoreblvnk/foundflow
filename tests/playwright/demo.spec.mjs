@@ -74,6 +74,11 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   await expect(page.getByRole("heading", { name: "Ready to Complete" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Confirmed Cases" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Collected" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Archived" })).toBeVisible();
+  await page.getByRole("button", { name: `Archive case ${disposableCaseId}` }).click();
+  await expect(page.getByRole("region", { name: "Archived" }).locator(`a[href="/cases/${disposableCaseId}"]`)).toBeVisible();
+  await page.getByRole("button", { name: `Restore case ${disposableCaseId}` }).click();
+  await expect(page.getByRole("region", { name: "Pending Review" }).locator(`a[href="/cases/${disposableCaseId}"]`)).toBeVisible();
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: `Delete case ${disposableCaseId}` }).click();
   await expect(page.locator(`a[href="/cases/${disposableCaseId}"]`)).toHaveCount(0);

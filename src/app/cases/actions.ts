@@ -970,6 +970,27 @@ export async function handleDeletePhoto(caseId: string, uploadId: string) {
   return { success: true, case: updated };
 }
 
+export async function handleSetCaseArchived(caseId: string, archived: boolean) {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Unauthenticated" };
+
+  const caseFile = await getCaseById(caseId);
+  if (!caseFile) return { error: "Case not found" };
+  if (Boolean(caseFile.archivedAt) === archived) return { success: true, case: caseFile };
+
+  caseFile.archivedAt = archived ? new Date().toISOString() : null;
+  caseFile.archivedBy = archived ? user.username : null;
+  const updated = await updateCaseWithAudit(
+    caseId,
+    caseFile,
+    user.username,
+    archived ? "case_archived" : "case_restored",
+    archived ? "Archived case." : "Restored case to the active list.",
+  );
+  revalidatePath("/cases");
+  return { success: true, case: updated };
+}
+
 export async function handleDeleteCase(caseId: string) {
   const user = await getCurrentUser();
   if (!user) return { error: "Unauthenticated" };

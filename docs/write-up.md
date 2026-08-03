@@ -148,5 +148,3 @@ Real-world limits we measured and designed around:
 2. Singapore Police Force (2025). "Lost and Found: The SPF's Tech-Powered Property Detectives" - FUPO processed 50,000 reports in 2024 (up from 42,000 in 2022). AI optical cameras + RPA reduce manual entry. *police.gov.sg*
 3. SITA (2021). "WorldTracer Lost and Found Property" - Industry-standard matching across 500+ airlines, 2,800 airports. Repatriation costs up to US$95/item. *sita.aero*
 4. Hack for Public Good (2025). "FindX" - ICA digital platform replacing physical logbooks at Woodlands Checkpoint. Reduced report time from 8 min to 3 min, search from 10 min to <5 min. *hack.gov.sg/2025/findx*
-5. TODAY Online (2017). "Pet hamster, bed frame among strangest things left behind at Changi Airport" - 3,300+ items discovered monthly at Changi. *todayonline.com*
-6. Straits Times (2015). "Cards, phones, jackets - over 24,000 items left on planes and at Changi" - CAG recovered 7,680 cards and phones in one year. *straitstimes.com*

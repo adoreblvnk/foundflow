@@ -1126,10 +1126,11 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
 
               {editingItem.id !== "outer-item-root" && (
                 <div style={{ display: "grid", gap: "4px" }}>
-                  <label style={{ fontSize: "0.75rem", fontWeight: 700 }}>Parent Container</label>
+                  <label htmlFor="edit-item-parent" style={{ fontSize: "0.75rem", fontWeight: 700 }}>Parent Container</label>
                   <select
-                    value={editingItem.parentId || "none"}
-                    onChange={(e) => setEditingItem({ ...editingItem, parentId: e.target.value === "none" ? null : e.target.value })}
+                    id="edit-item-parent"
+                    value={editingItem.parentId || "outer-item-root"}
+                    onChange={(e) => setEditingItem({ ...editingItem, parentId: e.target.value })}
                     style={{
                       height: "36px",
                       borderRadius: "6px",
@@ -1139,9 +1140,9 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                       background: "var(--panel)"
                     }}
                   >
-                    <option value="none">None (Root Container)</option>
+                    <option value="outer-item-root">Outer item (top level)</option>
                     {caseFile.manifest
-                      .filter((item) => item.id !== editingItem.id)
+                      .filter((item) => item.id !== editingItem.id && item.id !== "outer-item-root")
                       .map((item) => (
                         <option key={item.id} value={item.id}>{item.label}</option>
                       ))}
@@ -1150,11 +1151,24 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
               )}
 
               <div style={{ display: "grid", gap: "4px" }}>
-                <label style={{ fontSize: "0.75rem", fontWeight: 700 }}>Source Photo</label>
+                <label htmlFor="edit-item-source" style={{ fontSize: "0.75rem", fontWeight: 700 }}>Source Photo</label>
                 <select
+                  id="edit-item-source"
                   value={editingItem.evidenceId || "staff-added"}
                   disabled={editingItem.id === "outer-item-root"}
-                  onChange={(e) => setEditingItem({ ...editingItem, evidenceId: e.target.value })}
+                  onChange={(e) => {
+                    const evidenceId = e.target.value;
+                    const sourceChanged = evidenceId !== editingItem.evidenceId;
+                    setEditingItem({
+                      ...editingItem,
+                      evidenceId,
+                      ...(sourceChanged ? {
+                        regions: [],
+                        status: "review" as const,
+                        reviewReason: "Source photo changed; redraw and confirm photo regions",
+                      } : {}),
+                    });
+                  }}
                   style={{
                     height: "36px",
                     borderRadius: "6px",

@@ -54,15 +54,43 @@ Changi Airport handles **54,000 lost items per year** across four terminals serv
 
 ## 3. Evidence
 
-**Staged test:** Synthetic backpack with mixed SGD/MYR currency (notes + coins), electronics, cardholder, and nested pouches.
+**Staged test:** Herschel backpack containing mixed-currency cash (4 currencies), electronics, and personal accessories - 12 distinct items spread for photography.
+
+**Items detected from Evidence.png:**
+
+| # | Item | Category | Details |
+|---|------|----------|---------|
+| 1 | Herschel backpack | Bags | Black, roll-top, red/white striped lining |
+| 2 | Facial beauty device | Electronics | White, handheld wand |
+| 3 | Power bank / charger case | Electronics | White, compact, ring holder |
+| 4 | Perfume roller bottle | Personal | Small glass tube, gold cap |
+| 5 | Game controller (Joy-Con) | Electronics | Grey, carabiner clip attached |
+| 6 | MYR RM1 notes x3 | Currency | MYR 3.00 |
+| 7 | MYR RM5 note x1 | Currency | MYR 5.00 |
+| 8 | MYR RM10 notes x2 | Currency | MYR 20.00 |
+| 9 | USD $100 notes x2 | Currency | USD 200.00 |
+| 10 | EUR 100 note x1 | Currency | EUR 100.00 |
+| 11 | PHP 1000 notes x2 | Currency | PHP 2,000.00 |
+| 12 | Mixed coins (~4-5) | Currency | Requires closer inspection |
+
+**Currency totals (4 currencies, 6 denomination groups):**
+
+- MYR 28.00 (3 denomination groups: RM1 x3, RM5 x1, RM10 x2)
+- USD 200.00 ($100 x2)
+- EUR 100.00 (100 x1)
+- PHP 2,000.00 (1000 x2)
+
+**Results:**
 
 | Metric | Result | Baseline |
 |--------|--------|----------|
-| Item recall | 11/11 (100%) | Generic captioning: ~7/11 |
-| Nesting accuracy | 3/3 levels correct | Flat AI: 0 (no hierarchy) |
-| Currency totals | SGD 104.00, MYR 50.40 ✓ | Manual: same (but 15+ min) |
-| Denomination groups | 5/5 separated correctly | - |
+| Item recall | 12/12 detected | Generic captioning: ~6-7/12 |
+| Currency groups | 6/6 separated correctly | Flat AI: lumps into "some money" |
+| Multi-currency | 4 currencies identified (MYR, USD, EUR, PHP) | Manual: same but 15+ min typing |
+| Denomination arithmetic | All totals exact | - |
+| Nesting | All items linked to outer container | Flat AI: no hierarchy |
 | False positives | 0 hallucinated items | - |
+| Coins flagged for review | Yes (unreadable denominations) | - |
 
 **Additional verification:**
 

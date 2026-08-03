@@ -51,7 +51,7 @@ async function runSmokeTest() {
         {
           role: "user",
           content: [
-            { type: "text", text: "Please catalog the items in this image of found-property evidence. Return a nested manifest structure." },
+            { type: "text", text: "Please catalogue the found items in this image. Return a nested manifest structure." },
             {
               type: "file",
               mediaType: "image/png",

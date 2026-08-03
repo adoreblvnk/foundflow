@@ -14,7 +14,7 @@ export default function AboutPage() {
         <section style={{ marginBottom: "48px" }}>
           <p className="eyebrow">What is FoundFlow</p>
           <h1 style={{ fontSize: "2.4rem", lineHeight: 1.05, letterSpacing: "-0.04em", marginBottom: "20px" }}>
-            AI-Assisted Found-Property Intake
+            AI-Assisted Found-Item Intake
           </h1>
           <p style={{ fontSize: "1.05rem", lineHeight: 1.7, color: "var(--muted)" }}>
             Today, airport staff may document each object, quantity, identifier, currency and physical
@@ -32,7 +32,7 @@ export default function AboutPage() {
             <h2 style={{ fontSize: "1.4rem", marginBottom: "12px" }}>The Problem & Our Approach</h2>
             <div style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "var(--muted)", display: "grid", gap: "12px" }}>
               <p style={{ margin: 0 }}>
-                In transit hubs like airports, airport staff handle found property daily. The current
+                In transit hubs like airports, airport staff handle found items daily. The current
                 workflow requires them to open their mobile device, photograph items, then manually type
                 every single item description: label, quantity, condition, serial numbers. For a bag
                 containing 10 to 15 items across multiple compartments, this takes 20 to 30 minutes.
@@ -40,7 +40,7 @@ export default function AboutPage() {
               <p style={{ margin: 0 }}>
                 Cash is the worst case. A pouch with mixed Singapore dollars and Malaysian ringgit (notes
                 and coins of different denominations) requires the staff member to count each denomination group,
-                calculate totals, and type them without error. One miscount means the property record
+                calculate totals, and type them without error. One miscount means the item record
                 doesn&apos;t balance, creating accountability issues.
               </p>
               <p style={{ margin: 0 }}>
@@ -112,7 +112,7 @@ export default function AboutPage() {
             <ol style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "var(--muted)", paddingLeft: "20px", margin: 0, display: "grid", gap: "6px" }}>
               <li>Offline capture queue for temporary connectivity loss</li>
               <li>Optimistic locking for safe multi-user updates</li>
-              <li>Barcode/QR scanning for tagged property bags and registered items</li>
+              <li>Barcode/QR scanning for tagged item bags and registered items</li>
               <li>Batch mode for high-volume lost-and-found centres processing 50+ items per day</li>
               <li>Role-based access with supervisor approval workflow and shift handover</li>
             </ol>

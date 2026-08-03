@@ -1,6 +1,6 @@
 # End-to-end acceptance criteria
 
-FoundFlow's challenge MVP is accepted only when all criteria below pass using staged or synthetic property. Real passenger records, identity documents, credentials, and serial numbers must never be committed.
+FoundFlow's challenge MVP is accepted only when all criteria below pass using staged or synthetic items. Real passenger records, identity documents, credentials, and serial numbers must never be committed.
 
 ## Intake and photos
 
@@ -23,9 +23,9 @@ FoundFlow's challenge MVP is accepted only when all criteria below pass using st
 - [x] Every photo scan receives a second independent verification pass using the configured strong vision model for tighter full-image object regions; failures retain the primary draft under review.
 - [x] OCR text, visible attributes, confidence, review reason, parent relationship, quantity, and photo ID are retained.
 - [x] Readable or unmistakable product brands and visible model names are included in item-list labels; uncertain brands, models, and authenticity are never inferred.
-- [x] Both fast extraction and strong verification return one normalised photo region per visible physical instance, including uncertain objects and the visible outer property; invalid coordinates and count mismatches require review.
+- [x] Both fast extraction and strong verification return one normalised photo region per visible physical instance, including uncertain objects and the visible outer item; invalid coordinates and count mismatches require review.
 - [x] Currency fields force the canonical currency item type even when the model returns an inconsistent type label.
-- [x] A visible outer property updates the existing root record with a proposed region instead of creating a duplicate item.
+- [x] A visible outer item updates the existing root record with a proposed region instead of creating a duplicate item.
 - [x] Invalid photo IDs, invalid parents, duplicate temporary IDs, cycles, and sensitive categories are rejected, normalised, or forced into review without being silently trusted.
 - [x] Cash, currency, identity documents, valuables, and serial identifiers cannot be finalised without staff confirmation.
 - [x] Money, identification documents, and perishable items require one explicit staff confirmation before completion.
@@ -56,11 +56,11 @@ FoundFlow's challenge MVP is accepted only when all criteria below pass using st
 - [x] Every handover requires a persisted claim, staff decision, reason and claimant acknowledgement.
 - [x] Walk-in claims remain valid when ownership is established without a prior lost report.
 - [x] Claim creation and approval both enforce at least two independent evidence groups.
-- [x] Identity-bearing property requires an identity check plus an independent ownership signal.
+- [x] An item containing identity evidence requires an identity check plus an independent ownership signal.
 - [x] Lost-report claims record the supplied ID without falsely claiming an external-system link.
 - [x] Complete Singapore identity numbers are rejected from staff notes; masked references are validated.
 - [x] Concurrent or repeated decisions cannot create a second transition or false audit event.
-- [x] Rejected or escalated claims remain in activity history and permit a later claim; collected property does not.
+- [x] Rejected or escalated claims remain in activity history and permit a later claim; collected items do not.
 
 ## Required verification
 

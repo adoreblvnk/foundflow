@@ -22,7 +22,7 @@ const schema = z.object({
 
 async function runSmokeTest() {
   if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
-  const image = await readFile("./public/demo/found-property-evidence.webp");
+  const image = await readFile("./public/demo/found-item-evidence.webp");
   const result = await generateObject({
     model: openai(process.env.OPENAI_MODEL || "gpt-4.1-mini"),
     schema,

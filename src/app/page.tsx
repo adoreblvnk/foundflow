@@ -18,7 +18,7 @@ export default function Home() {
         paddingBlock: "56px",
       }}>
         <h1 style={{ fontSize: "2.25rem", letterSpacing: "-0.04em", margin: "0 0 28px" }}>
-          Found property
+          Found items
         </h1>
 
         <div style={{ display: "grid", gap: "12px" }}>

@@ -65,14 +65,14 @@ export async function deleteEvidence(filename: string): Promise<void> {
 
 export async function readDemoEvidence(): Promise<Buffer> {
   try {
-    return await fs.readFile(path.join(process.cwd(), "public", "demo", "found-property-evidence.webp"));
+    return await fs.readFile(path.join(process.cwd(), "public", "demo", "found-item-evidence.webp"));
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
 
   const host = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
   if (!host) throw new Error("Vercel deployment URL is unavailable for the demo fixture");
-  const response = await fetch(`https://${host}/demo/found-property-evidence.webp`, { cache: "no-store" });
+  const response = await fetch(`https://${host}/demo/found-item-evidence.webp`, { cache: "no-store" });
   if (!response.ok) throw new Error(`Demo evidence fixture returned HTTP ${response.status}`);
   return Buffer.from(await response.arrayBuffer());
 }

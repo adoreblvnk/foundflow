@@ -105,12 +105,12 @@ export default function ClaimWorkflow({ initialCase, currentUser }: { initialCas
           <Link className="brand" href="/cases">FoundFlow</Link>
           <p>Collection claim · Case <strong>{initialCase.id}</strong> · Staff: <strong>{currentUser.username}</strong></p>
         </div>
-        <Link className="button button-secondary" href={`/cases/${initialCase.id}`} style={{ minHeight: "40px" }}>Back to property</Link>
+        <Link className="button button-secondary" href={`/cases/${initialCase.id}`} style={{ minHeight: "40px" }}>Back to item</Link>
       </header>
 
       <div className="claim-shell">
         <section className="claim-summary">
-          <p className="eyebrow">Property ready for collection</p>
+          <p className="eyebrow">Item ready for collection</p>
           <h1>{initialCase.outerItemDescription}</h1>
           <dl>
             <div><dt>Found at</dt><dd>{initialCase.location}</dd></div>
@@ -119,7 +119,7 @@ export default function ClaimWorkflow({ initialCase, currentUser }: { initialCas
           </dl>
           {hasIdentityEvidence && (
             <div className="claim-guidance">
-              <strong>Identity evidence is recorded inside this property.</strong>
+              <strong>Identity evidence is recorded inside this item.</strong>
               <span>Use it as one ownership check. Record only a masked identifier and do not retain a document photo.</span>
             </div>
           )}
@@ -204,7 +204,7 @@ export default function ClaimWorkflow({ initialCase, currentUser }: { initialCas
                     <h2>Decide this claim</h2>
                   </div>
                   <label>Decision reason<textarea style={{ ...fieldStyle, minHeight: "82px", resize: "vertical" }} value={decisionReason} onChange={(event) => setDecisionReason(event.target.value)} required placeholder="Explain why the checks are sufficient, insufficient or require escalation." /></label>
-                  <label className="acknowledgement"><input type="checkbox" checked={acknowledgement} onChange={(event) => setAcknowledgement(event.target.checked)} /><span><strong>Staff attests claimant acknowledgement</strong><small>I confirm the claimant acknowledged receipt of this property. Required for approval and handover.</small></span></label>
+                  <label className="acknowledgement"><input type="checkbox" checked={acknowledgement} onChange={(event) => setAcknowledgement(event.target.checked)} /><span><strong>Staff attests claimant acknowledgement</strong><small>I confirm the claimant acknowledged receipt of this item. Required for approval and handover.</small></span></label>
                   {error && <div className="claim-message error" role="alert">{error}</div>}
                   {success && <div className="claim-message success">{success}</div>}
                   <div className="decision-actions">

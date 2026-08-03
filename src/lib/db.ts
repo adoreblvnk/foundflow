@@ -414,7 +414,7 @@ export async function createCase(caseData: Partial<Case> & { location: string; f
     { sql: `INSERT INTO manifest_items (id, caseId, label, parentId, quantity, status, confidence, reviewReason, evidenceId, source)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args: ["outer-item-root", id, caseData.outerItemDescription, null, 1, "confirmed", 1, null, "manual-creation", "system"] },
     { sql: `INSERT INTO audit_logs (id, caseId, timestamp, userId, action, details) VALUES (?, ?, ?, ?, ?, ?)`,
-      args: [logId, id, createdAt, caseData.finalisedBy || "staff", "case_created", `Case created with outer property: ${caseData.outerItemDescription} at ${caseData.location}`] },
+      args: [logId, id, createdAt, caseData.finalisedBy || "staff", "case_created", `Case created with outer item: ${caseData.outerItemDescription} at ${caseData.location}`] },
   ], "write");
   const created = await getCaseById(id);
   if (!created) throw new Error("CRITICAL DATABASE ERROR: Failed to create and retrieve case.");
@@ -560,16 +560,16 @@ export async function seedDemoCase(): Promise<Case> {
     { sql: "DELETE FROM uploads WHERE caseId = ?", args: [id] },
     { sql: "DELETE FROM cases WHERE id = ?", args: [id] },
     { sql: `INSERT INTO cases (id, isDemo, location, foundTime, foundBy, outerItemDescription, notes, status, finalisedAt, finalisedBy, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [id, 1, "Changi Airport Terminal 3 Arrivals", createdAt, "Demo staff", "Black backpack", "Staged synthetic property for the FoundFlow demonstration. No passenger data is present.", "reviewing", null, null, createdAt] },
+      args: [id, 1, "Changi Airport Terminal 3 Arrivals", createdAt, "Demo staff", "Black backpack", "Staged synthetic item for the FoundFlow demonstration. No passenger data is present.", "reviewing", null, null, createdAt] },
     { sql: `INSERT INTO uploads (id, caseId, filename, originalName, mimeType, size, uploadedAt, containerContext) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [evidenceId, id, evidenceFilename, "staged-found-property.webp", "image/webp", evidence.byteLength, "2026-07-21T09:31:00.000Z", "bag-contents"] },
+      args: [evidenceId, id, evidenceFilename, "staged-found-item.webp", "image/webp", evidence.byteLength, "2026-07-21T09:31:00.000Z", "bag-contents"] },
   ];
   for (const item of items) {
     statements.push({ sql: `INSERT INTO manifest_items (id, caseId, label, parentId, quantity, quantityKnown, itemType, status, confidence, reviewReason, evidenceId, ocrText, visibleAttributes, currencyCode, denomination, currencyTotal, category, source, regions) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [item.id, id, item.label, item.parentId, item.quantity, item.quantityKnown === false ? 0 : 1, item.itemType ?? "property", item.status, item.confidence, item.reviewReason, item.evidenceId, item.ocrText ?? null, item.visibleAttributes ?? null, item.currencyCode ?? null, item.denomination ?? null, item.currencyTotal ?? null, item.category ?? "other", item.source ?? "system", JSON.stringify(item.regions || [])] });
   }
   const logs = [
-    ["log-1", createdAt, "demo-staff", "case_created", "Demo case created from a staged synthetic found-property set"],
+    ["log-1", createdAt, "demo-staff", "case_created", "Demo case created from a staged synthetic found-item set"],
     ["log-2", "2026-07-21T09:31:00.000Z", "demo-staff", "evidence_uploaded", "Staged synthetic item photo linked to the bag-contents level"],
     ["log-3", "2026-07-21T09:32:00.000Z", "demo-staff", "demo_seeded", "Deterministic sample item list loaded; no live AI call was made"],
   ];

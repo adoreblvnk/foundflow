@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
       messages: [
         {
           role: "user",
-          content: `A user is searching for found property items. Their query is: "${query}"\n\nHere are the available items:\n${itemDescriptions}\n\nReturn the indices of items that match or are similar to the user's query, ranked by relevance. Only include items with relevance > 0.3. Maximum 20 results.`,
+          content: `A user is searching for found items. Their query is: "${query}"\n\nHere are the available items:\n${itemDescriptions}\n\nReturn the indices of items that match or are similar to the user's query, ranked by relevance. Only include items with relevance > 0.3. Maximum 20 results.`,
         },
       ],
     });

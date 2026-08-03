@@ -410,7 +410,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
   async function deleteItemDirect(id: string) {
     if (isFinalised) return;
     if (id === "outer-item-root") {
-      setErrorMsg("Cannot delete the outer-most property item.");
+      setErrorMsg("Cannot delete the outer item.");
       return;
     }
     setErrorMsg(null);
@@ -515,7 +515,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
         {/* LEFT PANEL: Custody Details, Evidence Upload & Timeline */}
         <section className="capture-panel" style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
           <div>
-            <p className="eyebrow">Property Details</p>
+            <p className="eyebrow">Item Details</p>
             <h1 style={{ fontSize: "2rem", marginBottom: "8px" }}>{caseFile.outerItemDescription}</h1>
             <p style={{ fontSize: "0.88rem", color: "var(--muted)", margin: "0 0 12px" }}>
               📍 <strong>Location:</strong> {caseFile.location}<br />
@@ -920,7 +920,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
               <div className="finalise-copy">
                 {isFinalised ? (
                   <>
-                    <p style={{ margin: 0, fontWeight: 700, color: "var(--green)" }}>✅ Property Record Completed</p>
+                    <p style={{ margin: 0, fontWeight: 700, color: "var(--green)" }}>✅ Item Record Completed</p>
                     <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
                       Completed by: <strong>{caseFile.finalisedBy}</strong> on {caseFile.finalisedAt ? new Date(caseFile.finalisedAt).toLocaleString("en-SG", { timeZone: "Asia/Singapore" }) : ""}
                     </span>
@@ -1430,7 +1430,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
       )}
 
       <footer className="shell footer">
-        <span>FoundFlow · Airport Lost Property Intake</span>
+        <span>FoundFlow · Airport Lost Item Intake</span>
         <span>AI drafts. Staff decide.</span>
       </footer>
     </main>

@@ -47,7 +47,7 @@ export default function LoginForm() {
           <p className="eyebrow" style={{ textAlign: "center", marginBottom: "8px" }}>Copilot Intake Portal</p>
           <h1 style={{ fontSize: "2rem", textAlign: "center", letterSpacing: "-0.04em", margin: "0 0 12px" }}>Sign In</h1>
           <p className="muted" style={{ textAlign: "center", fontSize: "0.88rem", marginBottom: "30px", lineHeight: 1.4 }}>
-            Access protected property records and photo-linked item lists.
+            Access protected item records and photo-linked item lists.
           </p>
 
           <form onSubmit={onSubmit} style={{ display: "grid", gap: "20px" }}>

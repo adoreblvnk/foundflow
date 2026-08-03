@@ -6,7 +6,7 @@ product
 
 ## Users
 
-Frontline found-property staff at airports, transport operators, hotels and other venues. They handle physical items and need to record nested contents quickly while keeping each entry linked to its source photo.
+Frontline found-item staff at airports, transport operators, hotels and other venues. They handle physical items and need to record nested contents quickly while keeping each entry linked to its source photo.
 
 ## Product Purpose
 
@@ -14,7 +14,7 @@ FoundFlow turns guided photographs and staff observations into a structured, pho
 
 ## Brand Personality
 
-Calm, precise and trustworthy. The interface should feel like an airport operations tool that helps staff complete a found-property record, not an autonomous AI showcase.
+Calm, precise and trustworthy. The interface should feel like an airport operations tool that helps staff complete a found-item record, not an autonomous AI showcase.
 
 ## Anti-references
 

@@ -1,4 +1,4 @@
-// Item categories for found-property classification
+// Item categories for found-item classification
 export const ITEM_CATEGORIES = [
   { value: "electronics", label: "Electronics", icon: "💻" },
   { value: "cash", label: "Cash / Currency", icon: "💰" },
@@ -16,7 +16,7 @@ export const ITEM_CATEGORIES = [
 
 export type ItemCategory = typeof ITEM_CATEGORIES[number]["value"];
 
-// Location presets for airport/transit found-property
+// Location presets for airport/transit found items
 export const LOCATION_PRESETS = [
   { value: "T1 Departure", label: "T1 Departure" },
   { value: "T1 Arrival", label: "T1 Arrival" },

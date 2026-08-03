@@ -45,10 +45,10 @@ export async function handleCreateClaim(input: z.input<typeof createClaimSchema>
   if (!parsed.success) return { error: parsed.error.issues[0]?.message || "Invalid claim details" };
 
   const caseFile = await getCaseById(parsed.data.caseId);
-  if (!caseFile) return { error: "Property case not found" };
-  if (caseFile.status !== "finalised") return { error: "Complete the property record before starting a collection claim" };
+  if (!caseFile) return { error: "Item case not found" };
+  if (caseFile.status !== "finalised") return { error: "Complete the item record before starting a collection claim" };
   if (caseFile.claims?.some((claim) => claim.decision === "pending" || claim.decision === "approved")) {
-    return { error: "This property already has an active or approved claim" };
+    return { error: "This item already has an active or approved claim" };
   }
   const verificationMethods = [...new Set(parsed.data.verificationMethods)];
   const policy = evaluateClaimVerification({
@@ -80,7 +80,7 @@ export async function handleDecideClaim(input: z.input<typeof decideClaimSchema>
   if (!parsed.success) return { error: parsed.error.issues[0]?.message || "Invalid decision" };
 
   const caseFile = await getCaseById(parsed.data.caseId);
-  if (!caseFile) return { error: "Property case not found" };
+  if (!caseFile) return { error: "Item case not found" };
   const claim = caseFile.claims?.find((entry) => entry.id === parsed.data.claimId);
   if (!claim) return { error: "Claim not found" };
   if (claim.decision !== "pending") return { error: "This claim has already been decided" };

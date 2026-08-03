@@ -11,7 +11,7 @@ if (!username || !password) {
   throw new Error("E2E_USERNAME and E2E_PASSWORD are required");
 }
 
-const evidencePath = process.env.E2E_EVIDENCE_PATH ?? path.resolve("public/demo/found-property-evidence.webp");
+const evidencePath = process.env.E2E_EVIDENCE_PATH ?? path.resolve("public/demo/found-item-evidence.webp");
 if (!fs.existsSync(evidencePath)) {
   throw new Error(`E2E evidence fixture not found: ${evidencePath}`);
 }

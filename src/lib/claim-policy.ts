@@ -46,10 +46,10 @@ export function evaluateClaimVerification(input: {
     return { allowed: false, message: "Use checks from at least two independent evidence groups.", evidenceClasses: classes };
   }
   if (input.path === "lost-report" && !methods.includes("lost-report-match")) {
-    return { allowed: false, message: "Confirm that the recorded Lost Report details match this property.", evidenceClasses: classes };
+    return { allowed: false, message: "Confirm that the recorded Lost Report details match this item.", evidenceClasses: classes };
   }
   if (input.identityEvidenceInProperty && !classes.includes("identity")) {
-    return { allowed: false, message: "This property contains identity evidence. Record an identity check before release.", evidenceClasses: classes };
+    return { allowed: false, message: "This item contains identity evidence. Record an identity check before release.", evidenceClasses: classes };
   }
 
   return { allowed: true, message: "Independent ownership checks recorded.", evidenceClasses: classes };

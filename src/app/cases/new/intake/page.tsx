@@ -56,7 +56,7 @@ export default async function NewCaseIntakePage() {
         padding: "32px",
       }}>
         <p className="eyebrow">New Case</p>
-        <h1 style={{ fontSize: "2rem", letterSpacing: "-0.04em", margin: "0 0 26px" }}>Property details</h1>
+        <h1 style={{ fontSize: "2rem", letterSpacing: "-0.04em", margin: "0 0 26px" }}>Item details</h1>
 
         <form action={handleCreateCase} style={{ display: "grid", gap: "20px" }}>
           <label style={{ display: "grid", gap: "6px", fontWeight: 600, fontSize: "0.88rem" }}>

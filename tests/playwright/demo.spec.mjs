@@ -7,13 +7,13 @@ test.afterAll(() => {
   rmSync(dataDir, { recursive: true, force: true });
 });
 
-test("photo-linked demo completes the airport property workflow", async ({ page }) => {
+test("photo-linked demo completes the airport item workflow", async ({ page }) => {
   process.env.DATA_DIR = dataDir;
   const { seedDemoCase } = await import("../../src/lib/db.ts");
   await seedDemoCase();
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Found property" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Found items" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Open Cases/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /Search Items/ })).toBeVisible();
   await expect(page.getByText(/Photograph\. Scan\. Verify\./)).toHaveCount(0);
@@ -54,18 +54,18 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   await page.getByText("I understand and will follow this intake order.", { exact: true }).click();
   await page.getByRole("button", { name: "Acknowledge & Continue" }).click();
   await expect(page).toHaveURL(/\/cases\/new\/intake$/);
-  await expect(page.getByRole("heading", { name: "Property details" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Item details" })).toBeVisible();
   await page.getByLabel(/Outer item/).fill("Test umbrella");
   await page.getByLabel(/Found location/).selectOption({ index: 1 });
   await page.getByRole("button", { name: "Create Case" }).click();
   await expect(page).toHaveURL(/\/cases\/(?!new)[^/]+$/);
   const disposableCaseId = page.url().split("/").pop();
   await expect(page.getByText("INSTRUCTIONS ACKNOWLEDGED", { exact: true })).toBeVisible();
-  await page.locator("#file").setInputFiles(`${process.cwd()}/public/demo/found-property-evidence.webp`);
+  await page.locator("#file").setInputFiles(`${process.cwd()}/public/demo/found-item-evidence.webp`);
   await page.getByRole("button", { name: "Upload Photo" }).click();
   await expect(page.getByText("Item Photos (1)", { exact: true })).toBeVisible();
   page.once("dialog", (dialog) => dialog.accept());
-  await page.getByRole("button", { name: /Delete photo found-property-evidence\.webp/ }).click();
+  await page.getByRole("button", { name: /Delete photo found-item-evidence\.webp/ }).click();
   await expect(page.getByText("Item Photos (0)", { exact: true })).toBeVisible();
   await expect(page.getByText("PHOTO DELETED", { exact: true })).toBeVisible();
 
@@ -87,7 +87,7 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   await expect(page.getByText("Item Photos (1)", { exact: true })).toBeVisible();
   await expect(page.getByText("11 records", { exact: true })).toBeVisible();
   await expect(page.getByText(/second check/i)).toHaveCount(0);
-  await expect(page.getByText("Demo case created from a staged synthetic found-property set", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Demo case created from a staged synthetic found-item set", { exact: true })).toHaveCount(0);
   await expect(page.getByText("SGD 104.00", { exact: true })).toBeVisible();
   await expect(page.getByText("MYR 50.40", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Confirm", exact: true })).toHaveCount(5);
@@ -142,8 +142,8 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   const photoContext = page.getByLabel("Photo context");
   await expect(photoContext).toHaveValue("loose-item");
   await expect(photoContext.getByRole("option", { name: "Loose / standalone item (no container)" })).toHaveCount(1);
-  await photoInput.setInputFiles("public/demo/found-property-evidence.webp");
-  await expect(page.getByText("found-property-evidence.webp", { exact: true })).toBeVisible();
+  await photoInput.setInputFiles("public/demo/found-item-evidence.webp");
+  await expect(page.getByText("found-item-evidence.webp", { exact: true })).toBeVisible();
   await expect(uploadPhoto).toBeEnabled();
   await photoInput.setInputFiles([]);
   await expect(page.getByText("No image selected", { exact: true })).toBeVisible();
@@ -164,7 +164,7 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   });
   expect(openCaseSearch.results).toHaveLength(0);
 
-  const photo = page.locator('img[alt="staged-found-property.webp"]');
+  const photo = page.locator('img[alt="staged-found-item.webp"]');
   await expect(photo).toBeVisible();
   expect(await photo.evaluate((image) => image.complete && image.naturalWidth > 0)).toBe(true);
 
@@ -248,7 +248,7 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   const finalise = page.getByRole("button", { name: "Confirm & Complete" });
   await expect(finalise).toBeEnabled();
   await finalise.click();
-  await expect(page.getByText(/Property Record Completed/)).toBeVisible();
+  await expect(page.getByText(/Item Record Completed/)).toBeVisible();
 
   await page.getByRole("link", { name: "Start collection claim" }).click();
   await expect(page).toHaveURL(/\/cases\/CT3A-20260721-DEMO\/claim$/);

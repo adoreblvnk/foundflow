@@ -4,7 +4,7 @@ import { getCurrentUser, isAuthenticated } from "@/lib/auth";
 import { handleAcknowledgeIntakeInstructions } from "@/app/cases/actions";
 
 const instructions = [
-  "Photograph the outer property first.",
+  "Photograph the outer item first.",
   "Open one container at a time and photograph each level before moving its contents.",
   "Show the numbered and worded side of every coin; do not guess unreadable details.",
   "Check every listed item and photo box before completing the case.",

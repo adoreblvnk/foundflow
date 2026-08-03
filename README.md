@@ -1,8 +1,8 @@
 # FoundFlow Intake Copilot
 
-Staff-confirmed, photo-linked item logging for found-property teams.
+Staff-confirmed, photo-linked item logging for found-item teams.
 
-FoundFlow helps airport and transit staff document complex found-property cases. Its guided workflow captures outer containers and each nesting level (e.g. Backpack → Pouch → Currency), drafts a structured item list with OCR attributes, per-instance photo bounding boxes and exact denomination × quantity totals for notes and coins, highlights uncertainty for side-by-side staff review, and requires confirmation before completion and export.
+FoundFlow helps airport and transit staff document complex found-item cases. Its guided workflow captures outer containers and each nesting level (e.g. Backpack → Pouch → Currency), drafts a structured item list with OCR attributes, per-instance photo bounding boxes and exact denomination × quantity totals for notes and coins, highlights uncertainty for side-by-side staff review, and requires confirmation before completion.
 
 *Note: This application is a functional hosted prototype for controlled demonstrations; production roll-out would require organisational access controls and operational review.*
 
@@ -12,8 +12,8 @@ FoundFlow helps airport and transit staff document complex found-property cases.
 
 - **Landing Page (`/`)**: Product overview and security entry.
 - **Sign In (`/login`)**: Configurable staff authentication; the hosted demo can temporarily bypass login with `AUTH_DISABLED=true`.
-- **Dashboard (`/cases`)**: View and manage found-property cases. Supports controlled demo seeding.
-- **New Case (`/cases/new`)**: Document a new found-property container.
+- **Dashboard (`/cases`)**: View and manage found-item cases. Supports controlled demo seeding.
+- **New Case (`/cases/new`)**: Document a new found-item container.
 - **Case Intake Workspace (`/cases/[id]`)**: Unified hub to:
   - Add item photos (validated using JPG/PNG/WebP magic-number signatures).
   - Trigger live AI vision analysis (using AI SDK v6).
@@ -76,7 +76,7 @@ npm ci
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000), sign in when authentication is enabled, then create a found-property case from **Staff Intake**. The automated test suite seeds a deterministic staged backpack case with one synthetic item photo, an eleven-record nested item list, five denomination-level currency reviews, exact totals of SGD 104.00 and MYR 50.40, completion, ownership verification, and collection.
+Open [http://localhost:3000](http://localhost:3000), sign in when authentication is enabled, then create a found-item case from **Staff Intake**. The automated test suite seeds a deterministic staged backpack case with one synthetic item photo, an eleven-record nested item list, five denomination-level currency reviews, exact totals of SGD 104.00 and MYR 50.40, completion, ownership verification, and collection.
 
 ### Run Static Typecheck
 ```bash
@@ -116,7 +116,7 @@ E2E_USERNAME="$LOGIN_USERNAME" \
 E2E_PASSWORD="$LOGIN_PASSWORD" \
 npm run test:e2e
 ```
-The test uses `public/demo/found-property-evidence.webp` by default. Override `E2E_EVIDENCE_PATH` only when validating another staged image. Use staged or synthetic property only; do not place real passenger records in the repository.
+The test uses `public/demo/found-item-evidence.webp` by default. Override `E2E_EVIDENCE_PATH` only when validating another staged image. Use staged or synthetic items only; do not place real passenger records in the repository.
 
 ### Compile Production Build
 ```bash
@@ -150,4 +150,4 @@ FoundFlow uses the `@ai-sdk/openai` provider with AI SDK v6 to call OpenAI's vis
 
 ## ⚠️ Deployment Limits & Constraints
 
-- **Hosted Prototype**: Vercel, Turso, and private Blob support stateless function instances. This remains a controlled airport lost-property prototype.
+- **Hosted Prototype**: Vercel, Turso, and private Blob support stateless function instances. This remains a controlled airport lost-item prototype.

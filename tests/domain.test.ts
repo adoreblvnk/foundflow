@@ -150,7 +150,7 @@ test("Database Layer, Seeding & Isolation", async (t) => {
 });
 
 test("Photo Region Persistence & Validation", async (t) => {
-  await t.test("does not misclassify a currency-described outer property as a currency manifest record", async () => {
+  await t.test("does not misclassify a currency-described outer item as a currency manifest record", async () => {
     const demo = structuredClone((await getCaseById("CT3A-20260721-DEMO"))!);
     demo.outerItemDescription = "Loose mixed coins";
     const root = demo.manifest.find((item) => item.id === "outer-item-root")!;
@@ -205,7 +205,7 @@ test("Collection Verification Policy", async (t) => {
     assert.match(result.message, /independent evidence groups/i);
   });
 
-  await t.test("requires an identity check when identity evidence is inside the property", () => {
+  await t.test("requires an identity check when identity evidence is inside the item", () => {
     const result = evaluateClaimVerification({
       path: "walk-in",
       methods: ["undisclosed-contents", "receipt-or-serial"],
@@ -215,7 +215,7 @@ test("Collection Verification Policy", async (t) => {
     assert.match(result.message, /identity check/i);
   });
 
-  await t.test("accepts identity plus private knowledge for an identity-bearing property", () => {
+  await t.test("accepts identity plus private knowledge for an item containing identity evidence", () => {
     const result = evaluateClaimVerification({
       path: "walk-in",
       methods: ["identity-match", "undisclosed-contents"],

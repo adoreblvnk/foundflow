@@ -42,6 +42,32 @@ export interface ManifestItem {
   category?: string;
   source?: "ai" | "staff" | "system";
   regions?: ImageRegion[];
+  // Condition of item
+  condition?: string | null;
+  // Conditional matching fields (shown based on category)
+  brand?: string | null;
+  colour?: string | null;
+  model?: string | null;
+  distinctiveFeatures?: string | null;
+  contentsInside?: string | null;
+  // Document-specific
+  documentType?: string | null;
+  nameOnItem?: string | null;
+  lastFourChars?: string | null;
+  issuingCountry?: string | null;
+  expiryYear?: string | null;
+  // Jewellery-specific
+  jewelleryType?: string | null;
+  material?: string | null;
+  engraving?: string | null;
+  shape?: string | null;
+  // Electronics-specific
+  lockStatus?: string | null;
+  wallpaperDescription?: string | null;
+  serialNumber?: string | null;
+  caseOrAccessories?: string | null;
+  // Private matching details — hidden from public search, used during claim verification
+  privateMatchingDetails?: string | null;
 }
 
 export interface AuditLog {
@@ -79,10 +105,14 @@ export interface Case {
   id: string;
   isDemo?: boolean;
   location: string;
+  terminal?: string | null;
+  area?: string | null;
+  specificLocation?: string | null;
   foundTime: string;
   foundBy: string;
   outerItemDescription: string;
   notes: string;
+  storageLocation?: string | null;
   status: "reviewing" | "finalised";
   finalisedAt: string | null;
   finalisedBy: string | null;
@@ -131,10 +161,14 @@ async function initializeSchema(db: DbClient): Promise<void> {
       id TEXT PRIMARY KEY,
       isDemo INTEGER DEFAULT 0,
       location TEXT NOT NULL,
+      terminal TEXT,
+      area TEXT,
+      specificLocation TEXT,
       foundTime TEXT NOT NULL,
       foundBy TEXT DEFAULT '',
       outerItemDescription TEXT NOT NULL,
       notes TEXT,
+      storageLocation TEXT,
       status TEXT NOT NULL,
       finalisedAt TEXT,
       finalisedBy TEXT,
@@ -173,6 +207,26 @@ async function initializeSchema(db: DbClient): Promise<void> {
       category TEXT DEFAULT 'other',
       source TEXT NOT NULL DEFAULT 'staff',
       regions TEXT NOT NULL DEFAULT '[]',
+      condition TEXT,
+      brand TEXT,
+      colour TEXT,
+      model TEXT,
+      distinctiveFeatures TEXT,
+      contentsInside TEXT,
+      documentType TEXT,
+      nameOnItem TEXT,
+      lastFourChars TEXT,
+      issuingCountry TEXT,
+      expiryYear TEXT,
+      jewelleryType TEXT,
+      material TEXT,
+      engraving TEXT,
+      shape TEXT,
+      lockStatus TEXT,
+      wallpaperDescription TEXT,
+      serialNumber TEXT,
+      caseOrAccessories TEXT,
+      privateMatchingDetails TEXT,
       PRIMARY KEY (id, caseId),
       FOREIGN KEY (caseId) REFERENCES cases(id) ON DELETE CASCADE
     )`, args: [] },
@@ -217,6 +271,18 @@ async function initializeSchema(db: DbClient): Promise<void> {
   if (!caseColumns.some((column) => column.name === "archivedBy")) {
     await db.execute("ALTER TABLE cases ADD COLUMN archivedBy TEXT");
   }
+  if (!caseColumns.some((column) => column.name === "terminal")) {
+    await db.execute("ALTER TABLE cases ADD COLUMN terminal TEXT");
+  }
+  if (!caseColumns.some((column) => column.name === "area")) {
+    await db.execute("ALTER TABLE cases ADD COLUMN area TEXT");
+  }
+  if (!caseColumns.some((column) => column.name === "specificLocation")) {
+    await db.execute("ALTER TABLE cases ADD COLUMN specificLocation TEXT");
+  }
+  if (!caseColumns.some((column) => column.name === "storageLocation")) {
+    await db.execute("ALTER TABLE cases ADD COLUMN storageLocation TEXT");
+  }
 
   let columns = (await db.execute("PRAGMA table_info(manifest_items)")).rows as unknown as Array<{ name: string; type: string }>;
   const refresh = async () => {
@@ -258,6 +324,18 @@ async function initializeSchema(db: DbClient): Promise<void> {
   }
   await db.execute(`UPDATE manifest_items SET itemType = 'currency'
     WHERE currencyCode IS NOT NULL OR denomination IS NOT NULL OR currencyTotal IS NOT NULL`);
+
+  // Matching detail columns
+  const matchingColumns = [
+    "condition", "brand", "colour", "model", "distinctiveFeatures", "contentsInside",
+    "documentType", "nameOnItem", "lastFourChars", "issuingCountry", "expiryYear",
+    "jewelleryType", "material", "engraving", "shape",
+    "lockStatus", "wallpaperDescription", "serialNumber", "caseOrAccessories",
+    "privateMatchingDetails",
+  ];
+  for (const colName of matchingColumns) {
+    await addColumn(colName, "TEXT");
+  }
 }
 
 export async function getDbInstance(): Promise<DbClient> {
@@ -291,8 +369,9 @@ function parseRegions(value: string | null | undefined): ImageRegion[] {
 }
 
 interface CaseRow {
-  id: string; isDemo: number; location: string; foundTime: string; foundBy: string; outerItemDescription: string;
-  notes: string; status: string; finalisedAt: string | null; finalisedBy: string | null; archivedAt: string | null; archivedBy: string | null; createdAt: string;
+  id: string; isDemo: number; location: string; terminal: string | null; area: string | null; specificLocation: string | null;
+  foundTime: string; foundBy: string; outerItemDescription: string;
+  notes: string; storageLocation: string | null; status: string; finalisedAt: string | null; finalisedBy: string | null; archivedAt: string | null; archivedBy: string | null; createdAt: string;
 }
 interface UploadRow {
   id: string; filename: string; originalName: string; mimeType: string; size: number;
@@ -303,6 +382,13 @@ interface ManifestItemRow {
   status: string; confidence: number; reviewReason: string | null; evidenceId: string | null; ocrText: string | null;
   visibleAttributes: string | null; currencyCode: string | null; denomination: string | number | null;
   currencyTotal: string | number | null; category: string | null; source: string; regions: string;
+  condition: string | null; brand: string | null; colour: string | null; model: string | null;
+  distinctiveFeatures: string | null; contentsInside: string | null;
+  documentType: string | null; nameOnItem: string | null; lastFourChars: string | null;
+  issuingCountry: string | null; expiryYear: string | null;
+  jewelleryType: string | null; material: string | null; engraving: string | null; shape: string | null;
+  lockStatus: string | null; wallpaperDescription: string | null; serialNumber: string | null; caseOrAccessories: string | null;
+  privateMatchingDetails: string | null;
 }
 interface AuditLogRow {
   id: string; timestamp: string; userId: string; action: string; details: string;
@@ -361,6 +447,26 @@ export async function getCaseById(id: string): Promise<Case | undefined> {
     category: item.category || "other",
     source: (item.source === "ai" || item.source === "system" ? item.source : "staff") as ManifestItem["source"],
     regions: parseRegions(item.regions),
+    condition: item.condition || null,
+    brand: item.brand || null,
+    colour: item.colour || null,
+    model: item.model || null,
+    distinctiveFeatures: item.distinctiveFeatures || null,
+    contentsInside: item.contentsInside || null,
+    documentType: item.documentType || null,
+    nameOnItem: item.nameOnItem || null,
+    lastFourChars: item.lastFourChars || null,
+    issuingCountry: item.issuingCountry || null,
+    expiryYear: item.expiryYear || null,
+    jewelleryType: item.jewelleryType || null,
+    material: item.material || null,
+    engraving: item.engraving || null,
+    shape: item.shape || null,
+    lockStatus: item.lockStatus || null,
+    wallpaperDescription: item.wallpaperDescription || null,
+    serialNumber: item.serialNumber || null,
+    caseOrAccessories: item.caseOrAccessories || null,
+    privateMatchingDetails: item.privateMatchingDetails || null,
   }));
   const auditLogs = (auditResult.rows as unknown as AuditLogRow[]).map((log) => ({ ...log }));
   const claims = (claimResult.rows as unknown as ClaimRow[]).map((claim) => ({
@@ -375,10 +481,14 @@ export async function getCaseById(id: string): Promise<Case | undefined> {
     id: caseRow.id,
     isDemo: Boolean(caseRow.isDemo),
     location: caseRow.location,
+    terminal: caseRow.terminal || null,
+    area: caseRow.area || null,
+    specificLocation: caseRow.specificLocation || null,
     foundTime: caseRow.foundTime,
     foundBy: caseRow.foundBy || "",
     outerItemDescription: caseRow.outerItemDescription,
     notes: caseRow.notes || "",
+    storageLocation: caseRow.storageLocation || null,
     status: caseRow.status as "reviewing" | "finalised",
     finalisedAt: caseRow.finalisedAt || null,
     finalisedBy: caseRow.finalisedBy || null,
@@ -409,8 +519,8 @@ export async function createCase(caseData: Partial<Case> & { location: string; f
   const createdAt = new Date().toISOString();
   const logId = `log-${crypto.randomUUID()}`;
   await db.batch([
-    { sql: `INSERT INTO cases (id, isDemo, location, foundTime, foundBy, outerItemDescription, notes, status, finalisedAt, finalisedBy, createdAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args: [id, caseData.isDemo ? 1 : 0, caseData.location, caseData.foundTime, caseData.foundBy || "", caseData.outerItemDescription, caseData.notes || "", "reviewing", null, null, createdAt] },
+    { sql: `INSERT INTO cases (id, isDemo, location, terminal, area, specificLocation, foundTime, foundBy, outerItemDescription, notes, storageLocation, status, finalisedAt, finalisedBy, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args: [id, caseData.isDemo ? 1 : 0, caseData.location, caseData.terminal ?? null, caseData.area ?? null, caseData.specificLocation ?? null, caseData.foundTime, caseData.foundBy || "", caseData.outerItemDescription, caseData.notes || "", caseData.storageLocation ?? null, "reviewing", null, null, createdAt] },
     { sql: `INSERT INTO manifest_items (id, caseId, label, parentId, quantity, status, confidence, reviewReason, evidenceId, source)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args: ["outer-item-root", id, caseData.outerItemDescription, null, 1, "confirmed", 1, null, "manual-creation", "system"] },
     { sql: `INSERT INTO audit_logs (id, caseId, timestamp, userId, action, details) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -423,8 +533,8 @@ export async function createCase(caseData: Partial<Case> & { location: string; f
 
 function updateStatements(id: string, updatedCase: Case): Statement[] {
   const statements: Statement[] = [
-    { sql: `UPDATE cases SET location = ?, foundTime = ?, foundBy = ?, outerItemDescription = ?, notes = ?, status = ?, finalisedAt = ?, finalisedBy = ?, archivedAt = ?, archivedBy = ? WHERE id = ?`,
-      args: [updatedCase.location, updatedCase.foundTime, updatedCase.foundBy, updatedCase.outerItemDescription, updatedCase.notes, updatedCase.status, updatedCase.finalisedAt, updatedCase.finalisedBy, updatedCase.archivedAt ?? null, updatedCase.archivedBy ?? null, id] },
+    { sql: `UPDATE cases SET location = ?, terminal = ?, area = ?, specificLocation = ?, foundTime = ?, foundBy = ?, outerItemDescription = ?, notes = ?, storageLocation = ?, status = ?, finalisedAt = ?, finalisedBy = ?, archivedAt = ?, archivedBy = ? WHERE id = ?`,
+      args: [updatedCase.location, updatedCase.terminal ?? null, updatedCase.area ?? null, updatedCase.specificLocation ?? null, updatedCase.foundTime, updatedCase.foundBy, updatedCase.outerItemDescription, updatedCase.notes, updatedCase.storageLocation ?? null, updatedCase.status, updatedCase.finalisedAt, updatedCase.finalisedBy, updatedCase.archivedAt ?? null, updatedCase.archivedBy ?? null, id] },
     { sql: "DELETE FROM uploads WHERE caseId = ?", args: [id] },
   ];
   for (const upload of updatedCase.uploads) {
@@ -433,8 +543,8 @@ function updateStatements(id: string, updatedCase: Case): Statement[] {
   }
   statements.push({ sql: "DELETE FROM manifest_items WHERE caseId = ?", args: [id] });
   for (const item of updatedCase.manifest) {
-    statements.push({ sql: `INSERT INTO manifest_items (id, caseId, label, parentId, quantity, quantityKnown, itemType, status, confidence, reviewReason, evidenceId, ocrText, visibleAttributes, currencyCode, denomination, currencyTotal, category, source, regions)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args: [item.id, id, item.label, item.parentId, item.quantity, item.quantityKnown === false ? 0 : 1, item.itemType ?? "property", item.status, item.confidence, item.reviewReason, item.evidenceId, item.ocrText || null, item.visibleAttributes || null, item.currencyCode || null, item.denomination ?? null, item.currencyTotal ?? null, item.category || "other", item.source || (item.id === "outer-item-root" ? "system" : "staff"), JSON.stringify(item.regions || [])] });
+    statements.push({ sql: `INSERT INTO manifest_items (id, caseId, label, parentId, quantity, quantityKnown, itemType, status, confidence, reviewReason, evidenceId, ocrText, visibleAttributes, currencyCode, denomination, currencyTotal, category, source, regions, condition, brand, colour, model, distinctiveFeatures, contentsInside, documentType, nameOnItem, lastFourChars, issuingCountry, expiryYear, jewelleryType, material, engraving, shape, lockStatus, wallpaperDescription, serialNumber, caseOrAccessories, privateMatchingDetails)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args: [item.id, id, item.label, item.parentId, item.quantity, item.quantityKnown === false ? 0 : 1, item.itemType ?? "property", item.status, item.confidence, item.reviewReason, item.evidenceId, item.ocrText || null, item.visibleAttributes || null, item.currencyCode || null, item.denomination ?? null, item.currencyTotal ?? null, item.category || "other", item.source || (item.id === "outer-item-root" ? "system" : "staff"), JSON.stringify(item.regions || []), item.condition ?? null, item.brand ?? null, item.colour ?? null, item.model ?? null, item.distinctiveFeatures ?? null, item.contentsInside ?? null, item.documentType ?? null, item.nameOnItem ?? null, item.lastFourChars ?? null, item.issuingCountry ?? null, item.expiryYear ?? null, item.jewelleryType ?? null, item.material ?? null, item.engraving ?? null, item.shape ?? null, item.lockStatus ?? null, item.wallpaperDescription ?? null, item.serialNumber ?? null, item.caseOrAccessories ?? null, item.privateMatchingDetails ?? null] });
   }
   return statements;
 }

@@ -58,6 +58,49 @@ const activityLabels: Record<string, string> = {
 };
 
 
+function ActivityHistory({ logs }: { logs: Case["auditLogs"] }) {
+  const [expanded, setExpanded] = useState(false);
+  const sortedLogs = [...logs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  const visibleLogs = expanded ? sortedLogs : sortedLogs.slice(0, 5);
+  const hasMore = sortedLogs.length > 5;
+
+  return (
+    <div style={{ borderTop: "1px solid var(--line)", paddingTop: "20px" }}>
+      <p className="eyebrow" style={{ marginBottom: "12px" }}>Activity History</p>
+      {logs.length === 0 ? (
+        <span className="muted" style={{ fontSize: "0.8rem" }}>No activity logged yet.</span>
+      ) : (
+        <>
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            {visibleLogs.map((log) => (
+              <div key={log.id} style={{ display: "flex", gap: "10px", fontSize: "0.75rem" }}>
+                <div style={{ color: "var(--green)", fontWeight: 700, lineHeight: 1.4 }}>•</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
+                  <span style={{ color: "var(--muted)", fontSize: "0.68rem" }}>
+                    {new Date(log.timestamp).toLocaleString("en-SG", { timeZone: "Asia/Singapore" })} · {log.userId}
+                  </span>
+                  <span style={{ color: "var(--ink)", fontWeight: 550 }}>
+                    {activityLabels[log.action] ?? log.action.replaceAll("_", " ").toUpperCase()}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+          {hasMore && (
+            <button
+              type="button"
+              onClick={() => setExpanded(!expanded)}
+              style={{ marginTop: "10px", background: "transparent", border: "1px solid var(--line)", borderRadius: "6px", padding: "5px 12px", fontSize: "0.72rem", fontWeight: 600, color: "var(--muted)", cursor: "pointer" }}
+            >
+              {expanded ? "Show less" : `Show all (${sortedLogs.length})`}
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function CaseDetailClient({ initialCase, currentUser }: CaseDetailClientProps) {
   const [caseFile, setCaseFile] = useState<Case>(initialCase);
   const [isUploading, setIsUploading] = useState(false);
@@ -317,14 +360,14 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
   }
 
   // Handle AI analysis trigger
-  async function triggerAI() {
+  async function triggerAI(aiProvider?: "openai" | "agnes") {
     if (isFinalised || caseFile.uploads.length === 0) return;
     setIsAnalyzing(true);
     setErrorMsg(null);
     setSuccessMsg(null);
 
     try {
-      const result = await handleAiAnalysis(caseFile.id);
+      const result = await handleAiAnalysis(caseFile.id, aiProvider);
       if (result.error) {
         setErrorMsg(result.error);
       } else if (result.success) {
@@ -568,13 +611,12 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                       {!isFinalised && (
                         <button
                           type="button"
-                          className="text-link"
                           aria-label={`Delete photo ${u.originalName}`}
                           disabled={deletingPhotoId === u.id}
                           onClick={() => { void deletePhoto(u.id, u.originalName); }}
-                          style={{ justifySelf: "start", color: "#991b1b", padding: 0, border: 0, background: "transparent", cursor: deletingPhotoId === u.id ? "wait" : "pointer", fontWeight: 700 }}
+                          style={{ justifySelf: "start", color: "#991b1b", padding: "3px 8px", border: "1px solid #991b1b", borderRadius: "4px", background: "transparent", cursor: deletingPhotoId === u.id ? "wait" : "pointer", fontWeight: 600, fontSize: "0.7rem" }}
                         >
-                          {deletingPhotoId === u.id ? "Deleting…" : "Delete Photo"}
+                          {deletingPhotoId === u.id ? "Deleting…" : "Delete"}
                         </button>
                       )}
                     </div>
@@ -585,103 +627,85 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
           </div>
 
           {!isFinalised && (
-            <button
-              type="button"
-              className="button full-width"
-              onClick={triggerAI}
-              disabled={isAnalyzing || caseFile.uploads.length === 0}
-              style={{ minHeight: "42px", whiteSpace: "nowrap", background: "var(--green-dark)" }}
-            >
-              {isAnalyzing ? "Scanning..." : "Scan Item Photos"}
-            </button>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button
+                type="button"
+                className="button"
+                onClick={() => triggerAI("openai")}
+                disabled={isAnalyzing || caseFile.uploads.length === 0}
+                style={{ flex: 1, minHeight: "40px", whiteSpace: "nowrap", background: "var(--green-dark)", fontSize: "0.82rem" }}
+              >
+                {isAnalyzing ? "Scanning..." : "Scan (OpenAI)"}
+              </button>
+              <button
+                type="button"
+                className="button"
+                onClick={() => triggerAI("agnes")}
+                disabled={isAnalyzing || caseFile.uploads.length === 0}
+                style={{ flex: 1, minHeight: "40px", whiteSpace: "nowrap", background: "#680be1", borderColor: "#680be1", fontSize: "0.82rem" }}
+              >
+                {isAnalyzing ? "Scanning..." : "Scan (Agnes)"}
+              </button>
+            </div>
           )}
 
           {/* Evidence Upload Form */}
           {!isFinalised && (
-            <div className="item-photo-upload" style={{ border: "1px solid var(--line)", borderRadius: "12px", padding: "16px", background: "var(--panel)" }}>
-              <strong style={{ fontSize: "0.88rem", display: "block", marginBottom: "12px" }}>Add Item Photo</strong>
-              <form onSubmit={onUploadSubmit} style={{ display: "grid", gap: "12px" }}>
-                <div style={{ display: "grid", gap: "4px" }}>
-                  <label htmlFor="file" style={{ fontSize: "0.75rem", fontWeight: 700 }}>Select JPG / PNG / WebP</label>
-                  <input
-                    ref={fileInputRef}
-                    id="file"
-                    name="file"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={(event) => setSelectedFileName(event.target.files?.[0]?.name ?? null)}
-                    style={{ display: "none" }}
-                  />
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <button
-                      type="button"
-                      className="button button-secondary"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isUploading}
-                      style={{ minHeight: "36px", whiteSpace: "nowrap" }}
-                    >
-                      Choose Image
-                    </button>
-                    <span aria-live="polite" style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "0.78rem", color: "var(--muted)" }}>
-                      {selectedFileName ?? "No image selected"}
-                    </span>
-                  </div>
-                </div>
-
-                <div style={{ display: "grid", gap: "4px" }}>
-                  <label htmlFor="containerContext" style={{ fontSize: "0.75rem", fontWeight: 700 }}>Photo context</label>
-                  <select
-                    id="containerContext"
-                    name="containerContext"
-                    style={{
-                      height: "36px",
-                      borderRadius: "6px",
-                      border: "1px solid var(--line)",
-                      paddingInline: "8px",
-                      fontSize: "0.82rem",
-                      background: "var(--paper)"
-                    }}
-                  >
-                    {PHOTO_CONTEXT_OPTIONS.map((option) => (
-                      <option value={option.value} key={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </div>
-
+            <div style={{ border: "1px solid var(--line)", borderRadius: "10px", padding: "12px", background: "var(--panel)" }}>
+              <form onSubmit={onUploadSubmit} style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                <input
+                  ref={fileInputRef}
+                  id="file"
+                  name="file"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(event) => setSelectedFileName(event.target.files?.[0]?.name ?? null)}
+                  style={{ display: "none" }}
+                />
                 <button
-                  className="button full-width"
+                  type="button"
+                  className="button button-secondary"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  style={{ minHeight: "34px", paddingInline: "10px", fontSize: "0.78rem" }}
+                >
+                  📷 Choose
+                </button>
+                <select
+                  id="containerContext"
+                  name="containerContext"
+                  style={{
+                    height: "34px",
+                    borderRadius: "6px",
+                    border: "1px solid var(--line)",
+                    paddingInline: "8px",
+                    fontSize: "0.78rem",
+                    background: "var(--paper)"
+                  }}
+                >
+                  {PHOTO_CONTEXT_OPTIONS.map((option) => (
+                    <option value={option.value} key={option.value}>{option.label}</option>
+                  ))}
+                </select>
+                <button
+                  className="button"
                   type="submit"
                   disabled={isUploading || !selectedFileName}
-                  style={{ minHeight: "36px", fontSize: "0.85rem" }}
+                  style={{ minHeight: "34px", paddingInline: "12px", fontSize: "0.78rem" }}
                 >
-                  {isUploading ? "Uploading image..." : "Upload Photo"}
+                  {isUploading ? "Uploading..." : "Upload"}
                 </button>
+                {selectedFileName && (
+                  <span style={{ fontSize: "0.72rem", color: "var(--muted)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {selectedFileName}
+                  </span>
+                )}
               </form>
             </div>
           )}
 
           {/* Audit Timeline */}
-          <div style={{ borderTop: "1px solid var(--line)", paddingTop: "24px" }}>
-            <p className="eyebrow" style={{ marginBottom: "16px" }}>Activity History</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              {caseFile.auditLogs.map((log) => (
-                <div key={log.id} style={{ display: "flex", gap: "12px", fontSize: "0.78rem" }}>
-                  <div style={{ color: "var(--green)", fontWeight: 700 }}>•</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                    <span style={{ color: "var(--muted)", fontSize: "0.7rem" }}>
-                      {new Date(log.timestamp).toLocaleString("en-SG", { timeZone: "Asia/Singapore" })} by <strong>{log.userId}</strong>
-                    </span>
-                    <span style={{ color: "var(--ink)", fontWeight: 550 }}>
-                      {activityLabels[log.action] ?? log.action.replaceAll("_", " ").toUpperCase()}
-                    </span>
-                  </div>
-                </div>
-              ))}
-              {caseFile.auditLogs.length === 0 && (
-                <span className="muted" style={{ fontSize: "0.8rem", textAlign: "center" }}>No timeline logged yet.</span>
-              )}
-            </div>
-          </div>
+          <ActivityHistory logs={caseFile.auditLogs} />
         </section>
 
 

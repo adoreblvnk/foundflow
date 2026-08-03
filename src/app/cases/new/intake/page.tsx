@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser, isAuthenticated } from "@/lib/auth";
 import { handleCreateCase } from "@/app/cases/actions";
 import { INTAKE_ACKNOWLEDGEMENT_COOKIE } from "@/lib/intake";
-import { LOCATION_PRESETS } from "@/lib/constants";
+import { TERMINALS, AREAS } from "@/lib/constants";
 
 const fieldStyle = {
   minHeight: "44px",
@@ -55,10 +55,50 @@ export default async function NewCaseIntakePage() {
         borderRadius: "14px",
         padding: "32px",
       }}>
-        <p className="eyebrow">New Case</p>
-        <h1 style={{ fontSize: "2rem", letterSpacing: "-0.04em", margin: "0 0 26px" }}>Item details</h1>
+        <p className="eyebrow">Step 1</p>
+        <h1 style={{ fontSize: "2rem", letterSpacing: "-0.04em", margin: "0 0 26px" }}>Where and when found</h1>
 
         <form action={handleCreateCase} style={{ display: "grid", gap: "20px" }}>
+          {/* Terminal */}
+          <label style={{ display: "grid", gap: "6px", fontWeight: 600, fontSize: "0.88rem" }}>
+            <span>Terminal <span style={{ color: "var(--green)" }}>*</span></span>
+            <select name="terminal" required style={fieldStyle} defaultValue="">
+              <option value="" disabled>Select terminal...</option>
+              {TERMINALS.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+          </label>
+
+          {/* Area */}
+          <label style={{ display: "grid", gap: "6px", fontWeight: 600, fontSize: "0.88rem" }}>
+            <span>Area <span style={{ color: "var(--green)" }}>*</span></span>
+            <select name="area" required style={fieldStyle} defaultValue="">
+              <option value="" disabled>Select area...</option>
+              {AREAS.map((a) => (
+                <option key={a.value} value={a.value}>{a.label}</option>
+              ))}
+            </select>
+          </label>
+
+          {/* Specific location */}
+          <label style={{ display: "grid", gap: "6px", fontWeight: 600, fontSize: "0.88rem" }}>
+            Specific location
+            <input
+              name="specificLocation"
+              type="text"
+              placeholder="e.g. Beside Gate B5 charging station"
+              style={fieldStyle}
+            />
+          </label>
+
+          {/* Found date/time */}
+          <label style={{ display: "grid", gap: "6px", fontWeight: 600, fontSize: "0.88rem" }}>
+            <span>Found date and time <span style={{ color: "var(--green)" }}>*</span></span>
+            <input name="foundTime" type="datetime-local" defaultValue={currentIsoString} required style={fieldStyle} />
+          </label>
+
+          {/* Outer item */}
           <label style={{ display: "grid", gap: "6px", fontWeight: 600, fontSize: "0.88rem" }}>
             <span>Outer item <span style={{ color: "var(--green)" }}>*</span></span>
             <input
@@ -70,31 +110,24 @@ export default async function NewCaseIntakePage() {
             />
           </label>
 
-          <label style={{ display: "grid", gap: "6px", fontWeight: 600, fontSize: "0.88rem" }}>
-            <span>Found location <span style={{ color: "var(--green)" }}>*</span></span>
-            <select name="location" required style={fieldStyle} defaultValue="">
-              <option value="" disabled>Select location...</option>
-              {LOCATION_PRESETS.map((location) => (
-                <option key={location.value} value={location.value}>{location.label}</option>
-              ))}
-            </select>
-          </label>
-
+          {/* Found / handed in by */}
           <label style={{ display: "grid", gap: "6px", fontWeight: 600, fontSize: "0.88rem" }}>
             Found or handed in by
             <input name="foundBy" type="text" placeholder="e.g. Passenger, cleaner, staff" style={fieldStyle} />
           </label>
 
+          {/* Storage location */}
           <label style={{ display: "grid", gap: "6px", fontWeight: 600, fontSize: "0.88rem" }}>
-            <span>Found or handover time <span style={{ color: "var(--green)" }}>*</span></span>
-            <input name="foundTime" type="datetime-local" defaultValue={currentIsoString} required style={fieldStyle} />
+            Current storage location
+            <input name="storageLocation" type="text" placeholder="e.g. L&F Cabinet A3" style={fieldStyle} />
           </label>
 
+          {/* Staff notes */}
           <label style={{ display: "grid", gap: "6px", fontWeight: 600, fontSize: "0.88rem" }}>
-            Notes
+            Staff notes
             <textarea
               name="notes"
-              placeholder="Optional handover details"
+              placeholder="Optional internal notes"
               rows={3}
               style={{ ...fieldStyle, padding: "12px", fontFamily: "inherit", resize: "vertical" }}
             />

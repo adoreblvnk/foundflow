@@ -55,7 +55,7 @@ LOGIN_PASSWORD=
 
 # OpenAI API key, fast extraction model, and strong verifier used for every photo scan
 OPENAI_API_KEY=
-OPENAI_MODEL=gpt-4.1-mini
+OPENAI_MODEL=gpt-5.6-sol
 OPENAI_VERIFIER_MODEL=gpt-5.6-sol
 
 # Local libSQL database and uploads

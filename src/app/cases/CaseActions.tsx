@@ -41,25 +41,26 @@ export default function CaseActions({ caseId, archived, canDelete }: { caseId: s
   }
 
   const actionStyle = {
-    border: 0,
+    border: "1px solid var(--line)",
+    borderRadius: "5px",
     background: "transparent",
     cursor: activeAction ? "wait" : "pointer",
-    padding: "4px 0",
-    fontSize: "0.75rem",
+    padding: "4px 10px",
+    fontSize: "0.72rem",
     fontWeight: 700,
   } as const;
 
   return (
     <div style={{ display: "grid", gap: "4px" }}>
-      <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
         <button
           type="button"
           aria-label={`${archived ? "Restore" : "Archive"} case ${caseId}`}
           disabled={Boolean(activeAction)}
           onClick={() => { void setArchived(); }}
-          style={{ ...actionStyle, color: "var(--green-dark)" }}
+          style={{ ...actionStyle, color: "var(--green-dark)", borderColor: "var(--green-dark)" }}
         >
-          {activeAction === "archive" ? (archived ? "Restoring…" : "Archiving…") : (archived ? "Restore Case" : "Archive Case")}
+          {activeAction === "archive" ? (archived ? "Restoring…" : "Archiving…") : (archived ? "Restore" : "Archive")}
         </button>
         {canDelete && (
           <button
@@ -67,9 +68,9 @@ export default function CaseActions({ caseId, archived, canDelete }: { caseId: s
             aria-label={`Delete case ${caseId}`}
             disabled={Boolean(activeAction)}
             onClick={() => { void deleteCase(); }}
-            style={{ ...actionStyle, color: "#991b1b" }}
+            style={{ ...actionStyle, color: "#991b1b", borderColor: "#991b1b" }}
           >
-            {activeAction === "delete" ? "Deleting…" : "Delete Case"}
+            {activeAction === "delete" ? "Deleting…" : "Delete"}
           </button>
         )}
       </div>

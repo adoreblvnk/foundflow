@@ -15,7 +15,7 @@ interface SearchFilters {
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { query, mode, filters } = body as { query: string; mode: "text" | "ai"; filters?: SearchFilters };
+  const { query, filters } = body as { query: string; mode?: string; filters?: SearchFilters };
 
   const cases = await getCases();
 
@@ -50,7 +50,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ results: allItems.slice(0, 50) });
   }
 
-  if (mode === "text") {
+  // Auto-determine search mode: use AI for natural language queries (longer,
+  // contains prepositions/articles, or conversational phrasing), otherwise keyword match.
+  const trimmed = query.trim();
+  const wordCount = trimmed.split(/\s+/).length;
+  const hasNaturalLanguageSignals = /\b(with|near|from|found|last|this|that|which|where|who|any|some)\b/i.test(trimmed);
+  const useAI = wordCount >= 4 || (wordCount >= 3 && hasNaturalLanguageSignals);
+
+  if (!useAI) {
     const terms = query.toLowerCase().split(/\s+/);
     const results = allItems.filter((item) => {
       const haystack = `${item.label} ${item.ocrText} ${item.visibleAttributes} ${item.location} ${item.currencyCode || ""} ${item.itemType} ${item.category} ${item.foundBy}`.toLowerCase();

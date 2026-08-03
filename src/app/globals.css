@@ -212,3 +212,15 @@ h2 { margin-bottom: 34px; font-size: clamp(2rem, 4vw, 3.5rem); line-height: 1; l
   html { scroll-behavior: auto; }
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
 }
+
+@media print {
+  header, .no-print { display: none !important; }
+  main { background: white !important; }
+  body { background: white !important; color: #111 !important; font-size: 11pt; }
+  div, section, article { break-inside: avoid; }
+  h1 { font-size: 18pt !important; }
+  h2 { font-size: 14pt !important; margin-top: 16pt !important; }
+  p, li, td, th { color: #222 !important; }
+  a { color: #222 !important; }
+  .eyebrow { color: #555 !important; }
+}

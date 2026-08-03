@@ -31,7 +31,6 @@ export default function SearchPage() {
   const [dateTo, setDateTo] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [searchMode, setSearchMode] = useState<"text" | "ai">("text");
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
 
@@ -46,7 +45,7 @@ export default function SearchPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           query: query.trim(),
-          mode: searchMode,
+          mode: "auto",
           filters: {
             location: location || undefined,
             category: category || undefined,
@@ -201,45 +200,9 @@ export default function SearchPage() {
             </div>
           </div>
 
-          {/* Row 3: Free text / AI query */}
+          {/* Row 3: Free text query */}
           <div className="search-filter-field">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <label htmlFor="search-description" style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)" }}>Description (optional)</label>
-              <div style={{ display: "flex", gap: "4px" }}>
-                <button
-                  type="button"
-                  onClick={() => setSearchMode("text")}
-                  style={{
-                    padding: "3px 8px",
-                    borderRadius: "4px",
-                    border: "1px solid var(--line)",
-                    background: searchMode === "text" ? "var(--green)" : "transparent",
-                    color: searchMode === "text" ? "white" : "var(--muted)",
-                    fontSize: "0.68rem",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                  }}
-                >
-                  Text
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSearchMode("ai")}
-                  style={{
-                    padding: "3px 8px",
-                    borderRadius: "4px",
-                    border: "1px solid var(--line)",
-                    background: searchMode === "ai" ? "var(--green)" : "transparent",
-                    color: searchMode === "ai" ? "white" : "var(--muted)",
-                    fontSize: "0.68rem",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                  }}
-                >
-                  AI
-                </button>
-              </div>
-            </div>
+            <label htmlFor="search-description" style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)" }}>Description (optional)</label>
             <input
               id="search-description"
               name="description"
@@ -248,10 +211,7 @@ export default function SearchPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") void runSearch(); }}
-              placeholder={searchMode === "text"
-                ? "e.g. USB cable, leather wallet, SGD…"
-                : "e.g. black bag with Malaysian money found near Terminal 3 last week"
-              }
+              placeholder="e.g. black wallet, USB cable, Malaysian ringgit near T3…"
               style={{
                 height: "42px",
                 borderRadius: "6px",

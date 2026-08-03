@@ -10,112 +10,107 @@ export default function AboutPage() {
         marginInline: "auto",
         paddingBlock: "48px 80px",
       }}>
-        {/* Short Summary */}
+        {/* Hero */}
         <section style={{ marginBottom: "48px" }}>
-          <p className="eyebrow">What is FoundFlow</p>
-          <h1 style={{ fontSize: "2.4rem", lineHeight: 1.05, letterSpacing: "-0.04em", marginBottom: "20px" }}>
-            AI-Assisted Found-Item Intake
+          <p className="eyebrow">About Us</p>
+          <h1 style={{ fontSize: "2.2rem", lineHeight: 1.1, letterSpacing: "-0.04em", marginBottom: "20px" }}>
+            Changi Airport Lost &amp; Found
           </h1>
           <p style={{ fontSize: "1.05rem", lineHeight: 1.7, color: "var(--muted)" }}>
-            Today, airport staff may document each object, quantity, identifier, currency and physical
-            description manually, a process that becomes slow and error-prone for bags with many nested items
-            or mixed-currency cash requiring exact denomination counts.
-            FoundFlow replaces that manual typing with AI vision: airport staff photograph each layer of contents,
-            AI reads the image and drafts a structured item list with nesting relationships and
-            computed currency totals. Staff review every uncertain or sensitive record before completion.
+            FoundFlow is the staff-facing intake system for Changi Airport&apos;s Lost &amp; Found service.
+            We help reunite passengers with their belongings through fast, accurate documentation and
+            a structured matching process between found items and lost reports.
           </p>
         </section>
 
-        {/* Full Write-up */}
         <section style={{ display: "grid", gap: "36px" }}>
+          {/* Our Mission */}
           <div>
-            <h2 style={{ fontSize: "1.4rem", marginBottom: "12px" }}>The Problem & Our Approach</h2>
+            <h2 style={{ fontSize: "1.4rem", marginBottom: "12px" }}>Our Mission</h2>
+            <p style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "var(--muted)", margin: 0 }}>
+              Every year, thousands of items are left behind at Changi Airport — in transit areas,
+              gate hold rooms, lounges, and public spaces. Our goal is to document every found item
+              quickly and accurately, so that when a passenger files a lost report, we can match it
+              to what we have on record and return it as soon as possible.
+            </p>
+          </div>
+
+          {/* How It Works */}
+          <div>
+            <h2 style={{ fontSize: "1.4rem", marginBottom: "12px" }}>How It Works</h2>
             <div style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "var(--muted)", display: "grid", gap: "12px" }}>
               <p style={{ margin: 0 }}>
-                In transit hubs like airports, airport staff handle found items daily. The current
-                workflow requires them to open their mobile device, photograph items, then manually type
-                every single item description: label, quantity, condition, serial numbers. For a bag
-                containing 10 to 15 items across multiple compartments, this takes 20 to 30 minutes.
+                <strong>1. Item found</strong> — When an item is discovered by staff, cleaners, or handed in by
+                a passenger, our team logs the terminal, area, and time of discovery.
               </p>
               <p style={{ margin: 0 }}>
-                Cash is the worst case. A pouch with mixed Singapore dollars and Malaysian ringgit (notes
-                and coins of different denominations) requires the staff member to count each denomination group,
-                calculate totals, and type them without error. One miscount means the item record
-                doesn&apos;t balance, creating accountability issues.
+                <strong>2. Photo documentation</strong> — Staff photograph the item and its contents layer by layer.
+                Our AI system reads the photos and drafts a structured inventory including brands,
+                colours, currency denominations, and document details.
               </p>
               <p style={{ margin: 0 }}>
-                Our approach: <strong>replace typing with scanning.</strong> The staff member photographs each
-                layer of contents spread on a surface. AI vision reads the photo and produces a structured
-                draft: item labels, nesting (what was inside what), OCR text, and exact denomination ×
-                quantity totals for currency. The staff member&apos;s job shifts from data entry to data verification:
-                confirm what&apos;s correct, fix what isn&apos;t. The AI never auto-approves; every item requires
-                human sign-off before the case can be finalised and exported.
+                <strong>3. Staff verification</strong> — Every AI-detected detail is reviewed and confirmed by
+                trained staff. No record is finalised without human sign-off.
               </p>
               <p style={{ margin: 0 }}>
-                The guided intake workflow works across staff workstations and phones, preserving the same
-                photo-linked review process in either setting.
+                <strong>4. Secure storage</strong> — Items are stored in our designated Lost &amp; Found facility
+                with tracked custody records.
+              </p>
+              <p style={{ margin: 0 }}>
+                <strong>5. Matching &amp; collection</strong> — When a passenger files a lost report, our system
+                compares their description against found items. Ownership is verified through independent
+                evidence before handover.
               </p>
             </div>
           </div>
 
+          {/* Coverage */}
           <div>
-            <h2 style={{ fontSize: "1.4rem", marginBottom: "12px" }}>Tests & Findings</h2>
-            <div style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "var(--muted)", display: "grid", gap: "12px" }}>
+            <h2 style={{ fontSize: "1.4rem", marginBottom: "12px" }}>Where We Operate</h2>
+            <div style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "var(--muted)", display: "grid", gap: "8px" }}>
               <p style={{ margin: 0 }}>
-                We staged a synthetic backpack with mixed SGD/MYR currency (notes and coins), electronics,
-                a cardholder, and nested pouches. AI correctly identified 11 items across 3 nesting levels
-                with exact denomination × quantity calculations. Currency totals matched manual count:
-                SGD 104.00 and MYR 50.40.
+                Our service covers all areas managed by Changi Airport Group:
               </p>
-              <p style={{ margin: 0 }}>
-                The layout guide (instructing airport staff to spread items apart, face text upward, and scan
-                one layer at a time) significantly improved AI accuracy. Spread items were reliably
-                detected, while piled items triggered &quot;review&quot; flags requiring manual intervention.
-              </p>
-              <p style={{ margin: 0 }}>
-                Automated domain tests cover session security,
-                magic-number upload validation, cycle detection in nested hierarchies, CSV formula injection
-                prevention, and finalisation rules that block unresolved items.
+              <ul style={{ paddingLeft: "20px", margin: 0, display: "grid", gap: "4px" }}>
+                <li>Terminal 1, 2, 3, and 4 — Public and transit areas</li>
+                <li>Gate hold rooms</li>
+                <li>Jewel Changi Airport</li>
+                <li>Transport areas (taxi stands, bus stops, car parks)</li>
+              </ul>
+              <p style={{ margin: 0, marginTop: "8px" }}>
+                <strong>Note:</strong> Items left onboard aircraft are managed by the airline&apos;s handling agent
+                (dnata or SATS). Please contact them directly for inflight lost property.
               </p>
             </div>
           </div>
 
+          {/* Privacy & Security */}
           <div>
-            <h2 style={{ fontSize: "1.4rem", marginBottom: "12px" }}>Constraints, Mitigations & Limitations</h2>
-            <ul style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "var(--muted)", paddingLeft: "20px", margin: 0, display: "grid", gap: "10px" }}>
-              <li>
-                <strong>Hosted services require network access</strong> - Turso, private Blob storage, and AI scanning are unavailable during an outage.
-                <br /><em>Mitigation:</em> Keep manual intake available and add an offline queue for later synchronisation.
-              </li>
-
-              <li>
-                <strong>AI accuracy varies</strong> - low-confidence items and unreadable currency are flagged for review.
-                <br /><em>Mitigation:</em> Layout guide reduces misreads. Staff can edit items or split mixed-currency groups into individual denominations. The system blocks confirmation until details are exact.
-              </li>
-              <li>
-                <strong>No multi-user collaboration</strong> - one staff member per case at a time.
-                <br /><em>Mitigation:</em> Add optimistic locking (version column) to prevent overwrites. Real-time sync possible with Supabase Realtime or Ably.
-              </li>
-              <li>
-                <strong>Search is not vector-indexed</strong> - uses keyword matching + AI re-ranking.
-                <br /><em>Mitigation:</em> For production scale, add pgvector embeddings on item descriptions for sub-second semantic search without per-query AI calls.
-              </li>
-              <li>
-                <strong>No offline fallback</strong> - requires network for AI scan and data persistence.
-                <br /><em>Mitigation:</em> Service worker with IndexedDB queue. Staff capture photos offline, sync and scan when reconnected.
-              </li>
+            <h2 style={{ fontSize: "1.4rem", marginBottom: "12px" }}>Privacy &amp; Security</h2>
+            <ul style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "var(--muted)", paddingLeft: "20px", margin: 0, display: "grid", gap: "8px", listStyle: "disc" }}>
+              <li>Item photos are stored in private, access-controlled storage — never publicly accessible.</li>
+              <li>Personal documents (passports, IDs, cards) are recorded with minimal identifiers only. Full numbers are never stored unless airport policy requires it.</li>
+              <li>Private matching details (hidden compartment contents, exact denominations, distinctive markings) are withheld from public view and used only during ownership verification.</li>
+              <li>All actions are logged in an audit trail with staff identity and timestamp.</li>
+              <li>Collection requires verified proof of ownership before any item is released.</li>
             </ul>
           </div>
 
+          {/* Contact */}
           <div>
-            <h2 style={{ fontSize: "1.4rem", marginBottom: "12px" }}>What We Would Improve Next</h2>
-            <ol style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "var(--muted)", paddingLeft: "20px", margin: 0, display: "grid", gap: "6px" }}>
-              <li>Offline capture queue for temporary connectivity loss</li>
-              <li>Optimistic locking for safe multi-user updates</li>
-              <li>Barcode/QR scanning for tagged item bags and registered items</li>
-              <li>Batch mode for high-volume lost-and-found centres processing 50+ items per day</li>
-              <li>Role-based access with supervisor approval workflow and shift handover</li>
-            </ol>
+            <h2 style={{ fontSize: "1.4rem", marginBottom: "12px" }}>Contact Us</h2>
+            <div style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "var(--muted)", display: "grid", gap: "8px" }}>
+              <p style={{ margin: 0 }}>
+                For lost items within the airport premises, file a report through our system or visit
+                the Lost &amp; Found counter at any terminal.
+              </p>
+              <p style={{ margin: 0 }}>
+                <strong>Operating hours:</strong> 24 hours, 7 days a week
+              </p>
+              <p style={{ margin: 0 }}>
+                <strong>General enquiries:</strong> +65 6595 6868
+              </p>
+            </div>
           </div>
         </section>
       </div>

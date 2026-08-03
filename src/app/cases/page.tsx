@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCases, type Case } from "@/lib/db";
 import { isAuthenticated } from "@/lib/auth";
-import CaseActions from "./CaseActions";
 
 type CaseGroup = {
   key: "pending" | "ready" | "confirmed" | "collected" | "archived";
@@ -32,38 +31,32 @@ function CaseCard({ caseFile, stage }: { caseFile: Case; stage: CaseGroup["key"]
   }[stage];
 
   return (
-    <article style={{ border: "1px solid var(--line)", borderRadius: "12px", background: "var(--panel)", overflow: "hidden" }}>
-      <Link
-        href={`/cases/${caseFile.id}`}
-        style={{ display: "grid", gap: "12px", padding: "20px", textDecoration: "none", color: "inherit" }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center" }}>
-          <strong style={{ fontSize: "0.85rem", minWidth: 0, overflowWrap: "anywhere" }}>{caseFile.id}</strong>
-          <span className={caseFile.status === "finalised" ? "status status-complete" : "status"} style={{ fontSize: "0.72rem", whiteSpace: "nowrap" }}>
-            {stageLabel}
-          </span>
-        </div>
-
-        <h3 style={{ fontSize: "1.1rem", fontWeight: 700, margin: 0 }}>{caseFile.outerItemDescription}</h3>
-        <div className="muted" style={{ fontSize: "0.8rem" }}>📍 {caseFile.location}</div>
-        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", fontSize: "0.75rem", color: "var(--muted)" }}>
-          <span>📷 {caseFile.uploads.length}</span>
-          <span>📦 {totalItems}</span>
-          <span>✅ {confirmedItems}/{totalItems}</span>
-          {unresolved > 0 && <span style={{ color: "var(--amber)", fontWeight: 700 }}>⚠️ {unresolved}</span>}
-        </div>
-
-        {totalItems > 0 && (
-          <div style={{ height: "4px", background: "var(--line)", borderRadius: "2px", overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${Math.round((confirmedItems / totalItems) * 100)}%`, background: "var(--green)", borderRadius: "2px" }} />
-          </div>
-        )}
-      </Link>
-
-      <div style={{ borderTop: "1px solid var(--line)", padding: "8px 20px" }}>
-        <CaseActions caseId={caseFile.id} archived={Boolean(caseFile.archivedAt)} canDelete={caseFile.status !== "finalised"} />
+    <Link
+      href={`/cases/${caseFile.id}`}
+      style={{ display: "grid", gap: "8px", padding: "14px 16px", border: "1px solid var(--line)", borderRadius: "10px", background: "var(--panel)", textDecoration: "none", color: "inherit" }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", alignItems: "center" }}>
+        <strong style={{ fontSize: "0.82rem", minWidth: 0, overflowWrap: "anywhere" }}>{caseFile.id}</strong>
+        <span className={caseFile.status === "finalised" ? "status status-complete" : "status"} style={{ fontSize: "0.7rem", whiteSpace: "nowrap" }}>
+          {stageLabel}
+        </span>
       </div>
-    </article>
+
+      <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: 0 }}>{caseFile.outerItemDescription}</h3>
+      <div className="muted" style={{ fontSize: "0.78rem" }}>📍 {caseFile.location}</div>
+      <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", fontSize: "0.72rem", color: "var(--muted)" }}>
+        <span>📷 {caseFile.uploads.length}</span>
+        <span>📦 {totalItems}</span>
+        <span>✅ {confirmedItems}/{totalItems}</span>
+        {unresolved > 0 && <span style={{ color: "var(--amber)", fontWeight: 700 }}>⚠️ {unresolved}</span>}
+      </div>
+
+      {totalItems > 0 && (
+        <div style={{ height: "3px", background: "var(--line)", borderRadius: "2px", overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${Math.round((confirmedItems / totalItems) * 100)}%`, background: "var(--green)", borderRadius: "2px" }} />
+        </div>
+      )}
+    </Link>
   );
 }
 

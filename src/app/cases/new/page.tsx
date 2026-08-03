@@ -38,10 +38,10 @@ export default async function NewCaseInstructionsPage() {
       }}>
         <p className="eyebrow">Before you start</p>
         <h1 style={{ fontSize: "2rem", letterSpacing: "-0.04em", margin: "0 0 24px" }}>
-          Intake order
+          Step-by-step instructions
         </h1>
 
-        <ol style={{ margin: "0 0 28px", paddingLeft: "22px", display: "grid", gap: "14px", lineHeight: 1.45 }}>
+        <ol style={{ margin: "0 0 28px", paddingLeft: "22px", display: "grid", gap: "14px", lineHeight: 1.45, listStyle: "decimal" }}>
           {instructions.map((instruction) => <li key={instruction}>{instruction}</li>)}
         </ol>
 
@@ -59,7 +59,7 @@ export default async function NewCaseInstructionsPage() {
             lineHeight: 1.4,
           }}>
             <input type="checkbox" name="acknowledged" value="yes" required style={{ marginTop: "2px" }} />
-            I understand and will follow this intake order.
+            I understand and will follow these instructions.
           </label>
           <button type="submit" className="button" style={{ minHeight: "46px" }}>
             Acknowledge & Continue

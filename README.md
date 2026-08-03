@@ -1,10 +1,14 @@
-# FoundFlow — Changi Airport Lost & Found System
+# FoundFlow
 
-AI-powered lost and found management for Changi Airport.
+Staff-confirmed, photo-linked found-item intake for airport teams.
 
-FoundFlow is a complete lost and found ecosystem — from the moment an item is discovered to the moment it's returned to its owner. Staff log found items with AI-assisted documentation, passengers report lost belongings, and the system matches them together. Every step is guided, verified, and auditable.
+**Team Name:** Adore
 
-> Built for the Launchpad 2026 AI Challenge. Functional hosted prototype — production deployment would require organisational access controls and operational review.
+**Team Members:** Joseph & Tze Kai
+
+FoundFlow helps staff turn guided item photos into a structured item list, preserve nested relationships such as bag → pouch → contents, and review every AI-drafted detail before completion. Confirmed records can then support ownership verification and audited collection.
+
+> Built for the Launchpad 2026 AI Challenge. This is a functional hosted prototype. Production deployment requires organisational access controls, operational review, and integration with existing airport systems.
 
 ---
 
@@ -12,27 +16,27 @@ FoundFlow is a complete lost and found ecosystem — from the moment an item is 
 
 | Workflow | Description |
 |----------|-------------|
-| **Log Found Item** | Staff document items found on premises with guided photography and AI-drafted inventory |
+| **Log Found Item** | Staff document where and when an item was found, then add guided item photos |
 | **Manage Cases** | Track items through intake → review → confirmation → storage → collection |
 | **Search Records** | Find items across all cases using keyword or natural language |
-| **Ownership Verification** | Verify claims through independent evidence before handover |
+| **Ownership Verification** | Record a lost report ID or walk-in claim, then verify ownership through independent checks |
 | **Collection** | Record handover with full audit trail |
 
 ---
 
 ## Key Features
 
-- **Guided intake** — Terminal, area, specific location, date/time, storage location
-- **AI vision scan** — Two-model pipeline (extraction + verifier) with per-item bounding boxes
-- **Dual AI provider** — OpenAI (gpt-5.6-sol) and Agnes AI (agnes-2.0-flash) as scan channels
-- **Nested containers** — Bag → Pouch → Contents hierarchy preserved throughout
-- **Currency precision** — Separate records per denomination, exact quantity × value totals
-- **Conditional matching fields** — Brand, colour, model, documents, jewellery, electronics
-- **Private matching details** — Hidden from search, used only during claim verification
-- **Review gating** — Money, documents, and uncertain items require staff confirmation
-- **Ownership claims** — Compare passenger's report against staff observations
-- **Auto-detect search** — Short queries use keyword match; longer queries use AI semantic search
-- **Full audit trail** — Every action logged with staff identity and timestamp
+- **Guided intake:** Terminal, area, specific location, date and time, outer item, and storage location
+- **AI vision scan:** Two-pass extraction and independent verification with per-item photo boxes
+- **Dual AI provider:** OpenAI (`gpt-5.6-sol`) and Agnes AI (`agnes-2.0-flash`) as selectable scan channels
+- **Nested containers:** Bag → pouch → contents hierarchy preserved throughout
+- **Currency precision:** Separate records per denomination with quantity × value totals
+- **Conditional matching fields:** Brand, colour, model, document, jewellery, and electronics details
+- **Private matching details:** Hidden from search and used only during ownership verification
+- **Review gating:** Money, documents, and uncertain items require staff confirmation
+- **Ownership claims:** Support lost-report-linked and staff-initiated walk-in claims
+- **Adaptive search:** Short queries use keyword matching; longer queries use AI semantic search
+- **Activity history:** Every action records the staff identity and timestamp
 
 ---
 
@@ -40,15 +44,14 @@ FoundFlow is a complete lost and found ecosystem — from the moment an item is 
 
 | Route | Purpose |
 |-------|---------|
-| `/` | Home — Log Found Item, Manage Cases, Search Records |
+| `/` | Home: Log Found Item, Manage Cases, Search Records |
 | `/login` | Staff authentication |
 | `/cases` | Cases dashboard (pending, ready, confirmed, collected, archived) |
 | `/cases/new` | Step-by-step instructions + intake form |
-| `/cases/[id]` | Case workspace — photos, AI scan, item list, review, completion |
+| `/cases/[id]` | Case workspace: photos, AI scan, item list, review, completion |
 | `/cases/[id]/claim` | Ownership verification and collection |
 | `/search` | Search across all confirmed items |
-| `/about` | About Changi Airport Lost & Found |
-| `/guide` | Staff usage guide |
+| `/about` | Product purpose, workflow, privacy, and scope |
 | `/challenge` | Launchpad 2026 write-up (printable) |
 
 ---
@@ -68,12 +71,12 @@ FoundFlow is a complete lost and found ecosystem — from the moment an item is 
                                                               └─────────────┘
 ```
 
-1. **Item found** — Staff record where, when, and what was found
-2. **Photo scan** — AI extracts structured inventory from photographs
-3. **Staff review** — Every AI-detected item confirmed by human
-4. **Confirmed & stored** — Case locked, item safely stored
-5. **Lost report match** — System compares found items against passenger descriptions
-6. **Collection** — Ownership verified, item handed over with audit record
+1. **Item found:** Staff record where, when, and what was found.
+2. **Photo scan:** AI drafts a structured item list from guided photographs.
+3. **Staff review:** Staff confirm or correct every AI-drafted item.
+4. **Confirmed and stored:** The completed case is locked and retained.
+5. **Ownership claim:** Staff record a lost report ID or create a walk-in claim and apply independent verification checks.
+6. **Collection:** Staff record the verified handover in activity history.
 
 ---
 
@@ -81,7 +84,7 @@ FoundFlow is a complete lost and found ecosystem — from the moment an item is 
 
 ### Prerequisites
 - **Node.js v24.11.1+**
-- **OpenAI API Key** and/or **Agnes AI API Key** — at least one required for AI scan
+- **OpenAI API key** and/or **Agnes AI API key**. At least one is required for AI scanning.
 
 ### 1. Install dependencies
 ```bash
@@ -135,13 +138,13 @@ Open [http://localhost:3000](http://localhost:3000), sign in, and start from **L
 
 ## AI Providers
 
-### OpenAI (Primary)
+### OpenAI (primary)
 - Model: `gpt-5.6-sol` for both extraction and verification
-- Two-pass pipeline: extraction → independent verifier
+- Two-pass pipeline: extraction → independent verification
 - Sends images as file buffers (base64)
 
-### Agnes AI (Sponsor, Alternative)
-- Model: `agnes-2.0-flash` (512K context, $0/1M tokens currently)
+### Agnes AI (sponsor alternative)
+- Model: `agnes-2.0-flash`
 - OpenAI-compatible endpoint: `https://apihub.agnes-ai.com/v1`
 - Singapore-based AI model company
 - Select "Scan (Agnes)" in the case workspace
@@ -167,7 +170,7 @@ Auto-fallback: if `OPENAI_API_KEY` is not set but `AGNES_API_KEY` is available, 
 
 - Constant-time HMAC session verification (SHA-256)
 - Magic-number file signatures for uploads (JPG/PNG/WebP only)
-- Atomic database transactions — no orphan logs or desynced states
+- Atomic database transactions prevent orphan logs and desynchronised states
 - Private photo storage (never publicly accessible)
 - Passport/IC stored as last-four-characters only
 - Private matching details segregated from search
@@ -177,7 +180,7 @@ Auto-fallback: if `OPENAI_API_KEY` is not set but `AGNES_API_KEY` is available, 
 
 ## Acknowledgements
 
-- **Changi Airport Group** — 54,000 lost items/year context and operational reference
-- **Agnes AI** — Launchpad 2026 sponsor, alternative AI vision provider
-- **OpenAI** — Primary vision model and API credits
-- **Launchpad 2026** — Challenge framework and judging structure
+- **Changi Airport Group:** 54,000 lost items/year context and operational reference
+- **Agnes AI:** Launchpad 2026 sponsor and alternative AI vision provider
+- **OpenAI:** Primary vision model and API credits
+- **Launchpad 2026:** Challenge framework and judging structure

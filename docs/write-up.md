@@ -68,7 +68,7 @@ Changi Airport handles **54,000 lost items per year** across four terminals serv
 | 6 | MYR RM1 notes x3 | Currency | MYR 3.00 |
 | 7 | MYR RM5 note x1 | Currency | MYR 5.00 |
 | 8 | MYR RM10 notes x2 | Currency | MYR 20.00 |
-| 9 | USD $100 notes x2 | Currency | USD 200.00 |
+| 9 | USD $100 note x1 | Currency | USD 100.00 |
 | 10 | EUR 100 note x1 | Currency | EUR 100.00 |
 | 11 | PHP 1000 notes x2 | Currency | PHP 2,000.00 |
 | 12 | Mixed coins (~4-5) | Currency | Requires closer inspection |
@@ -76,7 +76,7 @@ Changi Airport handles **54,000 lost items per year** across four terminals serv
 **Currency totals (4 currencies, 6 denomination groups):**
 
 - MYR 28.00 (3 denomination groups: RM1 x3, RM5 x1, RM10 x2)
-- USD 200.00 ($100 x2)
+- USD 100.00 ($100 x1)
 - EUR 100.00 (100 x1)
 - PHP 2,000.00 (1000 x2)
 
@@ -87,10 +87,14 @@ Changi Airport handles **54,000 lost items per year** across four terminals serv
 | Item recall | 12/12 detected | Generic captioning: ~6-7/12 |
 | Currency groups | 6/6 separated correctly | Flat AI: lumps into "some money" |
 | Multi-currency | 4 currencies identified (MYR, USD, EUR, PHP) | Manual: same but 15+ min typing |
-| Denomination arithmetic | All totals exact | - |
+| Denomination arithmetic | 5/6 correct, 1 overcounted (USD) | - |
 | Nesting | All items linked to outer container | Flat AI: no hierarchy |
-| False positives | 0 hallucinated items | - |
+| False positives | 1 (USD $100 counted as x2, actual x1) | - |
 | Coins flagged for review | Yes (unreadable denominations) | - |
+
+**False detection analysis:**
+
+The AI reported 2x USD $100 when only 1 note was present. This is a known limitation: the front and back of a banknote visible in the same photo, or reflections on a glossy tile surface, can cause the model to double-count. This is precisely why FoundFlow's workflow requires **mandatory staff confirmation** before any currency record is finalised. The system correctly flags all currency for review - staff would catch and correct the quantity from 2 to 1 during the verification step. This demonstrates the human-in-the-loop design working as intended: AI drafts, staff decide.
 
 **Additional verification:**
 

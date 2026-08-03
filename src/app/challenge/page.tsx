@@ -180,13 +180,21 @@ export default function ChallengePage() {
               </ul>
               <p style={{ margin: 0, marginTop: "8px" }}><strong>What we would build next:</strong></p>
               <ol style={{ paddingLeft: "20px", margin: 0, display: "grid", gap: "4px" }}>
-                <li>Offline capture queue (service worker + IndexedDB sync)</li>
+                <li><strong>On-device ML from staff corrections</strong> — every confirmed/corrected item is a labeled training sample (photo + verified output). Fine-tune a lightweight model (YOLO for detection, small VLM for classification) on Changi-specific items to reduce cloud API dependency and enable offline intake</li>
+                <li>Offline capture queue (service worker + IndexedDB sync) with local model handling basic detection</li>
                 <li>Optimistic locking for multi-staff concurrent access</li>
                 <li>Barcode/QR scanning for tagged item bags</li>
                 <li>Vector-indexed semantic search (pgvector) for production-scale matching</li>
                 <li>Role-based access with supervisor approval and shift handover</li>
-                <li>Passenger-facing lost report portal with auto-matching</li>
+                <li>Passenger-facing lost report portal with auto-matching against found items</li>
               </ol>
+              <p style={{ margin: 0, marginTop: "8px" }}>
+                <strong>ML trajectory:</strong> Phase 1 (current) — cloud AI for all scans, staff corrections
+                build a labeled dataset. Phase 2 — fine-tuned local model handles common items (bags, phones,
+                wallets, SGD/MYR currency), cloud only for edge cases. Phase 3 — fully offline-capable
+                on-device model, cloud as optional verifier. Each staff confirmation today makes the
+                system cheaper and faster tomorrow.
+              </p>
               <p style={{ margin: 0, marginTop: "8px" }}>
                 <strong>Scope statement:</strong> This is a functional prototype demonstrating a complete
                 vertical slice — intake → nested draft → correction → completion → verified collection.

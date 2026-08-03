@@ -41,7 +41,7 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   await page.getByRole("button", { name: "Sign in to FoundFlow" }).click();
   await expect(page).toHaveURL(/\/cases$/);
 
-  await expect(page.getByRole("heading", { name: "Cases" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Cases", exact: true })).toBeVisible();
   await expect(page.getByText("Staff Operations", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Step-by-Step Intake Process", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Load Demo|Reset Demo/ })).toHaveCount(0);
@@ -59,9 +59,24 @@ test("photo-linked demo completes the airport property workflow", async ({ page 
   await page.getByLabel(/Found location/).selectOption({ index: 1 });
   await page.getByRole("button", { name: "Create Case" }).click();
   await expect(page).toHaveURL(/\/cases\/(?!new)[^/]+$/);
+  const disposableCaseId = page.url().split("/").pop();
   await expect(page.getByText("INSTRUCTIONS ACKNOWLEDGED", { exact: true })).toBeVisible();
+  await page.locator("#file").setInputFiles(`${process.cwd()}/public/demo/found-property-evidence.webp`);
+  await page.getByRole("button", { name: "Upload Photo" }).click();
+  await expect(page.getByText("Item Photos (1)", { exact: true })).toBeVisible();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: /Delete photo found-property-evidence\.webp/ }).click();
+  await expect(page.getByText("Item Photos (0)", { exact: true })).toBeVisible();
+  await expect(page.getByText("PHOTO DELETED", { exact: true })).toBeVisible();
 
   await page.goto("/cases");
+  await expect(page.getByRole("heading", { name: "Pending Review" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Ready to Complete" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Confirmed Cases" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Collected" })).toBeVisible();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: `Delete case ${disposableCaseId}` }).click();
+  await expect(page.locator(`a[href="/cases/${disposableCaseId}"]`)).toHaveCount(0);
   await page.locator('a[href="/cases/CT3A-20260721-DEMO"]').first().click();
   await expect(page).toHaveURL(/\/cases\/CT3A-20260721-DEMO$/);
   await expect(page.getByText("Item Photos (1)", { exact: true })).toBeVisible();

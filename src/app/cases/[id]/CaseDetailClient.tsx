@@ -14,6 +14,7 @@ import {
   handleUpdateItem,
   handleAddItem,
   handleDeleteItem,
+  handleDeletePhoto,
   handleReassignPhotoRegion,
   handleFinaliseCase
 } from "../actions";
@@ -41,6 +42,7 @@ function conciseReviewWarning(item: ManifestItem): string {
 
 const activityLabels: Record<string, string> = {
   evidence_uploaded: "PHOTO ADDED",
+  evidence_deleted: "PHOTO DELETED",
   ai_analysis_complete: "PHOTO SCAN COMPLETE",
 
   case_finalised: "CASE COMPLETED",
@@ -57,6 +59,7 @@ const activityLabels: Record<string, string> = {
 export default function CaseDetailClient({ initialCase, currentUser }: CaseDetailClientProps) {
   const [caseFile, setCaseFile] = useState<Case>(initialCase);
   const [isUploading, setIsUploading] = useState(false);
+  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -289,6 +292,25 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
       setErrorMsg(msg);
     } finally {
       setIsUploading(false);
+    }
+  }
+
+  async function deletePhoto(uploadId: string, originalName: string) {
+    if (isFinalised || !window.confirm(`Delete photo "${originalName}"? Linked items will require review.`)) return;
+    setDeletingPhotoId(uploadId);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      const result = await handleDeletePhoto(caseFile.id, uploadId);
+      if (result.error || !result.case) {
+        setErrorMsg(result.error || "Could not delete photo.");
+        return;
+      }
+      setCaseFile(result.case);
+      setSelectedItemId(null);
+      setSuccessMsg(result.warning || "Photo deleted. Linked items require review.");
+    } finally {
+      setDeletingPhotoId(null);
     }
   }
 
@@ -536,9 +558,23 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                         (e.target as HTMLImageElement).src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23edf1ea'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='10' fill='%2368736c'>Photo</text></svg>";
                       }}
                     />
-                    <div style={{ padding: "8px", fontSize: "0.72rem" }}>
-                      <strong style={{ display: "block", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{u.originalName}</strong>
-                      <span className="muted" style={{ display: "block" }}>Context: {formatPhotoContext(u.containerContext)}</span>
+                    <div style={{ padding: "8px", fontSize: "0.72rem", display: "grid", gap: "6px" }}>
+                      <div style={{ minWidth: 0 }}>
+                        <strong style={{ display: "block", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{u.originalName}</strong>
+                        <span className="muted" style={{ display: "block" }}>Context: {formatPhotoContext(u.containerContext)}</span>
+                      </div>
+                      {!isFinalised && (
+                        <button
+                          type="button"
+                          className="text-link"
+                          aria-label={`Delete photo ${u.originalName}`}
+                          disabled={deletingPhotoId === u.id}
+                          onClick={() => { void deletePhoto(u.id, u.originalName); }}
+                          style={{ justifySelf: "start", color: "#991b1b", padding: 0, border: 0, background: "transparent", cursor: deletingPhotoId === u.id ? "wait" : "pointer", fontWeight: 700 }}
+                        >
+                          {deletingPhotoId === u.id ? "Deleting…" : "Delete Photo"}
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}

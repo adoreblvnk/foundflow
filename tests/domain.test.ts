@@ -24,6 +24,7 @@ import {
   getCases,
   getCaseById,
   createCase,
+  deleteCaseRecord,
   updateCase,
   createClaimRecord,
   decideClaimRecord,
@@ -80,7 +81,7 @@ test("Database Layer, Seeding & Isolation", async (t) => {
     assert.strictEqual(caseFile!.id, "CT3A-20260721-DEMO");
   });
 
-  await t.test("should create a new case and persist audit event", async () => {
+  await t.test("should create and delete a non-finalised case", async () => {
     const newCase = await createCase({
       location: "Gate B22 Arrivals",
       foundTime: new Date().toISOString(),
@@ -101,6 +102,9 @@ test("Database Layer, Seeding & Isolation", async (t) => {
 
     const createdLog = retrieved!.auditLogs.find(l => l.action === "case_created");
     assert.ok(createdLog);
+
+    assert.strictEqual(await deleteCaseRecord(newCase.id), true);
+    assert.strictEqual(await getCaseById(newCase.id), undefined);
   });
 
   await t.test("should persist a walk-in claim, decision, handover time and audit history", async () => {

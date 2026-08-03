@@ -1,9 +1,10 @@
 "use server";
 
-import { createCase, getCaseById, updateCaseWithAudit, Case, EvidenceUpload, ManifestItem } from "@/lib/db";
+import { createCase, deleteCaseRecord, getCaseById, updateCaseWithAudit, Case, EvidenceUpload, ManifestItem } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
 import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
@@ -927,6 +928,64 @@ export async function handleDeleteItem(caseId: string, itemId: string) {
 
   await updateCaseWithAudit(caseId, caseFile, user.username, "item_deleted", `Deleted item "${itemToDelete.label}". Any child items were re-parented to protect nesting.`);
   return { success: true, manifest: caseFile.manifest };
+}
+
+export async function handleDeletePhoto(caseId: string, uploadId: string) {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Unauthenticated" };
+
+  const caseFile = await getCaseById(caseId);
+  if (!caseFile) return { error: "Case not found" };
+  if (caseFile.status === "finalised") return { error: "Completed cases and their photos are retained." };
+
+  const upload = caseFile.uploads.find((candidate) => candidate.id === uploadId);
+  if (!upload) return { error: "Photo not found" };
+
+  caseFile.uploads = caseFile.uploads.filter((candidate) => candidate.id !== uploadId);
+  caseFile.manifest = caseFile.manifest.map((item) => {
+    if (item.evidenceId !== uploadId) return item;
+    if (item.id === "outer-item-root") {
+      return { ...item, evidenceId: "manual-creation", regions: [], status: "review" as const, reviewReason: "Source photo deleted. Verify item." };
+    }
+    return {
+      ...item,
+      evidenceId: "staff-added",
+      regions: [],
+      source: "staff" as const,
+      status: "review" as const,
+      reviewReason: "Source photo deleted. Verify item.",
+    };
+  });
+
+  const validationError = validateManifestStructure(caseFile);
+  if (validationError) return { error: `Could not delete photo: ${validationError}` };
+
+  const updated = await updateCaseWithAudit(caseId, caseFile, user.username, "evidence_deleted", `Deleted photo "${upload.originalName}".`);
+  try {
+    await deleteEvidence(upload.filename);
+  } catch (error) {
+    console.error("Photo record deleted but storage cleanup failed:", error);
+    return { success: true, case: updated, warning: "Photo removed. Storage cleanup requires attention." };
+  }
+  return { success: true, case: updated };
+}
+
+export async function handleDeleteCase(caseId: string) {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Unauthenticated" };
+
+  const caseFile = await getCaseById(caseId);
+  if (!caseFile) return { error: "Case not found" };
+  if (caseFile.status === "finalised") return { error: "Completed cases are retained and cannot be deleted." };
+
+  const deleted = await deleteCaseRecord(caseId);
+  if (!deleted) return { error: "Case not found" };
+
+  const cleanupResults = await Promise.allSettled(caseFile.uploads.map((upload) => deleteEvidence(upload.filename)));
+  const cleanupFailed = cleanupResults.some((result) => result.status === "rejected");
+  if (cleanupFailed) console.error(`Case ${caseId} deleted but one or more photo files could not be cleaned up.`);
+  revalidatePath("/cases");
+  return { success: true, warning: cleanupFailed ? "Case deleted. Photo cleanup requires attention." : undefined };
 }
 
 export async function handleFinaliseCase(caseId: string) {

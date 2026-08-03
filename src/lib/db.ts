@@ -437,6 +437,12 @@ export async function updateCase(id: string, updatedCase: Case): Promise<Case> {
   return updated;
 }
 
+export async function deleteCaseRecord(id: string): Promise<boolean> {
+  const db = await getDbInstance();
+  const result = await db.execute({ sql: "DELETE FROM cases WHERE id = ?", args: [id] });
+  return result.rowsAffected > 0;
+}
+
 export async function updateCaseWithAudit(id: string, updatedCase: Case, userId: string, action: string, details: string): Promise<Case> {
   const db = await getDbInstance();
   const existing = await db.execute({ sql: "SELECT 1 FROM cases WHERE id = ?", args: [id] });

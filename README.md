@@ -1,25 +1,38 @@
-# FoundFlow — Changi Airport Lost & Found Intake
+# FoundFlow — Changi Airport Lost & Found System
 
-AI-powered, staff-confirmed item logging for airport found-item teams.
+AI-powered lost and found management for Changi Airport.
 
-FoundFlow helps Changi Airport staff document complex found-item cases quickly and accurately. Staff photograph items layer by layer, AI drafts a structured inventory (labels, nesting, bounding boxes, currency totals), and staff verify every record before the case is finalised. The system handles the full lifecycle: intake → photo scan → review → completion → ownership verification → collection.
+FoundFlow is a complete lost and found ecosystem — from the moment an item is discovered to the moment it's returned to its owner. Staff log found items with AI-assisted documentation, passengers report lost belongings, and the system matches them together. Every step is guided, verified, and auditable.
 
 > Built for the Launchpad 2026 AI Challenge. Functional hosted prototype — production deployment would require organisational access controls and operational review.
 
 ---
 
+## What It Does
+
+| Workflow | Description |
+|----------|-------------|
+| **Log Found Item** | Staff document items found on premises with guided photography and AI-drafted inventory |
+| **Manage Cases** | Track items through intake → review → confirmation → storage → collection |
+| **Search Records** | Find items across all cases using keyword or natural language |
+| **Ownership Verification** | Verify claims through independent evidence before handover |
+| **Collection** | Record handover with full audit trail |
+
+---
+
 ## Key Features
 
-- **Guided intake workflow** — Terminal, area, specific location, date/time, storage location
-- **AI vision scan** — Two-model pipeline (extraction + independent verifier) with per-item bounding boxes
+- **Guided intake** — Terminal, area, specific location, date/time, storage location
+- **AI vision scan** — Two-model pipeline (extraction + verifier) with per-item bounding boxes
 - **Dual AI provider** — OpenAI (gpt-5.6-sol) and Agnes AI (agnes-2.0-flash) as scan channels
-- **Nested container support** — Bag → Pouch → Contents hierarchy preserved throughout
+- **Nested containers** — Bag → Pouch → Contents hierarchy preserved throughout
 - **Currency precision** — Separate records per denomination, exact quantity × value totals
-- **Conditional matching fields** — Brand, colour, model, document details, jewellery, electronics specifics
-- **Private matching details** — Hidden from search, used only during ownership verification
-- **Review gating** — Money, documents, and uncertain items require explicit staff confirmation
-- **Collection claim** — Ownership verification with independent evidence groups
-- **Auto-detect search** — Keyword for short queries, AI semantic for natural language
+- **Conditional matching fields** — Brand, colour, model, documents, jewellery, electronics
+- **Private matching details** — Hidden from search, used only during claim verification
+- **Review gating** — Money, documents, and uncertain items require staff confirmation
+- **Ownership claims** — Compare passenger's report against staff observations
+- **Auto-detect search** — Short queries use keyword match; longer queries use AI semantic search
+- **Full audit trail** — Every action logged with staff identity and timestamp
 
 ---
 
@@ -29,14 +42,38 @@ FoundFlow helps Changi Airport staff document complex found-item cases quickly a
 |-------|---------|
 | `/` | Home — Log Found Item, Manage Cases, Search Records |
 | `/login` | Staff authentication |
-| `/cases` | Active cases dashboard |
+| `/cases` | Cases dashboard (pending, ready, confirmed, collected, archived) |
 | `/cases/new` | Step-by-step instructions + intake form |
 | `/cases/[id]` | Case workspace — photos, AI scan, item list, review, completion |
 | `/cases/[id]/claim` | Ownership verification and collection |
-| `/search` | Search across confirmed items |
+| `/search` | Search across all confirmed items |
 | `/about` | About Changi Airport Lost & Found |
 | `/guide` | Staff usage guide |
 | `/challenge` | Launchpad 2026 write-up (printable) |
+
+---
+
+## How It Works
+
+```
+┌─────────────┐     ┌──────────────┐     ┌─────────────┐     ┌────────────┐     ┌────────────┐
+│  Item Found │ ──▶ │  Photo Scan  │ ──▶ │ Staff Review│ ──▶ │  Confirmed │ ──▶ │ Collection │
+│  (Intake)   │     │  (AI Draft)  │     │ (Verify)    │     │  (Stored)  │     │ (Handover) │
+└─────────────┘     └──────────────┘     └─────────────┘     └────────────┘     └────────────┘
+                                                                     ▲
+                                                                     │
+                                                              ┌──────┴──────┐
+                                                              │ Lost Report │
+                                                              │  (Match)    │
+                                                              └─────────────┘
+```
+
+1. **Item found** — Staff record where, when, and what was found
+2. **Photo scan** — AI extracts structured inventory from photographs
+3. **Staff review** — Every AI-detected item confirmed by human
+4. **Confirmed & stored** — Case locked, item safely stored
+5. **Lost report match** — System compares found items against passenger descriptions
+6. **Collection** — Ownership verified, item handed over with audit record
 
 ---
 
@@ -56,7 +93,7 @@ npm ci
 cp .env.example .env
 ```
 
-Edit `.env` with your values:
+Edit `.env`:
 ```env
 AUTH_SECRET=           # Secure random string (32+ chars)
 LOGIN_USERNAME=        # Staff login username (4+ chars)
@@ -77,7 +114,7 @@ DATA_DIR=./data        # Local database and uploads
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000), sign in, and create a case from **Log Found Item**.
+Open [http://localhost:3000](http://localhost:3000), sign in, and start from **Log Found Item**.
 
 ---
 
@@ -89,10 +126,10 @@ Open [http://localhost:3000](http://localhost:3000), sign in, and create a case 
 | `npm run build` | Production build |
 | `npm run typecheck` | Static type checking |
 | `npm run lint` | ESLint checks |
-| `npm run test` | Domain unit tests (session, validation, cycle detection, finalisation) |
+| `npm run test` | Domain unit tests |
 | `npm run test:ai` | AI provider smoke test |
-| `npm run test:e2e:playwright` | Playwright E2E (no AI calls, reliable demo fallback) |
-| `npm run test:e2e` | Live-AI browser verification (requires running server) |
+| `npm run test:e2e:playwright` | Playwright E2E (no AI calls) |
+| `npm run test:e2e` | Live-AI browser verification |
 
 ---
 
@@ -100,8 +137,8 @@ Open [http://localhost:3000](http://localhost:3000), sign in, and create a case 
 
 ### OpenAI (Primary)
 - Model: `gpt-5.6-sol` for both extraction and verification
-- Sends images as file buffers (base64)
 - Two-pass pipeline: extraction → independent verifier
+- Sends images as file buffers (base64)
 
 ### Agnes AI (Sponsor, Alternative)
 - Model: `agnes-2.0-flash` (512K context, $0/1M tokens currently)
@@ -109,18 +146,20 @@ Open [http://localhost:3000](http://localhost:3000), sign in, and create a case 
 - Singapore-based AI model company
 - Select "Scan (Agnes)" in the case workspace
 
-The system auto-falls back to Agnes if `OPENAI_API_KEY` is not set but `AGNES_API_KEY` is available.
+Auto-fallback: if `OPENAI_API_KEY` is not set but `AGNES_API_KEY` is available, Agnes is used automatically.
 
 ---
 
 ## Architecture
 
-- **Framework**: Next.js (App Router)
-- **AI**: AI SDK v6 + `@ai-sdk/openai` provider (OpenAI-compatible for both providers)
-- **Database**: libSQL (local file) / Turso (hosted)
-- **Storage**: Local `DATA_DIR` / Vercel Blob (hosted)
-- **Auth**: HMAC session tokens, constant-time verification
-- **Security**: Magic-number upload validation, atomic transactions, audit trail
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js (App Router) |
+| AI | AI SDK v6 + `@ai-sdk/openai` (OpenAI-compatible for both providers) |
+| Database | libSQL (local) / Turso (hosted) |
+| Storage | Local `DATA_DIR` / Vercel Blob (hosted) |
+| Auth | HMAC session tokens, constant-time verification |
+| Security | Magic-number upload validation, atomic transactions, audit trail |
 
 ---
 
@@ -132,6 +171,7 @@ The system auto-falls back to Agnes if `OPENAI_API_KEY` is not set but `AGNES_AP
 - Private photo storage (never publicly accessible)
 - Passport/IC stored as last-four-characters only
 - Private matching details segregated from search
+- Full audit trail on every action
 
 ---
 

@@ -1,5 +1,11 @@
 import AppHeader from "@/components/AppHeader";
 
+const sectionStyle = {
+  fontSize: "0.92rem",
+  lineHeight: 1.7,
+  color: "var(--muted)",
+};
+
 export default function AboutPage() {
   return (
     <main style={{ minHeight: "100vh", background: "var(--paper)" }}>
@@ -10,107 +16,98 @@ export default function AboutPage() {
         marginInline: "auto",
         paddingBlock: "48px 80px",
       }}>
-        {/* Hero */}
         <section style={{ marginBottom: "48px" }}>
-          <p className="eyebrow">About Us</p>
+          <p className="eyebrow">About FoundFlow</p>
           <h1 style={{ fontSize: "2.2rem", lineHeight: 1.1, letterSpacing: "-0.04em", marginBottom: "20px" }}>
-            Changi Airport Lost &amp; Found
+            Built by Team Adore for Launchpad 2026
           </h1>
           <p style={{ fontSize: "1.05rem", lineHeight: 1.7, color: "var(--muted)" }}>
-            FoundFlow is the staff-facing intake system for Changi Airport&apos;s Lost &amp; Found service.
-            We help reunite passengers with their belongings through fast, accurate documentation and
-            a structured matching process between found items and lost reports.
+            FoundFlow is an independent hackathon project exploring how guided photography and human-reviewed AI
+            can make found-item intake faster, clearer, and easier to verify. It is a student-built prototype, not
+            an official lost-and-found service.
           </p>
         </section>
 
         <section style={{ display: "grid", gap: "36px" }}>
-          {/* Our Mission */}
           <div>
-            <h2 style={{ fontSize: "1.4rem", marginBottom: "12px" }}>Our Mission</h2>
-            <p style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "var(--muted)", margin: 0 }}>
-              Every year, thousands of items are left behind at Changi Airport — in transit areas,
-              gate hold rooms, lounges, and public spaces. Our goal is to document every found item
-              quickly and accurately, so that when a passenger files a lost report, we can match it
-              to what we have on record and return it as soon as possible.
+            <h2 style={{ fontSize: "1.4rem", marginBottom: "12px" }}>The challenge</h2>
+            <p style={{ ...sectionStyle, margin: 0 }}>
+              Complex found-item cases can contain bags, pouches, documents, electronics, mixed currencies, and
+              other nested contents. Recording every item manually is slow, while a flat description can lose the
+              relationship between each object, its container, and its source photo.
             </p>
           </div>
 
-          {/* How It Works */}
           <div>
-            <h2 style={{ fontSize: "1.4rem", marginBottom: "12px" }}>How It Works</h2>
-            <div style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "var(--muted)", display: "grid", gap: "12px" }}>
+            <h2 style={{ fontSize: "1.4rem", marginBottom: "12px" }}>Our project</h2>
+            <p style={{ ...sectionStyle, margin: 0 }}>
+              FoundFlow turns guided item photos into a structured, photo-linked draft. It preserves container
+              hierarchy, proposes quantities and item details, and gives staff one review workspace to correct and
+              confirm the record before completion.
+            </p>
+          </div>
+
+          <div>
+            <h2 style={{ fontSize: "1.4rem", marginBottom: "12px" }}>How the prototype works</h2>
+            <div style={{ ...sectionStyle, display: "grid", gap: "12px" }}>
               <p style={{ margin: 0 }}>
-                <strong>1. Item found</strong> — When an item is discovered by staff, cleaners, or handed in by
-                a passenger, our team logs the terminal, area, and time of discovery.
+                <strong>1. Record the case:</strong> Add the found location, date and time, outer item, and storage location.
               </p>
               <p style={{ margin: 0 }}>
-                <strong>2. Photo documentation</strong> — Staff photograph the item and its contents layer by layer.
-                Our AI system reads the photos and drafts a structured inventory including brands,
-                colours, currency denominations, and document details.
+                <strong>2. Photograph each level:</strong> Capture the outer item first, then open one container at a time.
               </p>
               <p style={{ margin: 0 }}>
-                <strong>3. Staff verification</strong> — Every AI-detected detail is reviewed and confirmed by
-                trained staff. No record is finalised without human sign-off.
+                <strong>3. Generate a draft:</strong> AI proposes item records, quantities, nested relationships, currency details, and photo boxes.
               </p>
               <p style={{ margin: 0 }}>
-                <strong>4. Secure storage</strong> — Items are stored in our designated Lost &amp; Found facility
-                with tracked custody records.
+                <strong>4. Review every item:</strong> Staff confirm or correct the draft before the case can be completed.
               </p>
               <p style={{ margin: 0 }}>
-                <strong>5. Matching &amp; collection</strong> — When a passenger files a lost report, our system
-                compares their description against found items. Ownership is verified through independent
-                evidence before handover.
+                <strong>5. Verify collection:</strong> Claims use independent ownership checks and an auditable handover record.
               </p>
             </div>
           </div>
 
-          {/* Coverage */}
           <div>
-            <h2 style={{ fontSize: "1.4rem", marginBottom: "12px" }}>Where We Operate</h2>
-            <div style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "var(--muted)", display: "grid", gap: "8px" }}>
-              <p style={{ margin: 0 }}>
-                Our service covers all areas managed by Changi Airport Group:
-              </p>
-              <ul style={{ paddingLeft: "20px", margin: 0, display: "grid", gap: "4px" }}>
-                <li>Terminal 1, 2, 3, and 4 — Public and transit areas</li>
-                <li>Gate hold rooms</li>
-                <li>Jewel Changi Airport</li>
-                <li>Transport areas (taxi stands, bus stops, car parks)</li>
-              </ul>
-              <p style={{ margin: 0, marginTop: "8px" }}>
-                <strong>Note:</strong> Items left onboard aircraft are managed by the airline&apos;s handling agent
-                (dnata or SATS). Please contact them directly for inflight lost property.
-              </p>
-            </div>
-          </div>
-
-          {/* Privacy & Security */}
-          <div>
-            <h2 style={{ fontSize: "1.4rem", marginBottom: "12px" }}>Privacy &amp; Security</h2>
-            <ul style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "var(--muted)", paddingLeft: "20px", margin: 0, display: "grid", gap: "8px", listStyle: "disc" }}>
-              <li>Item photos are stored in private, access-controlled storage — never publicly accessible.</li>
-              <li>Personal documents (passports, IDs, cards) are recorded with minimal identifiers only. Full numbers are never stored unless airport policy requires it.</li>
-              <li>Private matching details (hidden compartment contents, exact denominations, distinctive markings) are withheld from public view and used only during ownership verification.</li>
-              <li>All actions are logged in an audit trail with staff identity and timestamp.</li>
-              <li>Collection requires verified proof of ownership before any item is released.</li>
+            <h2 style={{ fontSize: "1.4rem", marginBottom: "12px" }}>What we built</h2>
+            <ul style={{ ...sectionStyle, paddingLeft: "20px", margin: 0, display: "grid", gap: "8px", listStyle: "disc" }}>
+              <li>Guided, container-by-container photo intake</li>
+              <li>Structured AI drafts with per-item photo boxes</li>
+              <li>Nested bag, pouch, and contents relationships</li>
+              <li>Exact currency denomination and quantity records</li>
+              <li>One scan action with automatic AI provider fallback</li>
+              <li>Staff review gates for money, documents, perishables, and uncertain details</li>
+              <li>Search, ownership verification, collection, and activity history</li>
             </ul>
           </div>
 
-          {/* Contact */}
           <div>
-            <h2 style={{ fontSize: "1.4rem", marginBottom: "12px" }}>Contact Us</h2>
-            <div style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "var(--muted)", display: "grid", gap: "8px" }}>
-              <p style={{ margin: 0 }}>
-                For lost items within the airport premises, file a report through our system or visit
-                the Lost &amp; Found counter at any terminal.
-              </p>
-              <p style={{ margin: 0 }}>
-                <strong>Operating hours:</strong> 24 hours, 7 days a week
-              </p>
-              <p style={{ margin: 0 }}>
-                <strong>General enquiries:</strong> +65 6595 6868
-              </p>
-            </div>
+            <h2 style={{ fontSize: "1.4rem", marginBottom: "12px" }}>Human control</h2>
+            <ul style={{ ...sectionStyle, paddingLeft: "20px", margin: 0, display: "grid", gap: "8px", listStyle: "disc" }}>
+              <li>AI output remains a draft until staff review it.</li>
+              <li>Every completed item links to a source photo or an explicit staff addition.</li>
+              <li>Sensitive and uncertain details require explicit confirmation.</li>
+              <li>Private matching details remain outside search results.</li>
+              <li>A failed scan does not block manual case completion.</li>
+            </ul>
+          </div>
+
+          <div>
+            <h2 style={{ fontSize: "1.4rem", marginBottom: "12px" }}>Team</h2>
+            <p style={{ ...sectionStyle, margin: 0 }}>
+              <strong>Team Adore</strong><br />
+              Joseph &amp; Tze Kai<br />
+              Launchpad 2026 AI Challenge
+            </p>
+          </div>
+
+          <div>
+            <h2 style={{ fontSize: "1.4rem", marginBottom: "12px" }}>Hackathon scope</h2>
+            <p style={{ ...sectionStyle, margin: 0 }}>
+              This functional prototype demonstrates the complete path from guided intake to reviewed item records,
+              search, ownership verification, and collection. A production deployment would require organisation-specific
+              access controls, operating procedures, retention policies, and integration with existing systems.
+            </p>
           </div>
         </section>
       </div>

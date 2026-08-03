@@ -46,6 +46,40 @@ import { buildDetectedItemLabel, hasCycle, isCurrencyItem, isValidImageRegion, m
 import { addDecimals, isValidCurrencyCode, multiplyDecimal, normalizeDecimal } from "../src/lib/currency.ts";
 import { buildConfirmedSearchItems } from "../src/lib/search.ts";
 import { caseContainsIdentityEvidence, evaluateClaimVerification } from "../src/lib/claim-policy.ts";
+import { ProviderFallbackError, runProviderFallback } from "../src/lib/provider-fallback.ts";
+
+test("AI provider fallback", async (t) => {
+  await t.test("uses the primary provider without calling the backup", async () => {
+    let backupCalls = 0;
+    const result = await runProviderFallback([
+      { name: "primary", run: async () => "primary result" },
+      { name: "backup", run: async () => { backupCalls++; return "backup result"; } },
+    ]);
+
+    assert.deepStrictEqual(result, { providerName: "primary", value: "primary result" });
+    assert.strictEqual(backupCalls, 0);
+  });
+
+  await t.test("uses the backup after the primary fails", async () => {
+    const result = await runProviderFallback([
+      { name: "primary", run: async () => { throw new Error("primary unavailable"); } },
+      { name: "backup", run: async () => "backup result" },
+    ]);
+
+    assert.deepStrictEqual(result, { providerName: "backup", value: "backup result" });
+  });
+
+  await t.test("reports failure only after every provider fails", async () => {
+    await assert.rejects(
+      runProviderFallback([
+        { name: "primary", run: async () => { throw new Error("primary unavailable"); } },
+        { name: "backup", run: async () => { throw new Error("backup unavailable"); } },
+      ]),
+      (error: unknown) => error instanceof ProviderFallbackError
+        && error.failures.map((failure) => failure.name).join(",") === "primary,backup",
+    );
+  });
+});
 
 test("Database Layer, Seeding & Isolation", async (t) => {
   await t.test("should start with 0 cases on fresh setup", async () => {

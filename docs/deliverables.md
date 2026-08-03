@@ -84,7 +84,7 @@ Before submission, verify:
 - [ ] `npm run test:e2e:playwright` passes (no AI required)
 - [ ] Live demo accessible at hosted URL
 - [ ] `/challenge` page renders and prints cleanly
-- [ ] Both "Scan (OpenAI)" and "Scan (Agnes)" buttons functional
+- [ ] One "Scan Item Photos" action with OpenAI primary and Agnes AI automatic fallback
 - [ ] Demo video under 3 minutes
 - [ ] Repository is public or judge-accessible
 - [ ] Profile completed on BoardingPass platform

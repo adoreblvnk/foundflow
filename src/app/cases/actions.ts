@@ -16,7 +16,8 @@ import { isValidCurrencyCode, multiplyDecimal, normalizeDecimal } from "@/lib/cu
 import { deleteEvidence, readEvidence, writeEvidence } from "@/lib/evidence-storage";
 import { PHOTO_CONTEXT_VALUES } from "@/lib/photo-context";
 import { INTAKE_ACKNOWLEDGEMENT_COOKIE } from "@/lib/intake";
-import { getAgnesProvider, getAgnesModelName, isAgnesAvailable } from "@/lib/agnes";
+import { getAgnesProvider, getAgnesModelName } from "@/lib/agnes";
+import { ProviderFallbackError, runProviderFallback } from "@/lib/provider-fallback";
 
 const imageRegionSchema = z.object({
   id: z.string().min(1).max(100),
@@ -255,7 +256,7 @@ const aiManifestSchema = z.object({
 
 
 
-export async function handleAiAnalysis(caseId: string, provider?: "openai" | "agnes") {
+export async function handleAiAnalysis(caseId: string) {
   const user = await getCurrentUser();
   if (!user) {
     return { error: "Unauthenticated" };
@@ -329,42 +330,61 @@ Respond strictly in the requested structured schema.`
       return { error: "No usable item photos are available for AI analysis." };
     }
 
-    // Determine which AI provider to use
-    const shouldUseAgnes = provider === "agnes" || (!process.env.OPENAI_API_KEY && isAgnesAvailable());
-    
-    if (!shouldUseAgnes && !process.env.OPENAI_API_KEY) {
+    const extractionAttempts: Array<{
+      name: string;
+      run: () => Promise<{ object: z.infer<typeof aiManifestSchema> }>;
+    }> = [];
+
+    if (process.env.OPENAI_API_KEY) {
+      const modelName = process.env.OPENAI_MODEL || "gpt-5.6-sol";
+      extractionAttempts.push({
+        name: "OpenAI",
+        run: () => generateObject({
+          model: openai(modelName),
+          schema: aiManifestSchema,
+          messages: [{ role: "user", content: contentPayload }],
+        }),
+      });
+    }
+
+    const agnesProvider = getAgnesProvider();
+    if (agnesProvider) {
+      const modelName = getAgnesModelName();
+      extractionAttempts.push({
+        name: "Agnes AI",
+        run: () => generateObject({
+          model: agnesProvider(modelName),
+          schema: aiManifestSchema,
+          messages: [{ role: "user", content: contentPayload }],
+        }),
+      });
+    }
+
+    if (extractionAttempts.length === 0) {
       return { error: "No AI provider configured. Set OPENAI_API_KEY or AGNES_API_KEY." };
     }
 
-    let extractionModelName: string;
-    let modelInstance;
-
-    if (shouldUseAgnes) {
-      const agnesProvider = getAgnesProvider();
-      if (!agnesProvider) {
-        return { error: "Agnes AI is not configured. Set AGNES_API_KEY." };
+    let extractionProviderName: string;
+    let aiOutput: z.infer<typeof aiManifestSchema>;
+    try {
+      const extraction = await runProviderFallback(extractionAttempts.map((attempt) => ({
+        name: attempt.name,
+        run: async () => {
+          const result = await attempt.run();
+          if (!result.object?.items) {
+            throw new Error("Provider did not return a valid item list.");
+          }
+          return result.object;
+        },
+      })));
+      extractionProviderName = extraction.providerName;
+      aiOutput = extraction.value;
+    } catch (error) {
+      if (error instanceof ProviderFallbackError) {
+        console.error("AI extraction providers failed:", error.failures);
+        return { error: "AI scan failed with all configured providers. Continue manually or try again." };
       }
-      extractionModelName = getAgnesModelName();
-      modelInstance = agnesProvider(extractionModelName);
-    } else {
-      extractionModelName = process.env.OPENAI_MODEL || "gpt-5.6-sol";
-      modelInstance = openai(extractionModelName);
-    }
-
-    const result = await generateObject({
-      model: modelInstance,
-      schema: aiManifestSchema,
-      messages: [
-        {
-          role: "user",
-          content: contentPayload,
-        }
-      ],
-    });
-
-    let aiOutput = result.object;
-    if (!aiOutput || !aiOutput.items) {
-      return { error: "AI did not return a valid list of items." };
+      throw error;
     }
     const requiresStrongVerification = true;
     let strongVerificationApplied = false;
@@ -632,7 +652,7 @@ Return the corrected complete extraction in the requested schema.`
       caseFile,
       user.username,
       "ai_analysis_triggered",
-      `Executed live OpenAI vision draft extraction${strongVerificationApplied ? " with independent strong-model verification" : ""}. Discovered ${mappedItems.length - 1} nested item records.`,
+      `Executed live ${extractionProviderName} vision draft extraction${strongVerificationApplied ? " with independent strong-model verification" : ""}. Discovered ${mappedItems.length - 1} nested item records.`,
     );
 
     return { success: true, manifest: mergedManifest };

@@ -28,7 +28,7 @@ FoundFlow helps staff turn guided item photos into a structured item list, prese
 
 - **Guided intake:** Terminal, area, specific location, date and time, outer item, and storage location
 - **AI vision scan:** Two-pass extraction and independent verification with per-item photo boxes
-- **Dual AI provider:** OpenAI (`gpt-5.6-sol`) and Agnes AI (`agnes-2.0-flash`) as selectable scan channels
+- **Automatic AI fallback:** One scan action uses OpenAI first and retries with Agnes AI if needed
 - **Nested containers:** Bag → pouch → contents hierarchy preserved throughout
 - **Currency precision:** Separate records per denomination with quantity × value totals
 - **Conditional matching fields:** Brand, colour, model, document, jewellery, and electronics details
@@ -143,13 +143,13 @@ Open [http://localhost:3000](http://localhost:3000), sign in, and start from **L
 - Two-pass pipeline: extraction → independent verification
 - Sends images as file buffers (base64)
 
-### Agnes AI (sponsor alternative)
+### Agnes AI (automatic backup)
 - Model: `agnes-2.0-flash`
 - OpenAI-compatible endpoint: `https://apihub.agnes-ai.com/v1`
 - Singapore-based AI model company
-- Select "Scan (Agnes)" in the case workspace
+- Automatically used when OpenAI is unavailable or its scan fails
 
-Auto-fallback: if `OPENAI_API_KEY` is not set but `AGNES_API_KEY` is available, Agnes is used automatically.
+The case workspace exposes one scan button. OpenAI is the primary provider and Agnes AI is the automatic backup. If only one provider is configured, FoundFlow uses that provider directly.
 
 ---
 

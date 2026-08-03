@@ -360,14 +360,14 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
   }
 
   // Handle AI analysis trigger
-  async function triggerAI(aiProvider?: "openai" | "agnes") {
+  async function triggerAI() {
     if (isFinalised || caseFile.uploads.length === 0) return;
     setIsAnalyzing(true);
     setErrorMsg(null);
     setSuccessMsg(null);
 
     try {
-      const result = await handleAiAnalysis(caseFile.id, aiProvider);
+      const result = await handleAiAnalysis(caseFile.id);
       if (result.error) {
         setErrorMsg(result.error);
       } else if (result.success) {
@@ -627,24 +627,15 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
           </div>
 
           {!isFinalised && (
-            <div style={{ display: "flex", gap: "8px" }}>
+            <div style={{ display: "flex" }}>
               <button
                 type="button"
                 className="button"
-                onClick={() => triggerAI("openai")}
+                onClick={triggerAI}
                 disabled={isAnalyzing || caseFile.uploads.length === 0}
-                style={{ flex: 1, minHeight: "40px", whiteSpace: "nowrap", background: "var(--green-dark)", fontSize: "0.82rem" }}
+                style={{ width: "100%", minHeight: "40px", whiteSpace: "nowrap", background: "var(--green-dark)", fontSize: "0.82rem" }}
               >
-                {isAnalyzing ? "Scanning..." : "Scan (OpenAI)"}
-              </button>
-              <button
-                type="button"
-                className="button"
-                onClick={() => triggerAI("agnes")}
-                disabled={isAnalyzing || caseFile.uploads.length === 0}
-                style={{ flex: 1, minHeight: "40px", whiteSpace: "nowrap", background: "#680be1", borderColor: "#680be1", fontSize: "0.82rem" }}
-              >
-                {isAnalyzing ? "Scanning..." : "Scan (Agnes)"}
+                {isAnalyzing ? "Scanning..." : "Scan Item Photos"}
               </button>
             </div>
           )}

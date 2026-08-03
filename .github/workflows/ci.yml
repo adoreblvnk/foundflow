@@ -1,49 +1,31 @@
 name: CI
 
 on:
-  pull_request:
   push:
     branches: [main]
-
-permissions:
-  contents: read
-
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  pull_request:
+    branches: [main]
 
 jobs:
-  quality:
+  build:
     name: Build and test
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      AUTH_SECRET: ci-test-secret-not-real-32chars!!
-      LOGIN_USERNAME: testuser
-      LOGIN_PASSWORD: testpassword123
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      DATA_DIR: ./data-ci
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 24
-          cache: npm
+          node-version: "24"
+          cache: "npm"
 
-      - name: Install dependencies
-        run: npm ci
+      - run: npm ci
 
-      - name: Lint
-        run: npm run lint
+      - run: npm run typecheck
 
-      - name: Typecheck
-        run: npm run typecheck
+      - run: npm run lint
 
-      - name: Unit tests
-        run: npm run test
-
-      - name: Build
-        run: npm run build
+      - run: npm run test
+        env:
+          AUTH_SECRET: ci-test-secret-32-chars-minimum!!
+          LOGIN_USERNAME: testuser
+          LOGIN_PASSWORD: testpass123

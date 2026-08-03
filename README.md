@@ -1,153 +1,143 @@
-# FoundFlow Intake Copilot
+# FoundFlow — Changi Airport Lost & Found Intake
 
-Staff-confirmed, photo-linked item logging for found-item teams.
+AI-powered, staff-confirmed item logging for airport found-item teams.
 
-FoundFlow helps airport and transit staff document complex found-item cases. Its guided workflow captures outer containers and each nesting level (e.g. Backpack → Pouch → Currency), drafts a structured item list with OCR attributes, per-instance photo bounding boxes and exact denomination × quantity totals for notes and coins, highlights uncertainty for side-by-side staff review, and requires confirmation before completion.
+FoundFlow helps Changi Airport staff document complex found-item cases quickly and accurately. Staff photograph items layer by layer, AI drafts a structured inventory (labels, nesting, bounding boxes, currency totals), and staff verify every record before the case is finalised. The system handles the full lifecycle: intake → photo scan → review → completion → ownership verification → collection.
 
-*Note: This application is a functional hosted prototype for controlled demonstrations; production roll-out would require organisational access controls and operational review.*
-
----
-
-## 🚀 Active Routes & Capabilities
-
-- **Landing Page (`/`)**: Product overview and security entry.
-- **Sign In (`/login`)**: Configurable staff authentication; the hosted demo can temporarily bypass login with `AUTH_DISABLED=true`.
-- **Dashboard (`/cases`)**: View and manage found-item cases. Supports controlled demo seeding.
-- **New Case (`/cases/new`)**: Document a new found-item container.
-- **Case Intake Workspace (`/cases/[id]`)**: Unified hub to:
-  - Add item photos (validated using JPG/PNG/WebP magic-number signatures).
-  - Trigger live AI vision analysis (using AI SDK v6).
-  - Apply quick text commands to manage the item list.
-  - Edit items, manage parent nesting, and assign source photos.
-  - Complete confirmed cases while blocking unresolved items or invalid structures.
-  - Require one explicit staff confirmation for review items, including money, identification documents, and perishables.
-- **Collection Claim (`/cases/[id]/claim`)**: Records report-backed or walk-in claims, requires independent ownership-evidence groups, masks identity references, and atomically records the staff decision and handover.
-- **Private Photos (`/api/uploads/[id]`)**: Application endpoint for stored item photos.
-
+> Built for the Launchpad 2026 AI Challenge. Functional hosted prototype — production deployment would require organisational access controls and operational review.
 
 ---
 
-## 🛠️ Local Setup & Environment Configuration
+## Key Features
 
-Local development requires no cloud database or object-storage account. The Vercel deployment uses managed Turso and private Vercel Blob resources.
+- **Guided intake workflow** — Terminal, area, specific location, date/time, storage location
+- **AI vision scan** — Two-model pipeline (extraction + independent verifier) with per-item bounding boxes
+- **Dual AI provider** — OpenAI (gpt-5.6-sol) and Agnes AI (agnes-2.0-flash) as scan channels
+- **Nested container support** — Bag → Pouch → Contents hierarchy preserved throughout
+- **Currency precision** — Separate records per denomination, exact quantity × value totals
+- **Conditional matching fields** — Brand, colour, model, document details, jewellery, electronics specifics
+- **Private matching details** — Hidden from search, used only during ownership verification
+- **Review gating** — Money, documents, and uncertain items require explicit staff confirmation
+- **Collection claim** — Ownership verification with independent evidence groups
+- **Auto-detect search** — Keyword for short queries, AI semantic for natural language
+
+---
+
+## Routes
+
+| Route | Purpose |
+|-------|---------|
+| `/` | Home — Log Found Item, Manage Cases, Search Records |
+| `/login` | Staff authentication |
+| `/cases` | Active cases dashboard |
+| `/cases/new` | Step-by-step instructions + intake form |
+| `/cases/[id]` | Case workspace — photos, AI scan, item list, review, completion |
+| `/cases/[id]/claim` | Ownership verification and collection |
+| `/search` | Search across confirmed items |
+| `/about` | About Changi Airport Lost & Found |
+| `/guide` | Staff usage guide |
+| `/challenge` | Launchpad 2026 write-up (printable) |
+
+---
+
+## Local Setup
 
 ### Prerequisites
-- **Node.js v24.11.1+ Required**: Matches the CI and Vercel runtime.
-- **OpenAI API Key**: Required to invoke the vision model for AI analysis.
+- **Node.js v24.11.1+**
+- **OpenAI API Key** and/or **Agnes AI API Key** — at least one required for AI scan
 
-### 1. Initialize Configuration
-Copy the environment variables template:
-```bash
-cp .env.example .env
-```
-
-### 2. Configure Environment Variables
-Open the `.env` file and replace every variable with your secure values. Do not use or commit defaults:
-```env
-# Secure cookie signing secret (Provide a secure cryptographically random string of at least 32 characters)
-AUTH_SECRET=
-
-# Required username for prototype login (minimum 4 characters)
-LOGIN_USERNAME=
-
-# Required password for prototype login (minimum 8 characters)
-LOGIN_PASSWORD=
-
-# OpenAI API key, fast extraction model, and strong verifier used for every photo scan
-OPENAI_API_KEY=
-OPENAI_MODEL=gpt-5.6-sol
-OPENAI_VERIFIER_MODEL=gpt-5.6-sol
-
-# Local libSQL database and uploads
-DATA_DIR=./data
-```
-
----
-
-## 📦 Script Commands & Verification
-
-### Install Dependencies
-FoundFlow uses **AI SDK v6** and the **@ai-sdk/openai** provider:
+### 1. Install dependencies
 ```bash
 npm ci
 ```
 
-### Run Locally (Development)
+### 2. Configure environment
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your values:
+```env
+AUTH_SECRET=           # Secure random string (32+ chars)
+LOGIN_USERNAME=        # Staff login username (4+ chars)
+LOGIN_PASSWORD=        # Staff login password (8+ chars)
+
+# AI Providers (at least one required)
+OPENAI_API_KEY=        # OpenAI API key
+OPENAI_MODEL=gpt-5.6-sol
+OPENAI_VERIFIER_MODEL=gpt-5.6-sol
+
+AGNES_API_KEY=         # Agnes AI key (optional, sponsor)
+AGNES_MODEL=agnes-2.0-flash
+
+DATA_DIR=./data        # Local database and uploads
+```
+
+### 3. Run locally
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000), sign in when authentication is enabled, then create a found-item case from **Staff Intake**. The automated test suite seeds a deterministic staged backpack case with one synthetic item photo, an eleven-record nested item list, five denomination-level currency reviews, exact totals of SGD 104.00 and MYR 50.40, completion, ownership verification, and collection.
-
-### Run Static Typecheck
-```bash
-npm run typecheck
-```
-
-### Run ESLint Checks
-```bash
-npm run lint
-```
-
-### Run Automated Unit/Domain Tests
-Runs the comprehensive test suite validating session parsing, magic number validations, cycle detection, ownership verification, and finalisation rules:
-```bash
-npm run test
-```
-
-### Run AI Vision Smoke Test
-Verifies OpenAI API connectivity and structured multimodal responses using harmless staged image data:
-```bash
-npm run test:ai
-```
-For the optional local-only Codex backup provider, run `npm run test:ai:codex`. Production never invokes Codex CLI.
-
-### Run Playwright CLI Production Demo Verification
-Builds the production app, starts an isolated server through Playwright CLI, signs in, loads the photo-linked fixture, checks the 375×500 mobile dialog, resolves all reviews, completes the case and verifies both exports and their activity records:
-```bash
-npm run test:e2e:playwright
-```
-This path requires no model call and is the reliable presentation fallback.
-
-### Run Live-AI Browser Verification
-With a production server running, exercises authentication, rejected and accepted uploads, representative object detection and OCR, nested relationships, review gating, correction handling, finalisation, exports and audit records:
-```bash
-BASE_URL=http://127.0.0.1:3000 \
-E2E_USERNAME="$LOGIN_USERNAME" \
-E2E_PASSWORD="$LOGIN_PASSWORD" \
-npm run test:e2e
-```
-The test uses `public/demo/found-item-evidence.webp` by default. Override `E2E_EVIDENCE_PATH` only when validating another staged image. Use staged or synthetic items only; do not place real passenger records in the repository.
-
-### Compile Production Build
-```bash
-npm run build
-```
+Open [http://localhost:3000](http://localhost:3000), sign in, and create a case from **Log Found Item**.
 
 ---
 
-## 🤖 OpenAI Vision Setup
-FoundFlow uses the `@ai-sdk/openai` provider with AI SDK v6 to call OpenAI's vision models directly via API. An `OPENAI_API_KEY` is required.
+## Commands
 
-1. Run `npm ci` to install all dependencies.
-2. Set your `OPENAI_API_KEY` in `.env`.
-3. Verify provider connectivity:
-   ```bash
-   npm run test:ai
-   ```
-
----
-
-## 🛡️ Prototype Design & Security Safeguards
-
-- **Durable Shared Persistence**: One async libSQL data layer uses a local file in development and Turso on Vercel. Case mutations and audit entries are committed in atomic batches.
-- **Private Photo Storage**: Item photos stay under `DATA_DIR` locally and in a private Vercel Blob store when hosted.
-- **Upload Hardening**: magic number file-signature checks (JPG/PNG/WebP), cryptographically secure UUID file IDs, and strict path protection.
-
-- **Constant-Time Verification**: Cryptographic HMAC session verification with SHA-256 timing-safe string comparison. Require exactly two token segments for parsed authentication tokens.
-- **Atomic Transactions**: All state mutations and their corresponding timeline log records are wrapped inside a single database transaction, ensuring no orphan logs or desynced states occur.
+| Command | Purpose |
+|---------|---------|
+| `npm run dev` | Development server |
+| `npm run build` | Production build |
+| `npm run typecheck` | Static type checking |
+| `npm run lint` | ESLint checks |
+| `npm run test` | Domain unit tests (session, validation, cycle detection, finalisation) |
+| `npm run test:ai` | AI provider smoke test |
+| `npm run test:e2e:playwright` | Playwright E2E (no AI calls, reliable demo fallback) |
+| `npm run test:e2e` | Live-AI browser verification (requires running server) |
 
 ---
 
-## ⚠️ Deployment Limits & Constraints
+## AI Providers
 
-- **Hosted Prototype**: Vercel, Turso, and private Blob support stateless function instances. This remains a controlled airport lost-item prototype.
+### OpenAI (Primary)
+- Model: `gpt-5.6-sol` for both extraction and verification
+- Sends images as file buffers (base64)
+- Two-pass pipeline: extraction → independent verifier
+
+### Agnes AI (Sponsor, Alternative)
+- Model: `agnes-2.0-flash` (512K context, $0/1M tokens currently)
+- OpenAI-compatible endpoint: `https://apihub.agnes-ai.com/v1`
+- Singapore-based AI model company
+- Select "Scan (Agnes)" in the case workspace
+
+The system auto-falls back to Agnes if `OPENAI_API_KEY` is not set but `AGNES_API_KEY` is available.
+
+---
+
+## Architecture
+
+- **Framework**: Next.js (App Router)
+- **AI**: AI SDK v6 + `@ai-sdk/openai` provider (OpenAI-compatible for both providers)
+- **Database**: libSQL (local file) / Turso (hosted)
+- **Storage**: Local `DATA_DIR` / Vercel Blob (hosted)
+- **Auth**: HMAC session tokens, constant-time verification
+- **Security**: Magic-number upload validation, atomic transactions, audit trail
+
+---
+
+## Security
+
+- Constant-time HMAC session verification (SHA-256)
+- Magic-number file signatures for uploads (JPG/PNG/WebP only)
+- Atomic database transactions — no orphan logs or desynced states
+- Private photo storage (never publicly accessible)
+- Passport/IC stored as last-four-characters only
+- Private matching details segregated from search
+
+---
+
+## Acknowledgements
+
+- **Changi Airport Group** — 54,000 lost items/year context and operational reference
+- **Agnes AI** — Launchpad 2026 sponsor, alternative AI vision provider
+- **OpenAI** — Primary vision model and API credits
+- **Launchpad 2026** — Challenge framework and judging structure

@@ -47,6 +47,9 @@ import { addDecimals, isValidCurrencyCode, multiplyDecimal, normalizeDecimal } f
 import { buildConfirmedSearchItems } from "../src/lib/search.ts";
 import { caseContainsIdentityEvidence, evaluateClaimVerification } from "../src/lib/claim-policy.ts";
 import { ProviderFallbackError, runProviderFallback } from "../src/lib/provider-fallback.ts";
+import { loadPhotosConcurrently, runParallelScanStages } from "../src/lib/ai-scan.ts";
+import { createScanEvent } from "../src/lib/scan-events.ts";
+import { buildLinkedInventoryRows } from "../src/lib/linked-inventory.ts";
 
 test("AI provider fallback", async (t) => {
   await t.test("uses the primary provider without calling the backup", async () => {
@@ -79,6 +82,156 @@ test("AI provider fallback", async (t) => {
         && error.failures.map((failure) => failure.name).join(",") === "primary,backup",
     );
   });
+});
+
+test("Parallel multi-photo scan orchestration", async (t) => {
+  await t.test("reads every source photo concurrently while preserving upload order and ownership", async () => {
+    const uploads = ["photo-a", "photo-b", "photo-c"].map((id, index) => ({
+      id,
+      filename: `${id}.jpg`,
+      originalName: `${id}.jpg`,
+      mimeType: "image/jpeg",
+      size: 10,
+      uploadedAt: `2026-08-04T00:00:0${index}.000Z`,
+      containerContext: "outer-item" as const,
+    }));
+    const releases = new Map<string, () => void>();
+    const started: string[] = [];
+    const loading = loadPhotosConcurrently(uploads, async (filename) => {
+      started.push(filename);
+      await new Promise<void>((resolve) => releases.set(filename, resolve));
+      return Buffer.from(filename);
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepStrictEqual(started, ["photo-a.jpg", "photo-b.jpg", "photo-c.jpg"]);
+    releases.get("photo-c.jpg")?.();
+    releases.get("photo-a.jpg")?.();
+    releases.get("photo-b.jpg")?.();
+    const loaded = await loading;
+    assert.deepStrictEqual(loaded.map((photo) => photo.upload.id), ["photo-a", "photo-b", "photo-c"]);
+    assert.deepStrictEqual(loaded.map((photo) => photo.data.toString()), ["photo-a.jpg", "photo-b.jpg", "photo-c.jpg"]);
+  });
+
+  await t.test("starts the primary extraction and independent verifier concurrently", async () => {
+    let primaryStarted = false;
+    let verifierStarted = false;
+    let releasePrimary!: () => void;
+    let releaseVerifier!: () => void;
+    const settled: Array<[number, number]> = [];
+    const primaryGate = new Promise<void>((resolve) => { releasePrimary = resolve; });
+    const verifierGate = new Promise<void>((resolve) => { releaseVerifier = resolve; });
+
+    const running = runParallelScanStages({
+      primary: async () => {
+        primaryStarted = true;
+        await primaryGate;
+        return { providerName: "primary", value: { items: ["primary"] } };
+      },
+      verifier: async () => {
+        verifierStarted = true;
+        await verifierGate;
+        return { items: ["verified"] };
+      },
+      isValidVerifierResult: (result) => result.items.length > 0,
+      onStageSettled: (completed, total) => { settled.push([completed, total]); },
+    });
+
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.strictEqual(primaryStarted, true);
+    assert.strictEqual(verifierStarted, true);
+    releaseVerifier();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepStrictEqual(settled, [[1, 2]]);
+    releasePrimary();
+    const result = await running;
+    assert.deepStrictEqual(settled, [[1, 2], [2, 2]]);
+    assert.deepStrictEqual(result.value, { items: ["verified"] });
+    assert.strictEqual(result.strongVerificationApplied, true);
+  });
+
+  await t.test("uses the valid verifier result even when the primary pass succeeds", async () => {
+    const result = await runParallelScanStages({
+      primary: async () => ({ providerName: "OpenAI", value: "primary draft" }),
+      verifier: async () => "verified draft",
+      isValidVerifierResult: (value) => value.length > 0,
+    });
+    assert.strictEqual(result.value, "verified draft");
+    assert.strictEqual(result.strongVerificationApplied, true);
+  });
+
+  await t.test("retains the primary review-gated draft when verification fails", async () => {
+    const result = await runParallelScanStages({
+      primary: async () => ({ providerName: "Agnes AI", value: "primary draft" }),
+      verifier: async () => { throw new Error("verifier unavailable"); },
+      isValidVerifierResult: (value) => value.length > 0,
+    });
+    assert.strictEqual(result.value, "primary draft");
+    assert.strictEqual(result.providerName, "Agnes AI");
+    assert.strictEqual(result.strongVerificationApplied, false);
+  });
+
+  await t.test("runs a single configured extraction stage without inventing verifier progress", async () => {
+    const settled: Array<[number, number]> = [];
+    const result = await runParallelScanStages({
+      primary: async () => ({ providerName: "Agnes AI", value: "sole-provider draft" }),
+      isValidVerifierResult: (value) => value.length > 0,
+      onStageSettled: (completed, total) => { settled.push([completed, total]); },
+    });
+    assert.strictEqual(result.value, "sole-provider draft");
+    assert.strictEqual(result.providerName, "Agnes AI");
+    assert.strictEqual(result.strongVerificationApplied, false);
+    assert.deepStrictEqual(settled, [[1, 1]]);
+  });
+
+  await t.test("preserves aggregated provider failures when every independent stage fails", async () => {
+    await assert.rejects(
+      runParallelScanStages({
+        primary: () => runProviderFallback([
+          { name: "OpenAI", run: async () => { throw new Error("primary unavailable"); } },
+          { name: "Agnes AI", run: async () => { throw new Error("backup unavailable"); } },
+        ]),
+        verifier: async () => { throw new Error("verifier unavailable"); },
+        isValidVerifierResult: () => false,
+      }),
+      (error: unknown) => error instanceof AggregateError
+        && error.errors[0] instanceof ProviderFallbackError
+        && error.errors[0].failures.map((failure) => failure.name).join(",") === "OpenAI,Agnes AI",
+    );
+  });
+
+  await t.test("defines monotonic progress from completed work stages", () => {
+    const events = [
+      createScanEvent("started", { photoCount: 3 }),
+      createScanEvent("photos_loaded", { photoCount: 3 }),
+      createScanEvent("primary_complete", { photoCount: 3 }),
+      createScanEvent("verification_complete", { photoCount: 3 }),
+      createScanEvent("saving", { photoCount: 3 }),
+      createScanEvent("complete", { photoCount: 3, itemCount: 8 }),
+    ];
+    assert.deepStrictEqual(events.map((event) => event.type), [
+      "started", "photos_loaded", "primary_complete", "verification_complete", "saving", "complete",
+    ]);
+    assert.ok(events.every((event, index) => index === 0 || event.progress > events[index - 1].progress));
+    assert.strictEqual(events.at(-1)?.progress, 100);
+  });
+});
+
+test("Linked inventory ordering", () => {
+  const items = [
+    { id: "loose", label: "Loose key", parentId: "missing" },
+    { id: "card", label: "Card", parentId: "wallet" },
+    { id: "outer-item-root", label: "Backpack", parentId: null },
+    { id: "wallet", label: "Wallet", parentId: "outer-item-root" },
+  ] as ManifestItem[];
+
+  const rows = buildLinkedInventoryRows(items);
+  assert.deepStrictEqual(rows.map((row) => [row.item.id, row.depth, row.parentLabel]), [
+    ["outer-item-root", 0, null],
+    ["wallet", 1, "Backpack"],
+    ["card", 2, "Wallet"],
+    ["loose", 0, null],
+  ]);
+  assert.strictEqual(new Set(rows.map((row) => row.item.id)).size, items.length);
 });
 
 test("Database Layer, Seeding & Isolation", async (t) => {

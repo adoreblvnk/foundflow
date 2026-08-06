@@ -2,7 +2,6 @@ name: CI
 
 on:
   push:
-    branches: [main]
   pull_request:
     branches: [main]
 
@@ -29,3 +28,9 @@ jobs:
           AUTH_SECRET: ci-test-secret-32-chars-minimum!!
           LOGIN_USERNAME: testuser
           LOGIN_PASSWORD: testpass123
+
+      - run: npm run build
+
+      - run: npx playwright install --with-deps chrome
+
+      - run: npm run test:e2e:playwright:only

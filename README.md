@@ -27,7 +27,7 @@ FoundFlow helps staff turn guided item photos into a structured item list, prese
 ## Key Features
 
 - **Guided intake:** Terminal, area, specific location, date and time, outer item, and storage location
-- **AI vision scan:** Two-pass extraction and independent verification with per-item photo boxes
+- **AI vision scan:** Parallel extraction and independent verification with per-item photo boxes and streamed stage progress
 - **Automatic AI fallback:** One scan action uses OpenAI first and retries with Agnes AI if needed
 - **Nested containers:** Bag → pouch → contents hierarchy preserved throughout
 - **Currency precision:** Separate records per denomination with quantity × value totals
@@ -51,6 +51,7 @@ FoundFlow helps staff turn guided item photos into a structured item list, prese
 | `/cases/[id]` | Case workspace: photos, AI scan, item list, review, completion |
 | `/cases/[id]/claim` | Ownership verification and collection |
 | `/search` | Search across all confirmed items |
+| `/guide` | Operational guide for intake, review, completion and collection |
 | `/about` | Product purpose, workflow, privacy, and scope |
 | `/challenge` | Launchpad 2026 write-up (printable) |
 
@@ -131,8 +132,13 @@ Open [http://localhost:3000](http://localhost:3000), sign in, and start from **L
 | `npm run lint` | ESLint checks |
 | `npm run test` | Domain unit tests |
 | `npm run test:ai` | AI provider smoke test |
-| `npm run test:e2e:playwright` | Playwright E2E (no AI calls) |
+| `npm run test:e2e:playwright` | Complete deterministic Playwright suite (no AI calls) |
+| `npm run test:e2e:demo` | Fast headless full-workflow demo verification |
+| `npm run test:e2e:playwright:only` | Run the headless suite against an existing production build (used by CI) |
+| `npm run demo:automated` | Headed paced walkthrough with video and trace artifacts |
 | `npm run test:e2e` | Live-AI browser verification |
+
+The automated demo uses only staged synthetic data and a temporary database under `/tmp`. Its video and trace are written to `test-results/automated-demo/`, and the HTML report is written to `playwright-report/demo/`. The fast headless demo covers the same workflow without deliberate pacing. On a headless Linux host, run `xvfb-run -a npm run demo:automated`.
 
 ---
 
@@ -140,7 +146,7 @@ Open [http://localhost:3000](http://localhost:3000), sign in, and start from **L
 
 ### OpenAI (primary)
 - Model: `gpt-5.6-sol` for both extraction and verification
-- Two-pass pipeline: extraction → independent verification
+- Extraction and independent verification start together; the verified draft wins when it is valid
 - Sends images as file buffers (base64)
 
 ### Agnes AI (automatic backup)
@@ -149,7 +155,7 @@ Open [http://localhost:3000](http://localhost:3000), sign in, and start from **L
 - Singapore-based AI model company
 - Automatically used when OpenAI is unavailable or its scan fails
 
-The case workspace exposes one scan button. OpenAI is the primary provider and Agnes AI is the automatic backup. If only one provider is configured, FoundFlow uses that provider directly.
+The case workspace exposes one scan button and a determinate progress bar tied to completed server stages. OpenAI extraction and independent verification run concurrently to avoid adding both model latencies. Agnes AI remains the automatic extraction fallback. If only one extraction provider is configured, FoundFlow uses it directly. Every AI result remains review-gated.
 
 ---
 

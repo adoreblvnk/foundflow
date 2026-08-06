@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCases, type Case } from "@/lib/db";
 import { isAuthenticated } from "@/lib/auth";
+import CaseActions from "./CaseActions";
 
 type CaseGroup = {
   key: "pending" | "ready" | "confirmed" | "collected" | "archived";
@@ -31,10 +32,11 @@ function CaseCard({ caseFile, stage }: { caseFile: Case; stage: CaseGroup["key"]
   }[stage];
 
   return (
-    <Link
-      href={`/cases/${caseFile.id}`}
-      style={{ display: "grid", gap: "8px", padding: "14px 16px", border: "1px solid var(--line)", borderRadius: "10px", background: "var(--panel)", textDecoration: "none", color: "inherit" }}
-    >
+    <article style={{ display: "grid", gap: "10px", padding: "14px 16px", border: "1px solid var(--line)", borderRadius: "10px", background: "var(--panel)" }}>
+      <Link
+        href={`/cases/${caseFile.id}`}
+        style={{ display: "grid", gap: "8px", textDecoration: "none", color: "inherit" }}
+      >
       <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", alignItems: "center" }}>
         <strong style={{ fontSize: "0.82rem", minWidth: 0, overflowWrap: "anywhere" }}>{caseFile.id}</strong>
         <span className={caseFile.status === "finalised" ? "status status-complete" : "status"} style={{ fontSize: "0.7rem", whiteSpace: "nowrap" }}>
@@ -51,12 +53,18 @@ function CaseCard({ caseFile, stage }: { caseFile: Case; stage: CaseGroup["key"]
         {unresolved > 0 && <span style={{ color: "var(--amber)", fontWeight: 700 }}>⚠️ {unresolved}</span>}
       </div>
 
-      {totalItems > 0 && (
-        <div style={{ height: "3px", background: "var(--line)", borderRadius: "2px", overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${Math.round((confirmedItems / totalItems) * 100)}%`, background: "var(--green)", borderRadius: "2px" }} />
-        </div>
-      )}
-    </Link>
+        {totalItems > 0 && (
+          <div style={{ height: "3px", background: "var(--line)", borderRadius: "2px", overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${Math.round((confirmedItems / totalItems) * 100)}%`, background: "var(--green)", borderRadius: "2px" }} />
+          </div>
+        )}
+      </Link>
+      <CaseActions
+        caseId={caseFile.id}
+        archived={stage === "archived"}
+        canDelete={caseFile.status !== "finalised"}
+      />
+    </article>
   );
 }
 

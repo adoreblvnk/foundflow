@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import AppHeader from "@/components/AppHeader";
 import StepIndicator from "@/components/StepIndicator";
-import { handleAiAnalysis } from "@/app/cases/actions";
+import ScanProgress from "@/components/ScanProgress";
+import { consumeScanStream, type ScanEvent } from "@/lib/scan-events";
 
 export default function ScanPage() {
   const params = useParams();
@@ -15,17 +16,16 @@ export default function ScanPage() {
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<{ count: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [progressEvent, setProgressEvent] = useState<ScanEvent | null>(null);
 
   async function runScan() {
     setIsScanning(true);
     setError(null);
+    setProgressEvent(null);
     try {
-      const result = await handleAiAnalysis(caseId);
-      if (result.error) {
-        setError(result.error);
-      } else if (result.manifest) {
-        setScanResult({ count: result.manifest.length });
-      }
+      const completed = await consumeScanStream(caseId, setProgressEvent);
+      setScanResult({ count: completed.itemCount ?? 0 });
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Scan failed");
     } finally {
@@ -77,11 +77,7 @@ export default function ScanPage() {
             </button>
           )}
 
-          {isScanning && (
-            <p style={{ marginTop: "20px", fontSize: "0.85rem", color: "var(--muted)" }}>
-              AI is reading your photos for items, text, and containers...
-            </p>
-          )}
+          <ScanProgress event={progressEvent} />
 
           {error && (
             <div style={{ marginTop: "16px", padding: "12px 16px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "8px", fontSize: "0.85rem", color: "#991b1b", textAlign: "left" }}>

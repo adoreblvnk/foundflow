@@ -3,13 +3,15 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Case, ManifestItem } from "@/lib/db";
-import { isCurrencyItem, summarizeCurrency } from "@/lib/validation";
+import { summarizeCurrency } from "@/lib/validation";
 import { formatDecimal, multiplyDecimal, normalizeDecimal } from "@/lib/currency";
-import PhotoRegionVerifier, { RegionCrops } from "./PhotoRegionVerifier";
+import PhotoRegionVerifier from "./PhotoRegionVerifier";
+import LinkedInventory from "./LinkedInventory";
 import { formatPhotoContext, PHOTO_CONTEXT_OPTIONS } from "@/lib/photo-context";
+import ScanProgress from "@/components/ScanProgress";
+import { consumeScanStream, type ScanEvent } from "@/lib/scan-events";
 import {
   handleUploadEvidence,
-  handleAiAnalysis,
   handleConfirmItem,
   handleUpdateItem,
   handleAddItem,
@@ -32,13 +34,6 @@ function displayCurrencyTotal(item: Pick<ManifestItem, "itemType" | "denominatio
   return formatDecimal(multiplyDecimal(denomination, item.quantity));
 }
 
-function conciseReviewWarning(item: ManifestItem): string {
-  const expectedRegions = item.quantityKnown === false ? Math.max(1, item.regions?.length ?? 0) : item.quantity;
-  if ((item.regions?.length ?? 0) !== expectedRegions || /invalid photo|missing source photo/i.test(item.reviewReason ?? "")) return "Fix photo boxes.";
-  if (isCurrencyItem(item)) return "Verify currency, value and count.";
-  if (/quantity|count/i.test(item.reviewReason ?? "")) return "Verify quantity.";
-  return "Staff review required.";
-}
 
 const activityLabels: Record<string, string> = {
   evidence_uploaded: "PHOTO ADDED",
@@ -106,6 +101,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
   const [isUploading, setIsUploading] = useState(false);
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [scanProgress, setScanProgress] = useState<ScanEvent | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -365,15 +361,12 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
     setIsAnalyzing(true);
     setErrorMsg(null);
     setSuccessMsg(null);
+    setScanProgress(null);
 
     try {
-      const result = await handleAiAnalysis(caseFile.id);
-      if (result.error) {
-        setErrorMsg(result.error);
-      } else if (result.success) {
-        setSuccessMsg(`Scan complete - ${result.manifest?.length} items detected. Review below.`);
-        await refreshCase();
-      }
+      const completed = await consumeScanStream(caseFile.id, setScanProgress);
+      await refreshCase();
+      setSuccessMsg(`Scan complete - ${completed.itemCount ?? 0} items detected. Review below.`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "AI Analysis failed";
       setErrorMsg(msg);
@@ -485,54 +478,6 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
     }
   }
 
-  // Build the indented tree structure
-  function getIndentDepth(item: ManifestItem): number {
-    let depth = 0;
-    let current: ManifestItem | undefined = item;
-    const visited = new Set<string>();
-
-    while (current?.parentId && !visited.has(current.id)) {
-      visited.add(current.id);
-      depth += 1;
-      current = caseFile.manifest.find((candidate) => candidate.id === current?.parentId);
-    }
-    return depth;
-  }
-
-  // Sort manifest items to keep children adjacent to parents
-  function getSortedManifest(): ManifestItem[] {
-    const sorted: ManifestItem[] = [];
-    const roots = caseFile.manifest.filter(i => i.parentId === null);
-
-    const rootNodes = roots.length > 0 ? roots : caseFile.manifest.filter(i => i.parentId === "outer-item-root");
-
-    function traverse(parentId: string | null) {
-      const children = caseFile.manifest.filter(i => i.parentId === parentId);
-      children.forEach(child => {
-        if (!sorted.some(s => s.id === child.id)) {
-          sorted.push(child);
-          traverse(child.id);
-        }
-      });
-    }
-
-    rootNodes.forEach(rn => {
-      if (!sorted.some(s => s.id === rn.id)) {
-        sorted.push(rn);
-        traverse(rn.id);
-      }
-    });
-
-    caseFile.manifest.forEach(item => {
-      if (!sorted.some(s => s.id === item.id)) {
-        sorted.push(item);
-      }
-    });
-
-    return sorted;
-  }
-
-  const sortedManifest = getSortedManifest();
 
   return (
     <main className="demo-page" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
@@ -627,7 +572,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
           </div>
 
           {!isFinalised && (
-            <div style={{ display: "flex" }}>
+            <div style={{ display: "grid" }}>
               <button
                 type="button"
                 className="button"
@@ -637,12 +582,13 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
               >
                 {isAnalyzing ? "Scanning..." : "Scan Item Photos"}
               </button>
+              <ScanProgress event={scanProgress} />
             </div>
           )}
 
           {/* Evidence Upload Form */}
           {!isFinalised && (
-            <div style={{ border: "1px solid var(--line)", borderRadius: "10px", padding: "12px", background: "var(--panel)" }}>
+            <div className="item-photo-upload" style={{ border: "1px solid var(--line)", borderRadius: "10px", padding: "12px", background: "var(--panel)" }}>
               <form onSubmit={onUploadSubmit} style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
                 <input
                   ref={fileInputRef}
@@ -702,14 +648,6 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
 
         {/* RIGHT PANEL: Manifest Review, Voice Assistant & Finalisation */}
         <section className="review-panel" style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-
-          <div className="review-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <p className="eyebrow">Linked Inventory</p>
-              <h2 style={{ fontSize: "1.8rem" }}>Item List</h2>
-            </div>
-            <span style={{ fontSize: "0.95rem" }}>{caseFile.manifest.length} records</span>
-          </div>
 
           {caseFile.isDemo && (
             <div style={{ background: "#edf4ef", border: "1px solid var(--line)", borderRadius: "10px", padding: "12px 14px", fontSize: "0.8rem", lineHeight: 1.5 }}>
@@ -794,126 +732,17 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
             </div>
           )}
 
-          {/* Interactive Manifest Tree View */}
-          <div className="item-list" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-              <span style={{ fontSize: "0.88rem", fontWeight: 700 }}>Items Found</span>
-              {!isFinalised && (
-                <button
-                  onClick={() => setIsAddingItem(true)}
-                  className="text-link"
-                  style={{ background: "transparent", border: "none", fontSize: "0.82rem", cursor: "pointer", display: "flex", alignItems: "center" }}
-                >
-                  + Add Item
-                </button>
-              )}
-            </div>
-
-            {!isFinalised && unresolved > 0 && (
-              <div style={{ fontSize: "0.75rem", color: "var(--amber)", fontWeight: 600, marginBottom: "10px", padding: "6px 10px", background: "#fffdf5", borderRadius: "6px", border: "1px solid #f5e6c8" }}>
-                ⚠️ {unresolved} require review.
-              </div>
-            )}
-
-            {sortedManifest.map((item) => {
-              const depth = getIndentDepth(item);
-              const isCurrency = item.itemType === "currency";
-
-              return (
-                <article
-                  key={item.id}
-                  className={selectedItemId === item.id ? "review-item selected" : "review-item"}
-                  onClick={() => setSelectedItemId(item.id)}
-                  style={{
-                    marginLeft: `${depth * 20}px`,
-                    borderLeft: depth > 0 ? "2px solid var(--line)" : "none",
-                    paddingLeft: depth > 0 ? "12px" : "0",
-                    paddingBlock: "8px",
-                    borderBottom: "1px solid var(--line)",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    gap: "8px",
-                  }}
-                >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                      <strong style={{ fontSize: "0.9rem" }}>{item.label}</strong>
-                      {item.quantity > 1 && (
-                        <span style={{ fontSize: "0.72rem", background: "var(--paper)", padding: "1px 6px", borderRadius: "4px", color: "var(--muted)" }}>
-                          ×{item.quantity}
-                        </span>
-                      )}
-                      {isCurrency && item.currencyCode && (
-                        <span style={{ fontSize: "0.72rem", fontFamily: "monospace", fontWeight: 700, color: "var(--green-dark)" }}>
-                          {item.currencyCode} {item.currencyTotal != null ? formatDecimal(item.currencyTotal) : "-"}
-                        </span>
-                      )}
-                      {item.status === "review" && (
-                        <span style={{ fontSize: "0.68rem", background: "#fff3cd", color: "#856404", padding: "1px 6px", borderRadius: "4px", fontWeight: 600 }}>
-                          Needs Review
-                        </span>
-                      )}
-                    </div>
-                    {item.reviewReason && (
-                      <div style={{ fontSize: "0.72rem", color: "var(--amber)", marginTop: "3px" }}>
-                        <span title={item.reviewReason}>⚠️ {conciseReviewWarning(item)}</span>
-                      </div>
-                    )}
-                    <RegionCrops item={item} selected={selectedItemId === item.id} onSelect={() => setSelectedItemId(item.id)} />
-                  </div>
-
-                  <div style={{ display: "flex", gap: "6px", alignItems: "center", flexShrink: 0 }}>
-                    {!isFinalised && item.status === "review" && (
-                      <button
-                        className="review-button"
-                        onClick={() => { void confirmItemDirect(item.id); }}
-                        type="button"
-                        style={{ padding: "4px 8px", fontSize: "0.74rem" }}
-                      >
-                        Confirm
-                      </button>
-                    )}
-
-                    {item.status === "confirmed" && (
-                      <span style={{ fontSize: "0.7rem", color: "var(--green-dark)" }}>✓</span>
-                    )}
-
-                    {!isFinalised && (
-                      <>
-                        <button
-                          type="button"
-                          aria-label={`Edit ${item.label}`}
-                          onClick={() => setEditingItem(item)}
-                          style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: "0.8rem", padding: "2px" }}
-                          title="Edit"
-                        >
-                          ✏️
-                        </button>
-                        {item.id !== "outer-item-root" && (
-                          <button
-                            type="button"
-                            aria-label={`Delete ${item.label}`}
-                            onClick={() => { void deleteItemDirect(item.id); }}
-                            style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: "0.8rem", padding: "2px" }}
-                            title="Delete"
-                          >
-                            🗑️
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </article>
-              );
-            })}
-
-            {sortedManifest.length === 0 && (
-              <div style={{ padding: "40px", textAlign: "center", color: "var(--muted)" }}>
-                No items yet. Add photos and scan, or add items manually.
-              </div>
-            )}
-          </div>
+          <LinkedInventory
+            items={caseFile.manifest}
+            uploads={caseFile.uploads}
+            selectedItemId={selectedItemId}
+            readOnly={isFinalised}
+            onSelectItem={setSelectedItemId}
+            onConfirmItem={(itemId) => { void confirmItemDirect(itemId); }}
+            onEditItem={setEditingItem}
+            onDeleteItem={(itemId) => { void deleteItemDirect(itemId); }}
+            onAddItem={() => setIsAddingItem(true)}
+          />
 
           {currencySummary.length > 0 && (
             <section aria-labelledby="currency-summary-title" style={{ border: "1px solid var(--line)", borderRadius: "10px", padding: "12px 14px", background: "var(--paper)" }}>

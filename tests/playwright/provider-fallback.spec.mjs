@@ -1,16 +1,9 @@
-import { rmSync } from "node:fs";
 import { expect, test } from "playwright/test";
 
-const dataDir = "/tmp/foundflow-playwright-cli";
-
-test.afterAll(() => {
-  rmSync(dataDir, { recursive: true, force: true });
-});
-
 test("case workspace exposes one provider-agnostic scan action", async ({ page }) => {
-  process.env.DATA_DIR = dataDir;
-  const { seedDemoCase } = await import("../../src/lib/db.ts");
-  const demoCase = await seedDemoCase();
+  const seedResponse = await page.request.post("/api/testing/seed-demo");
+  expect(seedResponse.ok()).toBe(true);
+  const demoCase = await seedResponse.json();
 
   await page.goto("/cases");
   await page.getByLabel("Staff Identifier").fill("playwright-officer");

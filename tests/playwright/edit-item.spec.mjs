@@ -1,16 +1,9 @@
-import { rmSync } from "node:fs";
 import { expect, test } from "playwright/test";
 
-const dataDir = "/tmp/foundflow-playwright-cli";
-
-test.afterAll(() => {
-  rmSync(dataDir, { recursive: true, force: true });
-});
-
 test("changing an AI item's source does not retain boxes from the old photo", async ({ page }) => {
-  process.env.DATA_DIR = dataDir;
-  const { seedDemoCase } = await import("../../src/lib/db.ts");
-  const demoCase = await seedDemoCase();
+  const seedResponse = await page.request.post("/api/testing/seed-demo");
+  expect(seedResponse.ok()).toBe(true);
+  const demoCase = await seedResponse.json();
   const item = demoCase.manifest.find((candidate) => candidate.id !== "outer-item-root" && candidate.regions?.length);
   expect(item).toBeTruthy();
 

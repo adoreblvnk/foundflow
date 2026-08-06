@@ -1,21 +1,31 @@
-import { rmSync } from "node:fs";
 import { expect, test } from "playwright/test";
 
-const dataDir = "/tmp/foundflow-playwright-cli";
-
-test.afterAll(() => {
-  rmSync(dataDir, { recursive: true, force: true });
+test.afterEach(async ({ page }, testInfo) => {
+  if (process.env.PLAYWRIGHT_DEMO_RECORDING === "1") {
+    const video = page.video();
+    expect(video, "headed demo video recorder").not.toBeNull();
+    await page.close();
+    await video.saveAs(testInfo.outputPath("demo.webm"));
+  }
 });
 
-test("photo-linked demo completes the airport item workflow", async ({ page }) => {
-  process.env.DATA_DIR = dataDir;
-  const { seedDemoCase } = await import("../../src/lib/db.ts");
-  await seedDemoCase();
+test("photo-linked demo completes the found-item workflow", async ({ page }) => {
+  const pageErrors = [];
+  const failedRequests = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  page.on("requestfailed", (request) => {
+    if (request.failure()?.errorText !== "net::ERR_ABORTED" && new URL(request.url()).origin === new URL(page.url() || "http://127.0.0.1").origin) {
+      failedRequests.push(`${request.method()} ${request.url()}: ${request.failure()?.errorText || "failed"}`);
+    }
+  });
+
+  const seedResponse = await page.request.post("/api/testing/seed-demo");
+  expect(seedResponse.ok()).toBe(true);
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Found items" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Open Cases/ })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Search Items/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Lost and Found" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Manage Cases/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Search Records/ })).toBeVisible();
   await expect(page.getByText(/Photograph\. Scan\. Verify\./)).toHaveCount(0);
   await expect(page.getByText("Staff Operations", { exact: true })).toHaveCount(0);
   await expect(page.getByText(/Kiosk Mode/)).toHaveCount(0);
@@ -48,21 +58,27 @@ test("photo-linked demo completes the airport item workflow", async ({ page }) =
 
   await page.goto("/cases/new/intake");
   await expect(page).toHaveURL(/\/cases\/new$/);
-  await expect(page.getByRole("heading", { name: "Intake order" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Step-by-step instructions" })).toBeVisible();
   await page.getByRole("button", { name: "Acknowledge & Continue" }).click();
   await expect(page).toHaveURL(/\/cases\/new$/);
-  await page.getByText("I understand and will follow this intake order.", { exact: true }).click();
+  await page.getByText("I understand and will follow these instructions.", { exact: true }).click();
   await page.getByRole("button", { name: "Acknowledge & Continue" }).click();
   await expect(page).toHaveURL(/\/cases\/new\/intake$/);
-  await expect(page.getByRole("heading", { name: "Item details" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Where and when found" })).toBeVisible();
+  await page.getByLabel(/Terminal/).selectOption("T3");
+  await page.getByLabel(/Area/).selectOption("Transit Area");
+  await page.getByLabel("Specific location").fill("Beside Gate B5 charging station");
+  await page.getByLabel(/Found date and time/).fill("2026-08-04T10:30");
   await page.getByLabel(/Outer item/).fill("Test umbrella");
-  await page.getByLabel(/Found location/).selectOption({ index: 1 });
+  await page.getByLabel("Found or handed in by").fill("Synthetic cleaner");
+  await page.getByLabel("Current storage location").fill("L&F Cabinet A3");
+  await page.getByLabel("Staff notes").fill("Synthetic automated walkthrough record.");
   await page.getByRole("button", { name: "Create Case" }).click();
   await expect(page).toHaveURL(/\/cases\/(?!new)[^/]+$/);
   const disposableCaseId = page.url().split("/").pop();
   await expect(page.getByText("INSTRUCTIONS ACKNOWLEDGED", { exact: true })).toBeVisible();
   await page.locator("#file").setInputFiles(`${process.cwd()}/public/demo/found-item-evidence.webp`);
-  await page.getByRole("button", { name: "Upload Photo" }).click();
+  await page.getByRole("button", { name: "Upload", exact: true }).click();
   await expect(page.getByText("Item Photos (1)", { exact: true })).toBeVisible();
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: /Delete photo found-item-evidence\.webp/ }).click();
@@ -92,7 +108,7 @@ test("photo-linked demo completes the airport item workflow", async ({ page }) =
   await expect(page.getByText("MYR 50.40", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Confirm", exact: true })).toHaveCount(5);
   await expect(page.getByRole("region", { name: "Match records to the photo" })).toBeVisible();
-  await expect(page.getByText("15/15 listed objects boxed", { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Match records to the photo" }).getByText("15/15 listed objects boxed", { exact: true })).toBeVisible();
   await expect(page.locator(".photo-region")).toHaveCount(15);
   const verifierBox = await page.getByRole("region", { name: "Match records to the photo" }).boundingBox();
   const capturePanelBox = await page.locator(".capture-panel").boundingBox();
@@ -134,19 +150,19 @@ test("photo-linked demo completes the airport item workflow", async ({ page }) =
   await page.getByLabel("Assign box to").selectOption("sgd-1-coins");
   await expect(page.getByRole("button", { name: /Singapore 1-dollar specimen coins, region/ })).toHaveCount(3);
 
-  const chooseImage = page.getByRole("button", { name: "Choose Image" });
-  const uploadPhoto = page.getByRole("button", { name: "Upload Photo" });
+  const chooseImage = page.getByRole("button", { name: /Choose/ });
+  const uploadPhoto = page.getByRole("button", { name: "Upload", exact: true });
   await expect(chooseImage).toBeVisible();
   await expect(uploadPhoto).toBeDisabled();
-  const photoInput = page.getByLabel("Select JPG / PNG / WebP");
-  const photoContext = page.getByLabel("Photo context");
+  const photoInput = page.locator("#file");
+  const photoContext = page.locator("#containerContext");
   await expect(photoContext).toHaveValue("loose-item");
   await expect(photoContext.getByRole("option", { name: "Loose / standalone item (no container)" })).toHaveCount(1);
   await photoInput.setInputFiles("public/demo/found-item-evidence.webp");
   await expect(page.getByText("found-item-evidence.webp", { exact: true })).toBeVisible();
   await expect(uploadPhoto).toBeEnabled();
   await photoInput.setInputFiles([]);
-  await expect(page.getByText("No image selected", { exact: true })).toBeVisible();
+  await expect(page.getByText("found-item-evidence.webp", { exact: true })).toHaveCount(0);
   await expect(uploadPhoto).toBeDisabled();
 
   await page.goto("/cases/CT3A-20260721-DEMO/upload");
@@ -245,10 +261,31 @@ test("photo-linked demo completes the airport item workflow", async ({ page }) =
   await expect(page.getByText("SGD 104.00", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Confirm", exact: true }).click();
 
+  await page.goto("/cases/CT3A-20260721-DEMO/scan");
+  await expect(page.getByRole("heading", { name: "Scan Item Photos" })).toBeVisible();
+  await page.goto("/cases/CT3A-20260721-DEMO/review");
+  await expect(page.getByRole("heading", { name: "Review Items" })).toBeVisible();
+  await page.goto("/cases/CT3A-20260721-DEMO/finalise");
+  await expect(page.getByRole("heading", { name: "Complete & Export" })).toBeVisible();
+  await page.goto("/cases/CT3A-20260721-DEMO");
+
   const finalise = page.getByRole("button", { name: "Confirm & Complete" });
   await expect(finalise).toBeEnabled();
   await finalise.click();
   await expect(page.getByText(/Item Record Completed/)).toBeVisible();
+
+  await page.goto("/search");
+  await page.getByLabel("Location").selectOption("T3 Arrival");
+  await page.getByLabel("Location").selectOption("");
+  await page.getByLabel("Item Type").selectOption("books");
+  await page.getByLabel("Date From").fill("2026-07-21");
+  await page.getByLabel("Date To").fill("2026-07-21");
+  await page.getByLabel("Found By").fill("Demo staff");
+  await page.getByLabel("Description (optional)").fill("kraft notebook");
+  await page.getByRole("button", { name: /Search/ }).click();
+  await expect(page.getByText("1 result found", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: /Plain kraft notebook/ }).click();
+  await expect(page).toHaveURL(/\/cases\/CT3A-20260721-DEMO$/);
 
   await page.getByRole("link", { name: "Start collection claim" }).click();
   await expect(page).toHaveURL(/\/cases\/CT3A-20260721-DEMO\/claim$/);
@@ -282,4 +319,6 @@ test("photo-linked demo completes the airport item workflow", async ({ page }) =
   await page.goto("/cases/CT3A-20260721-DEMO");
   await expect(page.getByRole("link", { name: /Download (?:JSON|CSV)/ })).toHaveCount(0);
   await expect(page.getByText(/ITEM COLLECTED/).first()).toBeVisible();
+  expect(pageErrors, "uncaught page errors").toEqual([]);
+  expect(failedRequests, "failed same-origin requests").toEqual([]);
 });

@@ -13,6 +13,9 @@
     "test:ai": "node --env-file=.env --experimental-strip-types tests/smoke-test-ai.ts",
     "test:ai:codex": "node --experimental-strip-types tests/smoke-test-codex.ts",
     "test:e2e:playwright": "npm run build && playwright test --config=playwright.config.mjs",
+    "test:e2e:demo": "npm run build && playwright test tests/playwright/demo.spec.mjs --config=playwright.config.mjs",
+    "test:e2e:playwright:only": "playwright test --config=playwright.config.mjs",
+    "demo:automated": "npm run build && playwright test --config=playwright.demo.config.mjs",
     "test:e2e": "node tests/e2e-browser.mjs"
   },
   "dependencies": {

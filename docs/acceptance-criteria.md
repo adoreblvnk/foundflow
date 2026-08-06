@@ -48,6 +48,12 @@ FoundFlow's challenge MVP is accepted only when all criteria below pass using st
 - [x] Cases, private photos, source links, and append-only activity events survive serverless function restarts through Turso and Vercel Blob.
 - [x] State mutations and their corresponding audit records commit atomically.
 - [x] Completion remains disabled until a photo exists and every review item is resolved.
+- [x] Source photos load concurrently while preserving upload order and evidence ownership.
+- [x] Independent extraction and verification begin concurrently, with provider fallback retained for extraction.
+- [x] Scan progress reports completed server stages over an authenticated no-store stream rather than elapsed-time estimates.
+- [x] The linked inventory presents parent-child order, source-photo links, review state, box coverage, and compact-screen actions without horizontal overflow.
+- [x] `/guide` documents intake, photography, scanning, review, completion, search, claim verification, and handover.
+- [x] A deterministic automated demo fills the complete workflow with synthetic data and records video and trace artifacts.
 - [x] Completed cases are locked against further mutation.
 
 

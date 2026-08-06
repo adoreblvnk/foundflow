@@ -411,7 +411,7 @@ export async function runAiScan(options: RunAiScanOptions): Promise<{ success: t
       return validateManifestStructure({ ...initialCase, manifest: candidate }) === null;
     },
     onStageSettled: (completed, total) => report(createScanEvent(
-      completed < total ? "primary_complete" : "verification_complete",
+      completed < total ? "analysis_stage_complete" : "analysis_complete",
       {
         photoCount: photos.length,
         label: completed < total

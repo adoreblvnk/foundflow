@@ -47,8 +47,8 @@ async function installScanStream(page, events, delay = 120) {
 const successEvents = [
   { type: "started", progress: 5, label: "Starting photo scan", photoCount: 1 },
   { type: "photos_loaded", progress: 20, label: "Item photos loaded", photoCount: 1 },
-  { type: "primary_complete", progress: 55, label: "Initial item scan complete", photoCount: 1 },
-  { type: "verification_complete", progress: 75, label: "Independent verification complete", photoCount: 1 },
+  { type: "analysis_stage_complete", progress: 55, label: "One AI analysis pass complete", photoCount: 1 },
+  { type: "analysis_complete", progress: 75, label: "Photo analysis complete", photoCount: 1 },
   { type: "saving", progress: 90, label: "Saving the linked item draft", photoCount: 1 },
   { type: "complete", progress: 100, label: "Photo scan complete", photoCount: 1, itemCount: 11 },
 ];

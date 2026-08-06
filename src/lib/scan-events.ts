@@ -1,8 +1,8 @@
 export const SCAN_EVENT_DETAILS = {
   started: { progress: 5, label: "Starting photo scan" },
   photos_loaded: { progress: 20, label: "Item photos loaded" },
-  primary_complete: { progress: 55, label: "Initial item scan complete" },
-  verification_complete: { progress: 75, label: "Independent verification complete" },
+  analysis_stage_complete: { progress: 55, label: "One AI analysis pass complete" },
+  analysis_complete: { progress: 75, label: "Photo analysis complete" },
   saving: { progress: 90, label: "Saving the linked item draft" },
   complete: { progress: 100, label: "Photo scan complete" },
   error: { progress: 100, label: "Photo scan could not be completed" },

@@ -203,13 +203,13 @@ test("Parallel multi-photo scan orchestration", async (t) => {
     const events = [
       createScanEvent("started", { photoCount: 3 }),
       createScanEvent("photos_loaded", { photoCount: 3 }),
-      createScanEvent("primary_complete", { photoCount: 3 }),
-      createScanEvent("verification_complete", { photoCount: 3 }),
+      createScanEvent("analysis_stage_complete", { photoCount: 3 }),
+      createScanEvent("analysis_complete", { photoCount: 3 }),
       createScanEvent("saving", { photoCount: 3 }),
       createScanEvent("complete", { photoCount: 3, itemCount: 8 }),
     ];
     assert.deepStrictEqual(events.map((event) => event.type), [
-      "started", "photos_loaded", "primary_complete", "verification_complete", "saving", "complete",
+      "started", "photos_loaded", "analysis_stage_complete", "analysis_complete", "saving", "complete",
     ]);
     assert.ok(events.every((event, index) => index === 0 || event.progress > events[index - 1].progress));
     assert.strictEqual(events.at(-1)?.progress, 100);

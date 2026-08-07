@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 import {
   getActiveDataKeyId,
@@ -14,10 +15,13 @@ import {
 } from "../src/lib/data-protection.ts";
 import { closeDb, createCase, createClaimRecord, getCaseById, getDbInstance, seedDemoCase } from "../src/lib/db.ts";
 import { readEvidence, writeEvidence } from "../src/lib/evidence-storage.ts";
+import { runAiScan } from "../src/lib/ai-scan.ts";
+import { buildProviderCandidateSummaries } from "../src/lib/search-provider.ts";
 
 const original = {
   authDisabled: process.env.AUTH_DISABLED,
   dataDir: process.env.DATA_DIR,
+  demoAiScanEnabled: process.env.DEMO_AI_SCAN_ENABLED,
   keys: process.env.DATA_ENCRYPTION_KEYS,
   mode: process.env.DATA_PROTECTION_MODE,
   storageMode: process.env.STORAGE_MODE,
@@ -31,6 +35,7 @@ function restoreEnvironment() {
   for (const [name, value] of [
     ["AUTH_DISABLED", original.authDisabled],
     ["DATA_DIR", original.dataDir],
+    ["DEMO_AI_SCAN_ENABLED", original.demoAiScanEnabled],
     ["DATA_ENCRYPTION_KEYS", original.keys],
     ["DATA_PROTECTION_MODE", original.mode],
     ["STORAGE_MODE", original.storageMode],
@@ -86,6 +91,28 @@ test("required mode fails closed while optional mode preserves legacy plaintext"
   assert.throws(() => protectText("secret", "db:cases.notes"), /duplicated/);
 });
 
+test("login-disabled mode blocks AI scans at the shared provider boundary", async () => {
+  process.env.AUTH_DISABLED = "true";
+  delete process.env.DEMO_AI_SCAN_ENABLED;
+  await assert.rejects(
+    () => runAiScan({ caseId: "synthetic-case-id", username: "demo-staff" }),
+    /Live AI scanning is disabled while login is disabled/,
+  );
+  process.env.AUTH_DISABLED = "false";
+});
+
+test("provider search summaries omit free-form operational data", () => {
+  const sensitive = "SYNTHETIC-PRIVATE-IDENTIFIER";
+  const summaries = buildProviderCandidateSummaries([{
+    category: sensitive,
+    itemType: sensitive,
+    currencyCode: sensitive,
+    foundTime: `2026-08-07T10:00:00Z ${sensitive}`,
+  }]);
+  assert.equal(summaries.includes(sensitive), false);
+  assert.match(summaries, /Category: other \| Type: property \| Currency: none \| Found date: 2026-08-07/);
+});
+
 test("evidence storage and sensitive database fields are encrypted at rest", async () => {
   closeDb();
   const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), "foundflow-security-"));
@@ -131,6 +158,17 @@ test("evidence storage and sensitive database fields are encrypted at rest", asy
   assert.match(String(rawClaim.claimantContact), /^ffenc:v1:current:/);
   assert.match(String(rawClaim.verificationNotes), /^ffenc:v1:current:/);
 
+  const secondCase = await createCase({
+    location: "Second synthetic location",
+    foundTime: new Date().toISOString(),
+    outerItemDescription: "Second synthetic bag",
+    notes: "Second private synthetic note",
+  });
+  const secondRawCase = (await db.execute({ sql: "SELECT notes FROM cases WHERE id = ?", args: [secondCase.id] })).rows[0];
+  await db.execute({ sql: "UPDATE cases SET notes = ? WHERE id = ?", args: [String(secondRawCase.notes), created.id] });
+  await assert.rejects(() => getCaseById(created.id));
+  await db.execute({ sql: "UPDATE cases SET notes = ? WHERE id = ?", args: [String(rawCase.notes), created.id] });
+
   const seeded = await seedDemoCase();
   const rawUpload = (await db.execute({ sql: "SELECT originalName FROM uploads WHERE caseId = ?", args: [seeded.id] })).rows[0];
   assert.match(String(rawUpload.originalName), /^ffenc:v1:current:/);
@@ -151,6 +189,31 @@ test("evidence storage and sensitive database fields are encrypted at rest", asy
   });
   assert.equal(demoOnlyCase.isDemo, true);
   process.env.AUTH_DISABLED = "false";
+
+  const legacyNote = protectText("Legacy scoped synthetic note", "db:cases.notes");
+  await db.execute({ sql: "UPDATE cases SET notes = ? WHERE id = ?", args: [legacyNote, created.id] });
+  closeDb();
+  const databasePath = path.join(dataDir, "foundflow.db");
+  const beforeDryRun = await fs.readFile(databasePath);
+  const migrationEnvironment = { ...process.env, AUTH_DISABLED: "false", DATA_DIR: dataDir, STORAGE_MODE: "local" };
+  const dryRun = spawnSync(process.execPath, ["--experimental-strip-types", "scripts/reencrypt-data.ts"], {
+    cwd: process.cwd(),
+    env: migrationEnvironment,
+    encoding: "utf8",
+  });
+  assert.equal(dryRun.status, 0, dryRun.stderr);
+  const dryRunResult = JSON.parse(dryRun.stdout.trim()) as { databaseRows: number; protectedFields: number };
+  assert.ok(dryRunResult.databaseRows >= 1);
+  assert.ok(dryRunResult.protectedFields >= 1);
+  assert.deepEqual(await fs.readFile(databasePath), beforeDryRun);
+
+  const applyMigration = spawnSync(process.execPath, ["--experimental-strip-types", "scripts/reencrypt-data.ts", "--apply"], {
+    cwd: process.cwd(),
+    env: migrationEnvironment,
+    encoding: "utf8",
+  });
+  assert.equal(applyMigration.status, 0, applyMigration.stderr);
+  assert.equal((await getCaseById(created.id))?.notes, "Legacy scoped synthetic note");
 
   closeDb();
   await fs.rm(dataDir, { recursive: true, force: true });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAuthenticated } from "@/lib/auth";
 import { getCases } from "@/lib/db";
 import { buildConfirmedSearchItems } from "@/lib/search";
+import { buildProviderCandidateSummaries } from "@/lib/search-provider";
 import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
@@ -102,10 +103,8 @@ export async function POST(request: NextRequest) {
 
   const candidateItems = allItems.slice(0, 100);
   try {
-    // Minimise provider egress: claimant contacts, staff identities, OCR and private matching fields never leave FoundFlow.
-    const itemDescriptions = candidateItems.map((item, index) => (
-      `[${index}] ${JSON.stringify(item.label)} | Category: ${item.category} | Location: ${item.location} | Found: ${item.foundTime} | Attributes: ${JSON.stringify(item.visibleAttributes)}`
-    )).join("\n");
+    // Minimise provider egress: only coarse allowlisted metadata leaves FoundFlow; free-form item and staff data stays local.
+    const itemDescriptions = buildProviderCandidateSummaries(candidateItems);
 
     const result = await generateObject({
       model: openai(process.env.OPENAI_SEARCH_MODEL || "gpt-4o-mini"),

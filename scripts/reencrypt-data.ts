@@ -1,3 +1,7 @@
+import fs from "node:fs";
+import path from "node:path";
+import crypto from "node:crypto";
+import { createClient } from "@libsql/client";
 import { closeDb, getDbInstance } from "../src/lib/db.ts";
 import { getActiveDataKeyId, protectText, protectedTextKeyId, unprotectText } from "../src/lib/data-protection.ts";
 import { readEvidence, writeEvidence } from "../src/lib/evidence-storage.ts";
@@ -16,12 +20,32 @@ const protectedColumns: ProtectedColumn[] = [
   { table: "claims", idColumns: ["id"], fields: ["lostReportId", "claimantName", "claimantContact", "maskedIdentifier", "verificationNotes", "decisionReason"] },
 ];
 
+function rowScope(definition: ProtectedColumn, field: string, row: Record<string, unknown>): string {
+  const identity = definition.idColumns.length === 1
+    ? String(row[definition.idColumns[0]])
+    : definition.idColumns.map((column) => String(row[column]));
+  const identityHash = crypto.createHash("sha256").update(JSON.stringify(identity)).digest("base64url");
+  return `db:${definition.table}.${field}:${identityHash}`;
+}
+
+function createReadOnlyClient() {
+  if (process.env.DATABASE_MODE === "turso" || process.env.VERCEL) {
+    const url = process.env.TURSO_DATABASE_URL;
+    const authToken = process.env.TURSO_AUTH_TOKEN;
+    if (!url || !authToken) throw new Error("Turso database credentials are not configured");
+    return createClient({ url, authToken });
+  }
+  const databasePath = path.resolve(process.env.DATA_DIR || "./data", "foundflow.db");
+  if (!fs.existsSync(databasePath)) throw new Error(`Database does not exist: ${databasePath}`);
+  return createClient({ url: `file:${databasePath}` });
+}
+
 const apply = process.argv.includes("--apply");
 if (process.env.DATA_PROTECTION_MODE !== "required") {
   throw new Error("Set DATA_PROTECTION_MODE=required before running the data-protection migration");
 }
 
-const db = await getDbInstance();
+const db = apply ? await getDbInstance() : createReadOnlyClient();
 const activeKeyId = getActiveDataKeyId();
 if (!activeKeyId) throw new Error("No active data-encryption key is configured");
 let fieldCount = 0;
@@ -36,11 +60,16 @@ try {
       for (const field of definition.fields) {
         const stored = row[field];
         if (stored === null || stored === undefined) continue;
-        if (protectedTextKeyId(String(stored)) === activeKeyId) continue;
-        const scope = `db:${definition.table}.${field}`;
-        const plain = unprotectText(String(stored), scope);
+        const targetScope = rowScope(definition, field, row);
+        let plain: string | null;
+        try {
+          plain = unprotectText(String(stored), targetScope);
+          if (protectedTextKeyId(String(stored)) === activeKeyId) continue;
+        } catch {
+          plain = unprotectText(String(stored), `db:${definition.table}.${field}`);
+        }
         if (plain === null) continue;
-        const protectedValue = protectText(plain, scope);
+        const protectedValue = protectText(plain, targetScope);
         if (protectedValue && protectedValue !== stored) updates.push({ field, value: protectedValue });
       }
       if (updates.length === 0) continue;
@@ -73,5 +102,6 @@ try {
     itemPhotos: uploads.rows.length,
   }));
 } finally {
-  closeDb();
+  if (apply) closeDb();
+  else db.close();
 }

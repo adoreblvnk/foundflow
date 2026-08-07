@@ -12,7 +12,7 @@ Application-layer AES-256-GCM envelopes cover:
 - OCR text, names on items, serial numbers, partial identifiers and private matching details;
 - audit-detail text.
 
-Operational fields needed for queues and structured search remain queryable. Existing plaintext records remain readable so deployments can migrate without downtime.
+Operational fields needed for queues and structured search remain queryable. Database envelopes authenticate both the field and a hash of the stable row identity, so same-column ciphertext cannot be moved between records. Existing plaintext records remain readable so deployments can migrate without downtime.
 
 ## Configuration
 
@@ -62,6 +62,8 @@ DATA_ENCRYPTION_KEYS=2026q4:<new-key>,2026q3:<previous-key>
 5. Verify the application and rerun the dry-run. Database fields using the active key should no longer be listed. The migration rewrites item photos with the active key.
 6. Remove the previous key only after backups and every live environment have been verified.
 
+When migrating envelopes created before row-identity binding, temporarily set `DATA_PROTECTION_ALLOW_LEGACY_SCOPE=true`, deploy, apply the migration, verify a clean dry-run, then set it back to `false` and redeploy. Never leave legacy-scope compatibility enabled after migration.
+
 Do not run migration concurrently with staff edits or photo uploads.
 
 ## Temporary login-disabled mode
@@ -81,13 +83,13 @@ Re-enable login by removing the variable or setting it to `false`. `DEMO_AI_SCAN
 
 Image scanning sends selected item photos to configured providers because that is the explicit workflow. Staff must use staged or approved operational data according to the provider agreement.
 
-Semantic search is local by default. `AI_SEARCH_ENABLED=true` opts into provider-assisted reranking. Provider requests omit claimant records, staff identities, OCR text and private matching details. The free-text query itself is sent when this mode is enabled, so staff must not enter contact details, identity numbers or other unnecessary personal data.
+Semantic search is local by default. `AI_SEARCH_ENABLED=true` opts into provider-assisted reranking. Candidate summaries contain only allowlisted categories, item type, validated currency code and found date; labels, locations, attributes, claimant records, staff identities, OCR text and private matching details remain local. The free-text query itself is sent when this mode is enabled, so staff must not enter contact details, identity numbers or other unnecessary personal data.
 
 Provider failures suppress request, response and credential-bearing error details from application logs.
 
 ## HTTP and supply-chain controls
 
-Every route receives CSP, frame, MIME-sniffing, referrer, permissions, cross-origin and HSTS headers. Sensitive JSON and item-photo responses use private `no-store` caching.
+Every dynamic route receives a request-specific nonce CSP without script `unsafe-inline`, plus frame, MIME-sniffing, referrer, permissions, cross-origin and HSTS headers. Sensitive JSON and item-photo responses use private `no-store` caching.
 
 The security workflow uses least-privilege job permissions and SHA-pinned third-party actions. It runs secret-history scanning, dependency auditing, npm registry-signature verification, CodeQL analysis, pull-request dependency review and SBOM generation.
 

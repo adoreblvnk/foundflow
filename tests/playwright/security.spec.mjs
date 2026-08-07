@@ -14,6 +14,18 @@ test("security headers protect pages and suppress framework disclosure", async (
   const headers = response.headers();
   expect(headers["content-security-policy"]).toContain("frame-ancestors 'none'");
   expect(headers["content-security-policy"]).toContain("object-src 'none'");
+  expect(headers["content-security-policy"]).toMatch(/script-src[^;]*'nonce-[^']+'/);
+  expect(headers["content-security-policy"]).not.toMatch(/script-src[^;]*'unsafe-inline'/);
+  const inlineScriptExecuted = await page.evaluate(async () => {
+    window.__foundFlowInlineScriptExecuted = false;
+    const button = document.createElement("button");
+    button.setAttribute("onclick", "window.__foundFlowInlineScriptExecuted = true");
+    document.body.append(button);
+    button.click();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    return window.__foundFlowInlineScriptExecuted;
+  });
+  expect(inlineScriptExecuted).toBe(false);
   expect(headers["cross-origin-opener-policy"]).toBe("same-origin");
   expect(headers["cross-origin-resource-policy"]).toBe("same-origin");
   expect(headers["permissions-policy"]).toContain("geolocation=()");

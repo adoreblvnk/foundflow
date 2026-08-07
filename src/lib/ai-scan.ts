@@ -9,6 +9,7 @@ import { multiplyDecimal, normalizeDecimal } from "./currency.ts";
 import { readEvidence } from "./evidence-storage.ts";
 import { ProviderFallbackError, runProviderFallback } from "./provider-fallback.ts";
 import { createScanEvent, type ScanEvent } from "./scan-events.ts";
+import { isAuthDisabled } from "./auth-tokens.ts";
 import {
   buildDetectedItemLabel,
   hasCycle,
@@ -438,6 +439,9 @@ export async function runDeterministicScanFixture(options: RunAiScanOptions): Pr
 }
 
 export async function runAiScan(options: RunAiScanOptions): Promise<{ success: true; manifest: ManifestItem[] }> {
+  if (isAuthDisabled() && process.env.DEMO_AI_SCAN_ENABLED !== "true") {
+    throw new Error("Live AI scanning is disabled while login is disabled.");
+  }
   const initialCase = await getCaseById(options.caseId);
   if (!initialCase) throw new Error("Case not found");
   if (initialCase.status === "finalised") throw new Error("Cannot analyze a finalised case");
@@ -513,6 +517,7 @@ export function publicScanError(error: unknown): string {
     "No usable item photos are available for AI analysis.",
     "One or more item photos could not be loaded. Check the evidence and try again.",
     "No AI provider configured. Set OPENAI_API_KEY or AGNES_API_KEY.",
+    "Live AI scanning is disabled while login is disabled.",
   ]);
   if (safeMessages.has(message) || message.startsWith("AI draft rejected:")) return message;
   console.error("AI scan failed; request and response details were suppressed.");

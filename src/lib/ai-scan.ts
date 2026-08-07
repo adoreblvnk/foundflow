@@ -501,7 +501,7 @@ export async function runAiScan(options: RunAiScanOptions): Promise<{ success: t
 export function publicScanError(error: unknown): string {
   if (error instanceof ScanAbortedError || error instanceof CaseRevisionConflictError) return error.message;
   if (error instanceof ProviderFallbackError || error instanceof AggregateError) {
-    console.error("AI scan providers failed:", error);
+    console.error("AI scan providers failed; request and response details were suppressed.");
     return "AI scan failed with all configured providers. Continue manually or try again.";
   }
   const message = error instanceof Error ? error.message : "";
@@ -515,6 +515,6 @@ export function publicScanError(error: unknown): string {
     "No AI provider configured. Set OPENAI_API_KEY or AGNES_API_KEY.",
   ]);
   if (safeMessages.has(message) || message.startsWith("AI draft rejected:")) return message;
-  console.error("AI scan failed:", error);
+  console.error("AI scan failed; request and response details were suppressed.");
   return "AI scan could not be completed. Continue manually or try again.";
 }

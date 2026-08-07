@@ -231,6 +231,7 @@ h2 { margin-bottom: 24px; font-size: 1.6rem; line-height: 1.2; letter-spacing: -
 
 .skip-link { position: fixed; top: 8px; left: 8px; z-index: 1000; transform: translateY(-150%); border-radius: 4px; background: var(--ink); color: #fff; padding: 9px 12px; font-weight: 700; }
 .skip-link:focus { transform: translateY(0); }
+.demo-mode-banner { background: #fff4df; color: #694300; padding: 8px 20px; text-align: center; font-size: 0.82rem; font-weight: 700; }
 .app-header { position: sticky; top: 0; z-index: 100; background: #fff; box-shadow: inset 0 -3px 0 var(--purple), 0 2px 5px rgba(35, 25, 45, 0.08); }
 .app-header-inner { min-height: var(--header-height); display: flex; align-items: center; gap: 28px; }
 .brand-link { flex: none; }

@@ -28,7 +28,9 @@ export default defineConfig({
     reuseExistingServer: process.env.PLAYWRIGHT_REUSE_SERVER === "1",
     env: {
       ...process.env,
+      AUTH_DISABLED: "false",
       AUTH_SECRET: "foundflow-playwright-secret-0123456789abcdef",
+      DATA_PROTECTION_MODE: "disabled",
       LOGIN_USERNAME: "playwright-officer",
       LOGIN_PASSWORD: "foundflow-playwright-password",
       PLAYWRIGHT_TEST_MODE: "1",

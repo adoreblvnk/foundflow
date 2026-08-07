@@ -1,8 +1,15 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { del, get, put } from "@vercel/blob";
+import { assertDataProtectionReady, isProtectedBuffer, protectBuffer, unprotectBuffer } from "./data-protection.ts";
 
 const BLOB_PREFIX = "evidence";
+
+function assertEvidenceFilename(filename: string): void {
+  if (!filename || filename !== path.basename(filename) || filename.includes("\0") || filename.length > 200) {
+    throw new Error("Invalid evidence filename");
+  }
+}
 
 export function usesBlobStorage(): boolean {
   return process.env.STORAGE_MODE === "blob" || Boolean(process.env.VERCEL);
@@ -17,33 +24,42 @@ function blobPath(filename: string): string {
 }
 
 export async function writeEvidence(filename: string, data: Buffer, contentType: string): Promise<void> {
+  assertDataProtectionReady();
+  assertEvidenceFilename(filename);
+  const storedData = protectBuffer(data, `evidence:${filename}`);
+  const storedContentType = isProtectedBuffer(storedData) ? "application/octet-stream" : contentType;
   if (usesBlobStorage()) {
-    await put(blobPath(filename), data, {
+    await put(blobPath(filename), storedData, {
       access: "private",
       addRandomSuffix: false,
       allowOverwrite: true,
-      contentType,
+      contentType: storedContentType,
     });
     return;
   }
 
   const uploadsDir = localUploadsDir();
-  await fs.mkdir(uploadsDir, { recursive: true });
-  await fs.writeFile(path.join(uploadsDir, filename), data);
+  await fs.mkdir(uploadsDir, { recursive: true, mode: 0o700 });
+  await fs.chmod(uploadsDir, 0o700);
+  await fs.writeFile(path.join(uploadsDir, filename), storedData, { mode: 0o600 });
 }
 
 export async function readEvidence(filename: string): Promise<Buffer | null> {
+  assertDataProtectionReady();
+  assertEvidenceFilename(filename);
   if (usesBlobStorage()) {
     const result = await get(blobPath(filename), {
       access: "private",
       useCache: false,
     });
     if (!result || result.statusCode !== 200 || !result.stream) return null;
-    return Buffer.from(await new Response(result.stream).arrayBuffer());
+    const storedData = Buffer.from(await new Response(result.stream).arrayBuffer());
+    return unprotectBuffer(storedData, `evidence:${filename}`);
   }
 
   try {
-    return await fs.readFile(path.join(localUploadsDir(), filename));
+    const storedData = await fs.readFile(path.join(localUploadsDir(), filename));
+    return unprotectBuffer(storedData, `evidence:${filename}`);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw error;
@@ -51,6 +67,8 @@ export async function readEvidence(filename: string): Promise<Buffer | null> {
 }
 
 export async function deleteEvidence(filename: string): Promise<void> {
+  assertDataProtectionReady();
+  assertEvidenceFilename(filename);
   if (usesBlobStorage()) {
     await del(blobPath(filename));
     return;

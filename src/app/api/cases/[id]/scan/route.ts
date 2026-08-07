@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/auth";
 import { publicScanError, runAiScan, runDeterministicScanFixture } from "@/lib/ai-scan";
 import { createScanEvent, type ScanEvent } from "@/lib/scan-events";
+import { isAuthDisabled } from "@/lib/auth-tokens";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -13,9 +14,16 @@ export async function POST(
   const user = await getCurrentUser();
   if (!user) return Response.json({ error: "Unauthenticated" }, { status: 401 });
   const { id } = await params;
+  const fixtureEnabled = process.env.PLAYWRIGHT_TEST_MODE === "1" && process.env.PLAYWRIGHT_SCAN_FIXTURE === "1";
+  if (isAuthDisabled() && !fixtureEnabled && process.env.DEMO_AI_SCAN_ENABLED !== "true") {
+    return Response.json(
+      { error: "AI scanning is unavailable while login is disabled. Continue with manual review." },
+      { status: 403, headers: { "Cache-Control": "private, no-store" } },
+    );
+  }
   const encoder = new TextEncoder();
   const abortController = new AbortController();
-  const runScan = process.env.PLAYWRIGHT_TEST_MODE === "1" && process.env.PLAYWRIGHT_SCAN_FIXTURE === "1"
+  const runScan = fixtureEnabled
     ? runDeterministicScanFixture
     : runAiScan;
   let connected = true;

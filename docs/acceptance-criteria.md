@@ -5,7 +5,14 @@ FoundFlow's challenge MVP is accepted only when all criteria below pass using st
 ## Intake and photos
 
 - [x] When authentication is enabled, an unauthenticated request to a case or photo resource is rejected or redirected to login. The hosted demo may temporarily set `AUTH_DISABLED=true`.
+- [x] Login-disabled mode exposes only synthetic demo records, marks new records as demo data and displays a warning.
+- [x] Login-disabled mode blocks live provider scans unless an explicit synthetic-demo exception is configured.
 - [x] A configured staff identity can sign in through an HTTP-only signed session cookie.
+- [x] Production fails closed without a valid data-encryption keyring; sensitive fields and item photos use authenticated AES-256-GCM envelopes.
+- [x] Legacy plaintext remains readable during controlled migration, and the keyring supports active-plus-previous key rotation.
+- [x] Search and item-photo APIs use authentication boundaries and private no-store responses; malformed search bodies are rejected.
+- [x] Security headers block framing, MIME sniffing and unnecessary browser capabilities.
+- [x] CI runs secret scanning, dependency audit, data-protection tests, CodeQL and SBOM generation.
 - [x] Staff must acknowledge a concise photo and review order before the case-details form is available; the acknowledgement is recorded on the created case.
 - [x] Staff can create a case with location, found time, and outer-item description.
 - [x] Cases are separated into Pending Review, Ready to Complete, Confirmed Cases, Collected, and Archived.

@@ -4,6 +4,16 @@ import path from "node:path";
 import { createClient } from "@libsql/client";
 import { normalizeDecimal } from "./currency.ts";
 import { readDemoEvidence, writeEvidence } from "./evidence-storage.ts";
+import { assertDataProtectionReady, protectText, unprotectText } from "./data-protection.ts";
+import { isAuthDisabled } from "./auth-tokens.ts";
+
+function protectField(field: string, value: string | null | undefined): string | null {
+  return protectText(value, `db:${field}`);
+}
+
+function unprotectField(field: string, value: string | null | undefined): string | null {
+  return unprotectText(value, `db:${field}`);
+}
 
 export interface EvidenceUpload {
   id: string;
@@ -141,7 +151,8 @@ function usesRemoteDatabase(): boolean {
 
 export function getDbPath(): string {
   const dataDir = process.env.DATA_DIR || "./data";
-  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
+  fs.chmodSync(dataDir, 0o700);
   return path.resolve(dataDir, "foundflow.db");
 }
 
@@ -344,9 +355,15 @@ async function initializeSchema(db: DbClient): Promise<void> {
 }
 
 export async function getDbInstance(): Promise<DbClient> {
+  assertDataProtectionReady();
   if (!dbInstance) dbInstance = createDbClient();
   if (!schemaPromise) schemaPromise = initializeSchema(dbInstance);
   await schemaPromise;
+  if (!usesRemoteDatabase()) {
+    for (const filename of [getDbPath(), `${getDbPath()}-wal`, `${getDbPath()}-shm`]) {
+      if (fs.existsSync(filename)) fs.chmodSync(filename, 0o600);
+    }
+  }
   return dbInstance;
 }
 
@@ -423,11 +440,12 @@ export async function getCaseById(id: string): Promise<Case | undefined> {
   ]);
   const caseRow = caseResult.rows[0] as unknown as CaseRow | undefined;
   if (!caseRow) return undefined;
+  if (isAuthDisabled() && !Boolean(caseRow.isDemo)) return undefined;
 
   const uploads = (uploadResult.rows as unknown as UploadRow[]).map((upload) => ({
     id: upload.id,
     filename: upload.filename,
-    originalName: upload.originalName,
+    originalName: unprotectField("uploads.originalName", upload.originalName) || "item-photo",
     mimeType: upload.mimeType,
     size: Number(upload.size),
     uploadedAt: upload.uploadedAt,
@@ -444,7 +462,7 @@ export async function getCaseById(id: string): Promise<Case | undefined> {
     confidence: Number(item.confidence),
     reviewReason: item.reviewReason || null,
     evidenceId: item.evidenceId || null,
-    ocrText: item.ocrText || undefined,
+    ocrText: unprotectField("manifest_items.ocrText", item.ocrText) || undefined,
     visibleAttributes: item.visibleAttributes || undefined,
     currencyCode: item.currencyCode || null,
     denomination: normalizeDecimal(item.denomination),
@@ -459,8 +477,8 @@ export async function getCaseById(id: string): Promise<Case | undefined> {
     distinctiveFeatures: item.distinctiveFeatures || null,
     contentsInside: item.contentsInside || null,
     documentType: item.documentType || null,
-    nameOnItem: item.nameOnItem || null,
-    lastFourChars: item.lastFourChars || null,
+    nameOnItem: unprotectField("manifest_items.nameOnItem", item.nameOnItem),
+    lastFourChars: unprotectField("manifest_items.lastFourChars", item.lastFourChars),
     issuingCountry: item.issuingCountry || null,
     expiryYear: item.expiryYear || null,
     jewelleryType: item.jewelleryType || null,
@@ -469,13 +487,22 @@ export async function getCaseById(id: string): Promise<Case | undefined> {
     shape: item.shape || null,
     lockStatus: item.lockStatus || null,
     wallpaperDescription: item.wallpaperDescription || null,
-    serialNumber: item.serialNumber || null,
+    serialNumber: unprotectField("manifest_items.serialNumber", item.serialNumber),
     caseOrAccessories: item.caseOrAccessories || null,
-    privateMatchingDetails: item.privateMatchingDetails || null,
+    privateMatchingDetails: unprotectField("manifest_items.privateMatchingDetails", item.privateMatchingDetails),
   }));
-  const auditLogs = (auditResult.rows as unknown as AuditLogRow[]).map((log) => ({ ...log }));
+  const auditLogs = (auditResult.rows as unknown as AuditLogRow[]).map((log) => ({
+    ...log,
+    details: unprotectField("audit_logs.details", log.details) || "",
+  }));
   const claims = (claimResult.rows as unknown as ClaimRow[]).map((claim) => ({
     ...claim,
+    lostReportId: unprotectField("claims.lostReportId", claim.lostReportId),
+    claimantName: unprotectField("claims.claimantName", claim.claimantName) || "",
+    claimantContact: unprotectField("claims.claimantContact", claim.claimantContact) || "",
+    maskedIdentifier: unprotectField("claims.maskedIdentifier", claim.maskedIdentifier),
+    verificationNotes: unprotectField("claims.verificationNotes", claim.verificationNotes) || "",
+    decisionReason: unprotectField("claims.decisionReason", claim.decisionReason),
     path: claim.path as ClaimPath,
     decision: claim.decision as ClaimDecision,
     acknowledgement: Boolean(claim.acknowledgement),
@@ -493,8 +520,8 @@ export async function getCaseById(id: string): Promise<Case | undefined> {
     foundTime: caseRow.foundTime,
     foundBy: caseRow.foundBy || "",
     outerItemDescription: caseRow.outerItemDescription,
-    notes: caseRow.notes || "",
-    storageLocation: caseRow.storageLocation || null,
+    notes: unprotectField("cases.notes", caseRow.notes) || "",
+    storageLocation: unprotectField("cases.storageLocation", caseRow.storageLocation),
     status: caseRow.status as "reviewing" | "finalised",
     finalisedAt: caseRow.finalisedAt || null,
     finalisedBy: caseRow.finalisedBy || null,
@@ -526,11 +553,11 @@ export async function createCase(caseData: Partial<Case> & { location: string; f
   const logId = `log-${crypto.randomUUID()}`;
   await db.batch([
     { sql: `INSERT INTO cases (id, isDemo, location, terminal, area, specificLocation, foundTime, foundBy, outerItemDescription, notes, storageLocation, status, finalisedAt, finalisedBy, createdAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args: [id, caseData.isDemo ? 1 : 0, caseData.location, caseData.terminal ?? null, caseData.area ?? null, caseData.specificLocation ?? null, caseData.foundTime, caseData.foundBy || "", caseData.outerItemDescription, caseData.notes || "", caseData.storageLocation ?? null, "reviewing", null, null, createdAt] },
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args: [id, isAuthDisabled() || caseData.isDemo ? 1 : 0, caseData.location, caseData.terminal ?? null, caseData.area ?? null, caseData.specificLocation ?? null, caseData.foundTime, caseData.foundBy || "", caseData.outerItemDescription, protectField("cases.notes", caseData.notes || ""), protectField("cases.storageLocation", caseData.storageLocation), "reviewing", null, null, createdAt] },
     { sql: `INSERT INTO manifest_items (id, caseId, label, parentId, quantity, status, confidence, reviewReason, evidenceId, source)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args: ["outer-item-root", id, caseData.outerItemDescription, null, 1, "confirmed", 1, null, "manual-creation", "system"] },
     { sql: `INSERT INTO audit_logs (id, caseId, timestamp, userId, action, details) VALUES (?, ?, ?, ?, ?, ?)`,
-      args: [logId, id, createdAt, caseData.finalisedBy || "staff", "case_created", `Case created with outer item: ${caseData.outerItemDescription} at ${caseData.location}`] },
+      args: [logId, id, createdAt, caseData.finalisedBy || "staff", "case_created", protectField("audit_logs.details", `Case created with outer item: ${caseData.outerItemDescription} at ${caseData.location}`)] },
   ], "write");
   const created = await getCaseById(id);
   if (!created) throw new Error("CRITICAL DATABASE ERROR: Failed to create and retrieve case.");
@@ -539,18 +566,18 @@ export async function createCase(caseData: Partial<Case> & { location: string; f
 
 function manifestInsertStatement(caseId: string, item: ManifestItem): Statement {
   return { sql: `INSERT INTO manifest_items (id, caseId, label, parentId, quantity, quantityKnown, itemType, status, confidence, reviewReason, evidenceId, ocrText, visibleAttributes, currencyCode, denomination, currencyTotal, category, source, regions, condition, brand, colour, model, distinctiveFeatures, contentsInside, documentType, nameOnItem, lastFourChars, issuingCountry, expiryYear, jewelleryType, material, engraving, shape, lockStatus, wallpaperDescription, serialNumber, caseOrAccessories, privateMatchingDetails)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args: [item.id, caseId, item.label, item.parentId, item.quantity, item.quantityKnown === false ? 0 : 1, item.itemType ?? "property", item.status, item.confidence, item.reviewReason, item.evidenceId, item.ocrText || null, item.visibleAttributes || null, item.currencyCode || null, item.denomination ?? null, item.currencyTotal ?? null, item.category || "other", item.source || (item.id === "outer-item-root" ? "system" : "staff"), JSON.stringify(item.regions || []), item.condition ?? null, item.brand ?? null, item.colour ?? null, item.model ?? null, item.distinctiveFeatures ?? null, item.contentsInside ?? null, item.documentType ?? null, item.nameOnItem ?? null, item.lastFourChars ?? null, item.issuingCountry ?? null, item.expiryYear ?? null, item.jewelleryType ?? null, item.material ?? null, item.engraving ?? null, item.shape ?? null, item.lockStatus ?? null, item.wallpaperDescription ?? null, item.serialNumber ?? null, item.caseOrAccessories ?? null, item.privateMatchingDetails ?? null] };
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args: [item.id, caseId, item.label, item.parentId, item.quantity, item.quantityKnown === false ? 0 : 1, item.itemType ?? "property", item.status, item.confidence, item.reviewReason, item.evidenceId, protectField("manifest_items.ocrText", item.ocrText), item.visibleAttributes || null, item.currencyCode || null, item.denomination ?? null, item.currencyTotal ?? null, item.category || "other", item.source || (item.id === "outer-item-root" ? "system" : "staff"), JSON.stringify(item.regions || []), item.condition ?? null, item.brand ?? null, item.colour ?? null, item.model ?? null, item.distinctiveFeatures ?? null, item.contentsInside ?? null, item.documentType ?? null, protectField("manifest_items.nameOnItem", item.nameOnItem), protectField("manifest_items.lastFourChars", item.lastFourChars), item.issuingCountry ?? null, item.expiryYear ?? null, item.jewelleryType ?? null, item.material ?? null, item.engraving ?? null, item.shape ?? null, item.lockStatus ?? null, item.wallpaperDescription ?? null, protectField("manifest_items.serialNumber", item.serialNumber), item.caseOrAccessories ?? null, protectField("manifest_items.privateMatchingDetails", item.privateMatchingDetails)] };
 }
 
 function updateStatements(id: string, updatedCase: Case): Statement[] {
   const statements: Statement[] = [
     { sql: `UPDATE cases SET location = ?, terminal = ?, area = ?, specificLocation = ?, foundTime = ?, foundBy = ?, outerItemDescription = ?, notes = ?, storageLocation = ?, status = ?, finalisedAt = ?, finalisedBy = ?, archivedAt = ?, archivedBy = ?, revision = revision + 1 WHERE id = ? AND revision = ?`,
-      args: [updatedCase.location, updatedCase.terminal ?? null, updatedCase.area ?? null, updatedCase.specificLocation ?? null, updatedCase.foundTime, updatedCase.foundBy, updatedCase.outerItemDescription, updatedCase.notes, updatedCase.storageLocation ?? null, updatedCase.status, updatedCase.finalisedAt, updatedCase.finalisedBy, updatedCase.archivedAt ?? null, updatedCase.archivedBy ?? null, id, updatedCase.revision ?? 0] },
+      args: [updatedCase.location, updatedCase.terminal ?? null, updatedCase.area ?? null, updatedCase.specificLocation ?? null, updatedCase.foundTime, updatedCase.foundBy, updatedCase.outerItemDescription, protectField("cases.notes", updatedCase.notes), protectField("cases.storageLocation", updatedCase.storageLocation), updatedCase.status, updatedCase.finalisedAt, updatedCase.finalisedBy, updatedCase.archivedAt ?? null, updatedCase.archivedBy ?? null, id, updatedCase.revision ?? 0] },
     { sql: "DELETE FROM uploads WHERE caseId = ?", args: [id] },
   ];
   for (const upload of updatedCase.uploads) {
     statements.push({ sql: `INSERT INTO uploads (id, caseId, filename, originalName, mimeType, size, uploadedAt, containerContext) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [upload.id, id, upload.filename, upload.originalName, upload.mimeType, upload.size, upload.uploadedAt, upload.containerContext || null] });
+      args: [upload.id, id, upload.filename, protectField("uploads.originalName", upload.originalName), upload.mimeType, upload.size, upload.uploadedAt, upload.containerContext || null] });
   }
   statements.push({ sql: "DELETE FROM manifest_items WHERE caseId = ?", args: [id] });
   for (const item of updatedCase.manifest) {
@@ -578,7 +605,7 @@ async function applyCaseUpdate(
     if (audit) {
       await transaction.execute({
         sql: "INSERT INTO audit_logs (id, caseId, timestamp, userId, action, details) VALUES (?, ?, ?, ?, ?, ?)",
-        args: [`log-${crypto.randomUUID()}`, id, new Date().toISOString(), audit.userId, audit.action, audit.details],
+        args: [`log-${crypto.randomUUID()}`, id, new Date().toISOString(), audit.userId, audit.action, protectField("audit_logs.details", audit.details)],
       });
     }
     await transaction.commit();
@@ -648,7 +675,7 @@ export async function replaceManifestFromScan(
     for (const item of manifest) await transaction.execute(manifestInsertStatement(id, item));
     await transaction.execute({
       sql: "INSERT INTO audit_logs (id, caseId, timestamp, userId, action, details) VALUES (?, ?, ?, ?, ?, ?)",
-      args: [`log-${crypto.randomUUID()}`, id, new Date().toISOString(), userId, "ai_analysis_triggered", details],
+      args: [`log-${crypto.randomUUID()}`, id, new Date().toISOString(), userId, "ai_analysis_triggered", protectField("audit_logs.details", details)],
     });
     await transaction.commit();
   } catch (error) {
@@ -668,7 +695,7 @@ export async function addAuditLog(id: string, userId: string, action: string, de
   const existing = await db.execute({ sql: "SELECT 1 FROM cases WHERE id = ?", args: [id] });
   if (existing.rows.length === 0) return;
   await db.execute({ sql: `INSERT INTO audit_logs (id, caseId, timestamp, userId, action, details) VALUES (?, ?, ?, ?, ?, ?)`,
-    args: [`log-${crypto.randomUUID()}`, id, new Date().toISOString(), userId, action, details] });
+    args: [`log-${crypto.randomUUID()}`, id, new Date().toISOString(), userId, action, protectField("audit_logs.details", details)] });
 }
 
 export async function createClaimRecord(input: Omit<ClaimRecord, "id" | "createdAt" | "decision" | "decisionReason" | "acknowledgement" | "decidedAt" | "decidedBy" | "collectedAt">): Promise<ClaimRecord> {
@@ -686,8 +713,8 @@ export async function createClaimRecord(input: Omit<ClaimRecord, "id" | "created
   };
   await db.batch([
     { sql: `INSERT INTO claims (id, caseId, path, lostReportId, claimantName, claimantContact, maskedIdentifier, verificationMethods, verificationNotes, decision, decisionReason, acknowledgement, createdAt, createdBy, decidedAt, decidedBy, collectedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args: [claim.id, claim.caseId, claim.path, claim.lostReportId, claim.claimantName, claim.claimantContact, claim.maskedIdentifier, JSON.stringify(claim.verificationMethods), claim.verificationNotes, claim.decision, null, 0, claim.createdAt, claim.createdBy, null, null, null] },
-    { sql: `INSERT INTO audit_logs (id, caseId, timestamp, userId, action, details) VALUES (?, ?, ?, ?, ?, ?)`, args: [`log-${crypto.randomUUID()}`, claim.caseId, claim.createdAt, claim.createdBy, "claim_created", `Created ${claim.path === "lost-report" ? "lost-report-linked" : "walk-in"} claim ${claim.id}`] },
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args: [claim.id, claim.caseId, claim.path, protectField("claims.lostReportId", claim.lostReportId), protectField("claims.claimantName", claim.claimantName), protectField("claims.claimantContact", claim.claimantContact), protectField("claims.maskedIdentifier", claim.maskedIdentifier), JSON.stringify(claim.verificationMethods), protectField("claims.verificationNotes", claim.verificationNotes), claim.decision, null, 0, claim.createdAt, claim.createdBy, null, null, null] },
+    { sql: `INSERT INTO audit_logs (id, caseId, timestamp, userId, action, details) VALUES (?, ?, ?, ?, ?, ?)`, args: [`log-${crypto.randomUUID()}`, claim.caseId, claim.createdAt, claim.createdBy, "claim_created", protectField("audit_logs.details", `Created ${claim.path === "lost-report" ? "lost-report-linked" : "walk-in"} claim ${claim.id}`)] },
   ], "write");
   return claim;
 }
@@ -701,15 +728,27 @@ export async function decideClaimRecord(caseId: string, claimId: string, input: 
   const results = await db.batch([
     { sql: `INSERT INTO audit_logs (id, caseId, timestamp, userId, action, details)
       SELECT ?, ?, ?, ?, ?, ? FROM claims WHERE id = ? AND caseId = ? AND decision = 'pending'`,
-      args: [`log-${crypto.randomUUID()}`, caseId, decidedAt, input.decidedBy, auditAction, auditDetails, claimId, caseId] },
+      args: [`log-${crypto.randomUUID()}`, caseId, decidedAt, input.decidedBy, auditAction, protectField("audit_logs.details", auditDetails), claimId, caseId] },
     { sql: `UPDATE claims SET decision = ?, decisionReason = ?, acknowledgement = ?, decidedAt = ?, decidedBy = ?, collectedAt = ? WHERE id = ? AND caseId = ? AND decision = 'pending'`,
-      args: [input.decision, input.decisionReason, input.acknowledgement ? 1 : 0, decidedAt, input.decidedBy, collectedAt, claimId, caseId] },
+      args: [input.decision, protectField("claims.decisionReason", input.decisionReason), input.acknowledgement ? 1 : 0, decidedAt, input.decidedBy, collectedAt, claimId, caseId] },
   ], "write");
   if (Number(results[1]?.rowsAffected) !== 1) return undefined;
   const result = await db.execute({ sql: "SELECT * FROM claims WHERE id = ? AND caseId = ?", args: [claimId, caseId] });
   const row = result.rows[0] as unknown as ClaimRow | undefined;
   if (!row) return undefined;
-  return { ...row, path: row.path as ClaimPath, decision: row.decision as ClaimDecision, acknowledgement: Boolean(row.acknowledgement), verificationMethods: JSON.parse(row.verificationMethods) as string[] };
+  return {
+    ...row,
+    lostReportId: unprotectField("claims.lostReportId", row.lostReportId),
+    claimantName: unprotectField("claims.claimantName", row.claimantName) || "",
+    claimantContact: unprotectField("claims.claimantContact", row.claimantContact) || "",
+    maskedIdentifier: unprotectField("claims.maskedIdentifier", row.maskedIdentifier),
+    verificationNotes: unprotectField("claims.verificationNotes", row.verificationNotes) || "",
+    decisionReason: unprotectField("claims.decisionReason", row.decisionReason),
+    path: row.path as ClaimPath,
+    decision: row.decision as ClaimDecision,
+    acknowledgement: Boolean(row.acknowledgement),
+    verificationMethods: JSON.parse(row.verificationMethods) as string[],
+  };
 }
 
 export async function seedDemoCase(): Promise<Case> {
@@ -755,21 +794,18 @@ export async function seedDemoCase(): Promise<Case> {
     { sql: "DELETE FROM uploads WHERE caseId = ?", args: [id] },
     { sql: "DELETE FROM cases WHERE id = ?", args: [id] },
     { sql: `INSERT INTO cases (id, isDemo, location, foundTime, foundBy, outerItemDescription, notes, status, finalisedAt, finalisedBy, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [id, 1, "Terminal 3 Arrivals Hall", createdAt, "Demo staff", "Black backpack", "Staged synthetic item for the FoundFlow demonstration. No passenger data is present.", "reviewing", null, null, createdAt] },
+      args: [id, 1, "Terminal 3 Arrivals Hall", createdAt, "Demo staff", "Black backpack", protectField("cases.notes", "Staged synthetic item for the FoundFlow demonstration. No passenger data is present."), "reviewing", null, null, createdAt] },
     { sql: `INSERT INTO uploads (id, caseId, filename, originalName, mimeType, size, uploadedAt, containerContext) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [evidenceId, id, evidenceFilename, "staged-found-item.webp", "image/webp", evidence.byteLength, "2026-07-21T09:31:00.000Z", "bag-contents"] },
+      args: [evidenceId, id, evidenceFilename, protectField("uploads.originalName", "staged-found-item.webp"), "image/webp", evidence.byteLength, "2026-07-21T09:31:00.000Z", "bag-contents"] },
   ];
-  for (const item of items) {
-    statements.push({ sql: `INSERT INTO manifest_items (id, caseId, label, parentId, quantity, quantityKnown, itemType, status, confidence, reviewReason, evidenceId, ocrText, visibleAttributes, currencyCode, denomination, currencyTotal, category, source, regions) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [item.id, id, item.label, item.parentId, item.quantity, item.quantityKnown === false ? 0 : 1, item.itemType ?? "property", item.status, item.confidence, item.reviewReason, item.evidenceId, item.ocrText ?? null, item.visibleAttributes ?? null, item.currencyCode ?? null, item.denomination ?? null, item.currencyTotal ?? null, item.category ?? "other", item.source ?? "system", JSON.stringify(item.regions || [])] });
-  }
+  for (const item of items) statements.push(manifestInsertStatement(id, item));
   const logs = [
     ["log-1", createdAt, "demo-staff", "case_created", "Demo case created from a staged synthetic found-item set"],
     ["log-2", "2026-07-21T09:31:00.000Z", "demo-staff", "evidence_uploaded", "Staged synthetic item photo linked to the bag-contents level"],
     ["log-3", "2026-07-21T09:32:00.000Z", "demo-staff", "demo_seeded", "Deterministic sample item list loaded; no live AI call was made"],
   ];
   for (const [logId, timestamp, userId, action, details] of logs) {
-    statements.push({ sql: `INSERT INTO audit_logs (id, caseId, timestamp, userId, action, details) VALUES (?, ?, ?, ?, ?, ?)`, args: [logId, id, timestamp, userId, action, details] });
+    statements.push({ sql: `INSERT INTO audit_logs (id, caseId, timestamp, userId, action, details) VALUES (?, ?, ?, ?, ?, ?)`, args: [logId, id, timestamp, userId, action, protectField("audit_logs.details", details)] });
   }
   await db.batch(statements, "write");
   const seeded = await getCaseById(id);

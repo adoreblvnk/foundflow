@@ -102,6 +102,10 @@ Edit `.env`:
 AUTH_SECRET=           # Secure random string (32+ chars)
 LOGIN_USERNAME=        # Staff login username (4+ chars)
 LOGIN_PASSWORD=        # Staff login password (8+ chars)
+AUTH_DISABLED=false    # Set true only for the synthetic demo; non-demo records are hidden
+
+DATA_PROTECTION_MODE=required
+DATA_ENCRYPTION_KEYS=2026q3:<base64-encoded-32-byte-key>
 
 # AI Providers (at least one required)
 OPENAI_API_KEY=        # OpenAI API key
@@ -118,7 +122,7 @@ DATA_DIR=./data        # Local database and uploads
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000), sign in, and start from **Log Found Item**.
+Open [http://localhost:3000](http://localhost:3000) and start from **Log Found Item**. When `AUTH_DISABLED=true`, login is skipped and FoundFlow operates in synthetic demo-only mode.
 
 ---
 
@@ -130,7 +134,9 @@ Open [http://localhost:3000](http://localhost:3000), sign in, and start from **L
 | `npm run build` | Production build |
 | `npm run typecheck` | Static type checking |
 | `npm run lint` | ESLint checks |
-| `npm run test` | Domain unit tests |
+| `npm run test` | Domain and data-protection tests |
+| `npm run test:security` | Encryption and protected-storage tests |
+| `npm run security:reencrypt` | Dry-run encryption/key-rotation migration; append `-- --apply` to write |
 | `npm run test:ai` | AI provider smoke test |
 | `npm run test:e2e:playwright` | Complete deterministic Playwright suite (no AI calls) |
 | `npm run test:e2e:demo` | Fast headless full-workflow demo verification |
@@ -168,19 +174,26 @@ The case workspace exposes one scan button and a determinate progress bar tied t
 | Database | libSQL (local) / Turso (hosted) |
 | Storage | Local `DATA_DIR` / Vercel Blob (hosted) |
 | Auth | HMAC session tokens, constant-time verification |
-| Security | Magic-number upload validation, atomic transactions, audit trail |
+| Security | AES-256-GCM data envelopes, private storage, security headers, atomic transactions, audit trail |
 
 ---
 
 ## Security
 
 - Constant-time HMAC session verification (SHA-256)
+- Temporary login-disabled mode is restricted to synthetic demo records
+- AES-256-GCM application-layer encryption for item photos and sensitive database fields
+- Fail-closed production encryption with versioned key rotation
 - Magic-number file signatures for uploads (JPG/PNG/WebP only)
 - Atomic database transactions prevent orphan logs and desynchronised states
 - Private photo storage (never publicly accessible)
 - Passport/IC stored as last-four-characters only
 - Private matching details segregated from search
 - Full audit trail on every action
+- CSP, frame, cross-origin, permissions, referrer, MIME-sniffing and HSTS headers
+- CI secret scanning, dependency auditing, CodeQL, dependency review and SBOM generation
+
+See [`docs/data-protection.md`](docs/data-protection.md) for key setup, migration, rotation and incident response. Report vulnerabilities through the private process in [`SECURITY.md`](SECURITY.md).
 
 ---
 

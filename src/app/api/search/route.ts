@@ -1,119 +1,132 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isAuthenticated } from "@/lib/auth";
 import { getCases } from "@/lib/db";
 import { buildConfirmedSearchItems } from "@/lib/search";
 import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 
-interface SearchFilters {
-  location?: string;
-  category?: string;
-  foundBy?: string;
-  dateFrom?: string;
-  dateTo?: string;
+const searchRequestSchema = z.object({
+  query: z.string().trim().max(500).default(""),
+  mode: z.enum(["auto", "text"]).optional(),
+  filters: z.object({
+    location: z.string().trim().max(120).optional(),
+    category: z.string().trim().max(50).optional(),
+    foundBy: z.string().trim().max(120).optional(),
+    dateFrom: z.iso.date().optional(),
+    dateTo: z.iso.date().optional(),
+  }).optional(),
+}).strict();
+
+function json(body: unknown, status = 200) {
+  return NextResponse.json(body, {
+    status,
+    headers: { "Cache-Control": "private, no-store" },
+  });
+}
+
+class RequestTooLargeError extends Error {}
+
+async function readBoundedJson(request: NextRequest, maximumBytes: number): Promise<unknown> {
+  if (!request.body) return {};
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maximumBytes) {
+      await reader.cancel();
+      throw new RequestTooLargeError();
+    }
+    chunks.push(value);
+  }
+  const body = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body));
 }
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
-  const { query, filters } = body as { query: string; mode?: string; filters?: SearchFilters };
+  if (!(await isAuthenticated())) return json({ error: "Unauthenticated" }, 401);
+  const contentLength = Number(request.headers.get("content-length") || 0);
+  if (contentLength > 16_384) return json({ error: "Search request is too large" }, 413);
 
+  let parsed: z.infer<typeof searchRequestSchema>;
+  try {
+    parsed = searchRequestSchema.parse(await readBoundedJson(request, 16_384));
+  } catch (error) {
+    if (error instanceof RequestTooLargeError) return json({ error: "Search request is too large" }, 413);
+    return json({ error: "Invalid search request" }, 400);
+  }
+  const { query, filters } = parsed;
   const cases = await getCases();
 
-  // Search only completed cases and items confirmed by staff.
   let allItems = buildConfirmedSearchItems(cases);
-
-  // Apply structured filters
-  if (filters) {
-    if (filters.location) {
-      const loc = filters.location.toLowerCase();
-      allItems = allItems.filter((i) => i.location.toLowerCase().includes(loc));
-    }
-    if (filters.category) {
-      allItems = allItems.filter((i) => i.category === filters.category);
-    }
-    if (filters.foundBy) {
-      const by = filters.foundBy.toLowerCase();
-      allItems = allItems.filter((i) => i.foundBy.toLowerCase().includes(by));
-    }
-    if (filters.dateFrom) {
-      const from = new Date(filters.dateFrom).getTime();
-      allItems = allItems.filter((i) => new Date(i.foundTime).getTime() >= from);
-    }
-    if (filters.dateTo) {
-      const to = new Date(filters.dateTo).getTime() + 86400000; // end of day
-      allItems = allItems.filter((i) => new Date(i.foundTime).getTime() <= to);
-    }
+  if (filters?.location) {
+    const location = filters.location.toLowerCase();
+    allItems = allItems.filter((item) => item.location.toLowerCase().includes(location));
+  }
+  if (filters?.category) allItems = allItems.filter((item) => item.category === filters.category);
+  if (filters?.foundBy) {
+    const foundBy = filters.foundBy.toLowerCase();
+    allItems = allItems.filter((item) => item.foundBy.toLowerCase().includes(foundBy));
+  }
+  if (filters?.dateFrom) {
+    const from = new Date(filters.dateFrom).getTime();
+    allItems = allItems.filter((item) => new Date(item.foundTime).getTime() >= from);
+  }
+  if (filters?.dateTo) {
+    const to = new Date(filters.dateTo).getTime() + 86_400_000;
+    allItems = allItems.filter((item) => new Date(item.foundTime).getTime() <= to);
   }
 
-  // If no text query, just return filtered results
-  if (!query || query.trim().length === 0) {
-    return NextResponse.json({ results: allItems.slice(0, 50) });
-  }
+  if (!query) return json({ results: allItems.slice(0, 50) });
 
-  // Auto-determine search mode: use AI for natural language queries (longer,
-  // contains prepositions/articles, or conversational phrasing), otherwise keyword match.
-  const trimmed = query.trim();
-  const wordCount = trimmed.split(/\s+/).length;
-  const hasNaturalLanguageSignals = /\b(with|near|from|found|last|this|that|which|where|who|any|some)\b/i.test(trimmed);
-  const useAI = wordCount >= 4 || (wordCount >= 3 && hasNaturalLanguageSignals);
+  const terms = query.toLowerCase().split(/\s+/);
+  const keywordSearch = (matchEvery: boolean, limit: number) => allItems.filter((item) => {
+    const haystack = `${item.label} ${item.ocrText} ${item.visibleAttributes} ${item.location} ${item.currencyCode || ""} ${item.itemType} ${item.category} ${item.foundBy}`.toLowerCase();
+    return matchEvery ? terms.every((term) => haystack.includes(term)) : terms.some((term) => haystack.includes(term));
+  }).slice(0, limit);
 
-  if (!useAI) {
-    const terms = query.toLowerCase().split(/\s+/);
-    const results = allItems.filter((item) => {
-      const haystack = `${item.label} ${item.ocrText} ${item.visibleAttributes} ${item.location} ${item.currencyCode || ""} ${item.itemType} ${item.category} ${item.foundBy}`.toLowerCase();
-      return terms.every((term) => haystack.includes(term));
-    }).slice(0, 50);
-
-    return NextResponse.json({ results });
-  }
-
-  // AI semantic mode
-  if (allItems.length === 0) {
-    return NextResponse.json({ results: [] });
-  }
+  const wordCount = terms.length;
+  const hasNaturalLanguageSignals = /\b(with|near|from|found|last|this|that|which|where|who|any|some)\b/i.test(query);
+  const requestsSemanticSearch = wordCount >= 4 || (wordCount >= 3 && hasNaturalLanguageSignals);
+  const useAI = process.env.AI_SEARCH_ENABLED === "true" && requestsSemanticSearch && Boolean(process.env.OPENAI_API_KEY);
+  if (!useAI) return json({ results: keywordSearch(true, 50) });
+  if (allItems.length === 0) return json({ results: [] });
 
   const candidateItems = allItems.slice(0, 100);
-
   try {
-    const itemDescriptions = candidateItems.map((item, i) => (
-      `[${i}] "${item.label}" | Category: ${item.category} | Location: ${item.location} | Found: ${item.foundTime} | By: ${item.foundBy || "unknown"} | OCR: "${item.ocrText}" | Attributes: "${item.visibleAttributes}" | Currency: ${item.currencyCode || "none"} ${item.currencyTotal || ""}`
+    // Minimise provider egress: claimant contacts, staff identities, OCR and private matching fields never leave FoundFlow.
+    const itemDescriptions = candidateItems.map((item, index) => (
+      `[${index}] ${JSON.stringify(item.label)} | Category: ${item.category} | Location: ${item.location} | Found: ${item.foundTime} | Attributes: ${JSON.stringify(item.visibleAttributes)}`
     )).join("\n");
 
     const result = await generateObject({
-      model: openai("gpt-4o-mini"),
+      model: openai(process.env.OPENAI_SEARCH_MODEL || "gpt-4o-mini"),
       schema: z.object({
         matches: z.array(z.object({
-          index: z.number().int().min(0).describe("Index of the matching item"),
-          relevance: z.number().min(0).max(1).describe("How relevant this item is to the query (0-1)"),
+          index: z.number().int().min(0),
+          relevance: z.number().min(0).max(1),
         })).max(20),
       }),
-      messages: [
-        {
-          role: "user",
-          content: `A user is searching for found items. Their query is: "${query}"\n\nHere are the available items:\n${itemDescriptions}\n\nReturn the indices of items that match or are similar to the user's query, ranked by relevance. Only include items with relevance > 0.3. Maximum 20 results.`,
-        },
-      ],
+      messages: [{
+        role: "user",
+        content: `Match this found-item query to the numbered candidate summaries. Query: ${JSON.stringify(query)}\n\n${itemDescriptions}\n\nReturn matching indices ranked by relevance. Include only relevance above 0.3, with at most 20 results.`,
+      }],
     });
 
     const matches = result.object.matches
       .sort((a, b) => b.relevance - a.relevance)
-      .filter((m) => m.index >= 0 && m.index < candidateItems.length);
-
-    const results = matches.map((m) => ({
-      ...candidateItems[m.index],
-      relevance: m.relevance,
-    }));
-
-    return NextResponse.json({ results });
-  } catch (err) {
-    console.error("AI search failed:", err);
-    // Fallback to text search
-    const terms = query.toLowerCase().split(/\s+/);
-    const results = allItems.filter((item) => {
-      const haystack = `${item.label} ${item.ocrText} ${item.visibleAttributes} ${item.location} ${item.category} ${item.foundBy}`.toLowerCase();
-      return terms.some((term) => haystack.includes(term));
-    }).slice(0, 20);
-
-    return NextResponse.json({ results });
+      .filter((match) => match.index >= 0 && match.index < candidateItems.length);
+    return json({ results: matches.map((match) => ({ ...candidateItems[match.index], relevance: match.relevance })) });
+  } catch {
+    console.error("AI search failed; request and response details were suppressed.");
+    return json({ results: keywordSearch(false, 20) });
   }
 }

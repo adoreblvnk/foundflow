@@ -5,8 +5,8 @@
 .vercel
 .next
 node_modules
-data
-data-*
+/data/
+/data-*/
 coverage
 test-results
 playwright-report

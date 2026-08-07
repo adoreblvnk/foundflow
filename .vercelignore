@@ -1,0 +1,15 @@
+.git
+.github
+.env*
+!.env.example
+.vercel
+.next
+node_modules
+data
+data-*
+coverage
+test-results
+playwright-report
+blob-report
+*.tsbuildinfo
+npm-debug.log*

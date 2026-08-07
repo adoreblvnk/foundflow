@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
+import AppHeader from "@/components/AppHeader";
 import { Case, ManifestItem } from "@/lib/db";
 import { summarizeCurrency } from "@/lib/validation";
 import { formatDecimal, multiplyDecimal, normalizeDecimal } from "@/lib/currency";
@@ -478,17 +479,20 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
     }
   }
 
+  const editingSourceChanged = editingItem
+    ? caseFile.manifest.find((item) => item.id === editingItem.id)?.evidenceId !== editingItem.evidenceId
+    : false;
 
   return (
-    <main className="demo-page" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-      <header className="demo-header shell">
+    <main className="page-stage" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+      <AppHeader />
+      <header className="page-heading shell case-detail-heading">
         <div>
-          <Link className="brand" href="/cases">FoundFlow</Link>
-          <p>
-            Guided intake · Case <strong>{caseFile.id}</strong> {caseFile.isDemo && "(Demo Sample)"} · Staff: <strong>{currentUser.username}</strong>
-          </p>
+          <p className="eyebrow">Guided Intake · Case {caseFile.id}</p>
+          <h1>{caseFile.outerItemDescription}</h1>
+          <p>{caseFile.isDemo && "Demo Sample · "}Staff: <strong>{currentUser.username}</strong></p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <div className="case-detail-actions">
           <span className={isFinalised ? "status status-complete" : "status"}>
             {isFinalised ? "Finalised & Approved" : `${unresolved} item${unresolved === 1 ? "" : "s"} require review`}
           </span>
@@ -498,16 +502,16 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
         </div>
       </header>
 
-      <div className="shell demo-layout" style={{ position: "relative" }}>
+      <div id="main-content" className="shell demo-layout" style={{ position: "relative" }}>
 
         {/* LEFT PANEL: Custody Details, Evidence Upload & Timeline */}
         <section className="capture-panel" style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
           <div>
             <p className="eyebrow">Item Details</p>
-            <h1 style={{ fontSize: "2rem", marginBottom: "8px" }}>{caseFile.outerItemDescription}</h1>
+            <h2 style={{ fontSize: "1.75rem", marginBottom: "8px" }}>{caseFile.outerItemDescription}</h2>
             <p style={{ fontSize: "0.88rem", color: "var(--muted)", margin: "0 0 12px" }}>
-              📍 <strong>Location:</strong> {caseFile.location}<br />
-              📅 <strong>Found Time:</strong> {new Date(caseFile.foundTime).toLocaleString("en-SG", { timeZone: "Asia/Singapore" })}
+              <strong>Location:</strong> {caseFile.location}<br />
+              <strong>Found Time:</strong> {new Date(caseFile.foundTime).toLocaleString("en-SG", { timeZone: "Asia/Singapore" })}
             </p>
             {caseFile.notes && (
               <div style={{ background: "var(--paper)", padding: "12px", borderRadius: "8px", fontSize: "0.85rem", color: "var(--muted)", border: "1px solid var(--line)" }}>
@@ -580,7 +584,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                 disabled={isAnalyzing || caseFile.uploads.length === 0}
                 style={{ width: "100%", minHeight: "40px", whiteSpace: "nowrap", background: "var(--green-dark)", fontSize: "0.82rem" }}
               >
-                {isAnalyzing ? "Scanning..." : "Scan Item Photos"}
+                {isAnalyzing ? "Scanning…" : "Scan Item Photos"}
               </button>
               <ScanProgress event={scanProgress} />
             </div>
@@ -606,7 +610,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                   disabled={isUploading}
                   style={{ minHeight: "34px", paddingInline: "10px", fontSize: "0.78rem" }}
                 >
-                  📷 Choose
+                  Choose
                 </button>
                 <select
                   id="containerContext"
@@ -630,7 +634,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                   disabled={isUploading || !selectedFileName}
                   style={{ minHeight: "34px", paddingInline: "12px", fontSize: "0.78rem" }}
                 >
-                  {isUploading ? "Uploading..." : "Upload"}
+                  {isUploading ? "Uploading…" : "Upload"}
                 </button>
                 {selectedFileName && (
                   <span style={{ fontSize: "0.72rem", color: "var(--muted)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -673,25 +677,25 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
           {/* Notifications */}
           {errorMsg && (
             <div role="alert" style={{ background: "#fdf2f2", border: "1px solid #fbd5d5", color: "#c81e1e", borderRadius: "8px", padding: "12px", fontSize: "0.85rem" }}>
-              ⚠️ {errorMsg}
+              {errorMsg}
             </div>
           )}
           {successMsg && (
             <div role="status" aria-live="polite" style={{ background: "#f3faf5", border: "1px solid #def7ec", color: "var(--green)", borderRadius: "8px", padding: "12px", fontSize: "0.85rem" }}>
-              ✅ {successMsg}
+              {successMsg}
             </div>
           )}
 
           {/* Quick Command Prompt */}
           {!isFinalised && (
             <div style={{ border: "1px solid var(--line)", borderRadius: "12px", padding: "18px", background: "var(--paper)" }}>
-              <strong style={{ fontSize: "0.88rem", display: "block", color: "var(--green)", marginBottom: "12px" }}>💬 Quick Command</strong>
+              <strong style={{ fontSize: "0.88rem", display: "block", color: "var(--green)", marginBottom: "12px" }}>Quick Command</strong>
 
               <div style={{ display: "flex", gap: "8px" }}>
                 <input
                   id="text-correction"
                   type="text"
-                  placeholder="e.g. confirm Malaysian currency, add charging cable, delete USB-C..."
+                  placeholder="e.g. confirm Malaysian currency, add charging cable, delete USB-C…"
                   style={{
                     flex: 1,
                     height: "40px",
@@ -764,7 +768,7 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
               <div className="finalise-copy">
                 {isFinalised ? (
                   <>
-                    <p style={{ margin: 0, fontWeight: 700, color: "var(--green)" }}>✅ Item Record Completed</p>
+                    <p style={{ margin: 0, fontWeight: 700, color: "var(--green)" }}>Item Record Completed</p>
                     <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
                       Completed by: <strong>{caseFile.finalisedBy}</strong> on {caseFile.finalisedAt ? new Date(caseFile.finalisedAt).toLocaleString("en-SG", { timeZone: "Asia/Singapore" }) : ""}
                     </span>
@@ -1021,9 +1025,12 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
               </div>
 
               <div style={{ display: "grid", gap: "4px" }}>
-                <label style={{ fontSize: "0.75rem", fontWeight: 700 }}>Status</label>
+                <label htmlFor="edit-item-status" style={{ fontSize: "0.75rem", fontWeight: 700 }}>Status</label>
                 <select
+                  id="edit-item-status"
                   value={editingItem.status}
+                  disabled={editingSourceChanged}
+                  aria-describedby={editingSourceChanged ? "source-review-required" : undefined}
                   onChange={(e) => setEditingItem({ ...editingItem, status: e.target.value as "confirmed" | "review" })}
                   style={{
                     height: "36px",
@@ -1037,6 +1044,11 @@ export default function CaseDetailClient({ initialCase, currentUser }: CaseDetai
                   <option value="confirmed">Confirmed</option>
                   <option value="review">Needs Review</option>
                 </select>
+                {editingSourceChanged && (
+                  <small id="source-review-required" style={{ color: "var(--warning)" }}>
+                    A changed source must be saved as Needs Review until its photo regions are checked.
+                  </small>
+                )}
               </div>
 
               {editingItem.status === "review" && (

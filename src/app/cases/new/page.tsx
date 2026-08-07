@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import AppHeader from "@/components/AppHeader";
 import { getCurrentUser, isAuthenticated } from "@/lib/auth";
 import { handleAcknowledgeIntakeInstructions } from "@/app/cases/actions";
 
@@ -15,56 +16,37 @@ export default async function NewCaseInstructionsPage() {
   const currentUser = await getCurrentUser();
 
   return (
-    <main className="demo-page" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-      <header className="shell nav" style={{ borderBottom: "1px solid var(--line)" }}>
-        <div>
-          <Link className="brand" href="/">FoundFlow</Link>
-          <p className="muted" style={{ margin: "4px 0 0", fontSize: "0.82rem" }}>
-            New Case · <strong>{currentUser?.username}</strong>
-          </p>
+    <main className="page-stage">
+      <AppHeader />
+      <section id="main-content" className="page-content page-content-narrow">
+        <div className="workflow-head">
+          <div>
+            <p className="eyebrow">New Case · {currentUser?.username}</p>
+            <h1>Step-by-step instructions</h1>
+            <p>Follow the evidence order so the linked item hierarchy remains clear.</p>
+          </div>
+          <Link className="button button-secondary" href="/cases">Cancel</Link>
         </div>
-        <Link className="button button-secondary" href="/cases" style={{ minHeight: "40px" }}>
-          Cancel
-        </Link>
-      </header>
 
-      <section style={{
-        width: "min(600px, calc(100% - 40px))",
-        margin: "48px auto",
-        background: "var(--panel)",
-        border: "1px solid var(--line)",
-        borderRadius: "14px",
-        padding: "32px",
-      }}>
-        <p className="eyebrow">Before you start</p>
-        <h1 style={{ fontSize: "2rem", letterSpacing: "-0.04em", margin: "0 0 24px" }}>
-          Step-by-step instructions
-        </h1>
+        <section className="work-surface">
+          <p className="eyebrow">Before you start</p>
+          <ol className="instruction-list">
+            {instructions.map((instruction, index) => (
+              <li key={instruction}>
+                <span aria-hidden="true">{index + 1}</span>
+                <p>{instruction}</p>
+              </li>
+            ))}
+          </ol>
 
-        <ol style={{ margin: "0 0 28px", paddingLeft: "22px", display: "grid", gap: "14px", lineHeight: 1.45, listStyle: "decimal" }}>
-          {instructions.map((instruction) => <li key={instruction}>{instruction}</li>)}
-        </ol>
-
-        <form action={handleAcknowledgeIntakeInstructions} style={{ display: "grid", gap: "16px" }}>
-          <label style={{
-            display: "flex",
-            alignItems: "flex-start",
-            gap: "10px",
-            padding: "14px",
-            border: "1px solid var(--line)",
-            borderRadius: "9px",
-            background: "var(--paper)",
-            fontSize: "0.88rem",
-            fontWeight: 600,
-            lineHeight: 1.4,
-          }}>
-            <input type="checkbox" name="acknowledged" value="yes" required style={{ marginTop: "2px" }} />
-            I understand and will follow these instructions.
-          </label>
-          <button type="submit" className="button" style={{ minHeight: "46px" }}>
-            Acknowledge & Continue
-          </button>
-        </form>
+          <form action={handleAcknowledgeIntakeInstructions} className="acknowledgement-form">
+            <label className="acknowledgement-row">
+              <input type="checkbox" name="acknowledged" value="yes" required />
+              <span>I understand and will follow these instructions.</span>
+            </label>
+            <button type="submit" className="button">Acknowledge &amp; Continue</button>
+          </form>
+        </section>
       </section>
     </main>
   );

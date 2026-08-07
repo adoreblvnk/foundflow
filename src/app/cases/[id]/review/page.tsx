@@ -43,7 +43,7 @@ export default function ReviewPage() {
 
   if (!caseFile) {
     return (
-      <main style={{ minHeight: "100vh", background: "var(--paper)" }}>
+      <main className="page-stage">
         <AppHeader />
         <div style={{ padding: "60px", textAlign: "center", color: "var(--muted)" }}>Loading case...</div>
       </main>
@@ -137,9 +137,9 @@ export default function ReviewPage() {
   const sorted = getSorted();
 
   return (
-    <main style={{ minHeight: "100vh", background: "var(--paper)" }}>
+    <main className="page-stage">
       <AppHeader />
-      <div style={{ width: "min(720px, calc(100% - 40px))", marginInline: "auto", paddingBlock: "24px 60px" }}>
+      <div id="main-content" className="workflow-shell work-surface">
         <StepIndicator currentStep={4} />
 
         <div style={{
@@ -152,10 +152,10 @@ export default function ReviewPage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
             <div>
               <p className="eyebrow" style={{ margin: "0 0 4px" }}>Step 4 of 5</p>
-              <h1 style={{ fontSize: "1.6rem", letterSpacing: "-0.03em", margin: 0 }}>Review Items</h1>
+              <h1 style={{ fontSize: "1.6rem", letterSpacing: "-0.025em", margin: 0 }}>Review Items</h1>
             </div>
             <span style={{ fontSize: "0.8rem", fontWeight: 700, color: unresolved > 0 ? "var(--amber)" : "var(--green)" }}>
-              {unresolved > 0 ? `⚠️ ${unresolved} need review` : "✓ All confirmed"}
+              {unresolved > 0 ? `${unresolved} need review` : "All confirmed"}
             </span>
           </div>
 
@@ -195,7 +195,7 @@ export default function ReviewPage() {
                       )}
                     </div>
                     {item.reviewReason && (
-                      <div title={item.reviewReason} style={{ fontSize: "0.72rem", color: "var(--amber)", marginTop: "2px" }}>⚠️ Staff review required.</div>
+                      <div title={item.reviewReason} style={{ fontSize: "0.72rem", color: "var(--amber)", marginTop: "2px" }}>Staff review required.</div>
                     )}
                   </div>
 
@@ -219,7 +219,7 @@ export default function ReviewPage() {
                         style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: "0.75rem", padding: "2px" }}
                         title="Delete"
                       >
-                        🗑️
+                        Delete
                       </button>
                     )}
                   </div>

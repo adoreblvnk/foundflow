@@ -4,10 +4,10 @@ import AppHeader from "@/components/AppHeader";
 
 export default function ChallengePage() {
   return (
-    <main style={{ minHeight: "100vh", background: "var(--paper)" }}>
+    <main className="page-stage">
       <AppHeader />
 
-      <div style={{
+      <div id="main-content" className="page-content page-content-narrow" style={{
         width: "min(760px, calc(100% - 40px))",
         marginInline: "auto",
         paddingBlock: "48px 80px",
@@ -16,7 +16,7 @@ export default function ChallengePage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px" }}>
             <div>
               <p className="eyebrow">Launchpad 2026 AI Challenge</p>
-              <h1 style={{ fontSize: "2.2rem", lineHeight: 1.1, letterSpacing: "-0.04em", marginBottom: "16px" }}>
+              <h1 style={{ fontSize: "2.2rem", lineHeight: 1.1, letterSpacing: "-0.025em", marginBottom: "16px" }}>
                 FoundFlow — AI-Powered Found-Item Intake
               </h1>
             </div>
@@ -26,7 +26,7 @@ export default function ChallengePage() {
               className="button"
               style={{ minHeight: "40px", paddingInline: "16px", fontSize: "0.82rem", whiteSpace: "nowrap", flexShrink: 0 }}
             >
-              🖨️ Print / Save PDF
+              Print / Save PDF
             </button>
           </div>
           <p style={{ fontSize: "1rem", lineHeight: 1.7, color: "var(--muted)" }}>

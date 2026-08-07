@@ -51,8 +51,11 @@ export default function LinkedInventory({
 }: LinkedInventoryProps) {
   const rows = buildLinkedInventoryRows(items);
   const reviews = items.filter((item) => item.status === "review").length;
-  const expectedBoxes = items.reduce((total, item) => total + expectedBoxCount(item), 0);
-  const actualBoxes = items.reduce((total, item) => total + (item.regions?.length ?? 0), 0);
+  const uploadIds = new Set(uploads.map((upload) => upload.id));
+  const photoLinkedItems = items.filter((item) => item.evidenceId && uploadIds.has(item.evidenceId));
+  const manualItems = items.length - photoLinkedItems.length;
+  const expectedBoxes = photoLinkedItems.reduce((total, item) => total + expectedBoxCount(item), 0);
+  const actualBoxes = photoLinkedItems.reduce((total, item) => total + (item.regions?.length ?? 0), 0);
   const currencyGroups = new Set(items.filter((item) => item.itemType === "currency" && item.currencyCode).map((item) => item.currencyCode)).size;
 
   return (
@@ -70,7 +73,8 @@ export default function LinkedInventory({
       <div className="inventory-summary" aria-label="Inventory summary">
         <span><strong>{items.length}</strong> records</span>
         <span className={reviews ? "needs-review" : "is-ready"}><strong>{reviews}</strong> to review</span>
-        <span><strong>{actualBoxes}/{expectedBoxes}</strong> listed objects boxed</span>
+        <span><strong>{actualBoxes}/{expectedBoxes}</strong> photo-linked objects boxed</span>
+        {manualItems > 0 && <span><strong>{manualItems}</strong> case or manual records</span>}
         {currencyGroups > 0 && <span><strong>{currencyGroups}</strong> currency groups</span>}
       </div>
 
@@ -86,12 +90,13 @@ export default function LinkedInventory({
                 <article
                   className={selected ? "review-item inventory-row selected" : "review-item inventory-row"}
                   aria-label={parentLabel ? `${item.label}, inside ${parentLabel}` : item.label}
-                  onClick={() => onSelectItem(item.id)}
                 >
                   <div className="inventory-row-main">
                     <div className="inventory-row-title">
                       {depth > 0 && <span className="inventory-branch" aria-hidden="true">↳</span>}
-                      <strong>{item.label}</strong>
+                      <button type="button" className="inventory-title-button" onClick={() => onSelectItem(item.id)}>
+                        {item.label}
+                      </button>
                       {item.quantity > 1 && <span className="inventory-quantity">×{item.quantity}</span>}
                       {item.itemType === "currency" && item.currencyCode && (
                         <span className="inventory-currency">{item.currencyCode} {item.currencyTotal != null ? formatDecimal(item.currencyTotal) : "-"}</span>
@@ -105,7 +110,7 @@ export default function LinkedInventory({
                           event.stopPropagation();
                           onSelectItem(item.id);
                         }}
-                        aria-label={`Select ${item.label} in linked inventory`}
+                        aria-label={`Select ${item.label} in linked inventory, source ${sourceLabel(item, uploads)}`}
                       >
                         Photo · {sourceLabel(item, uploads)}
                       </button>
@@ -116,7 +121,7 @@ export default function LinkedInventory({
                       )}
                     </div>
                     {item.reviewReason && (
-                      <div className="inventory-warning" title={item.reviewReason}>⚠ {conciseReviewWarning(item)}</div>
+                      <div className="inventory-warning" title={item.reviewReason}>{conciseReviewWarning(item)}</div>
                     )}
                     <RegionCrops item={item} selected={selected} onSelect={() => onSelectItem(item.id)} />
                   </div>

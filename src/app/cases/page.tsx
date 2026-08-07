@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import AppHeader from "@/components/AppHeader";
 import { getCases, type Case } from "@/lib/db";
 import { isAuthenticated } from "@/lib/auth";
 import CaseActions from "./CaseActions";
@@ -32,38 +33,27 @@ function CaseCard({ caseFile, stage }: { caseFile: Case; stage: CaseGroup["key"]
   }[stage];
 
   return (
-    <article style={{ display: "grid", gap: "10px", padding: "14px 16px", border: "1px solid var(--line)", borderRadius: "10px", background: "var(--panel)" }}>
-      <Link
-        href={`/cases/${caseFile.id}`}
-        style={{ display: "grid", gap: "8px", textDecoration: "none", color: "inherit" }}
-      >
-      <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", alignItems: "center" }}>
-        <strong style={{ fontSize: "0.82rem", minWidth: 0, overflowWrap: "anywhere" }}>{caseFile.id}</strong>
-        <span className={caseFile.status === "finalised" ? "status status-complete" : "status"} style={{ fontSize: "0.7rem", whiteSpace: "nowrap" }}>
-          {stageLabel}
-        </span>
-      </div>
-
-      <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: 0 }}>{caseFile.outerItemDescription}</h3>
-      <div className="muted" style={{ fontSize: "0.78rem" }}>📍 {caseFile.location}</div>
-      <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", fontSize: "0.72rem", color: "var(--muted)" }}>
-        <span>📷 {caseFile.uploads.length}</span>
-        <span>📦 {totalItems}</span>
-        <span>✅ {confirmedItems}/{totalItems}</span>
-        {unresolved > 0 && <span style={{ color: "var(--amber)", fontWeight: 700 }}>⚠️ {unresolved}</span>}
-      </div>
-
+    <article className="case-card">
+      <Link href={`/cases/${caseFile.id}`} className="case-card-link">
+        <div className="case-card-topline">
+          <strong>{caseFile.id}</strong>
+          <span className={`status status-${stage}`}>{stageLabel}</span>
+        </div>
+        <h3>{caseFile.outerItemDescription}</h3>
+        <p className="case-location">{caseFile.location}</p>
+        <div className="case-metrics" aria-label={`${caseFile.uploads.length} photos, ${totalItems} items, ${confirmedItems} confirmed`}>
+          <span>{caseFile.uploads.length} photos</span>
+          <span>{totalItems} items</span>
+          <span>{confirmedItems}/{totalItems} confirmed</span>
+          {unresolved > 0 && <span className="case-warning">{unresolved} need review</span>}
+        </div>
         {totalItems > 0 && (
-          <div style={{ height: "3px", background: "var(--line)", borderRadius: "2px", overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${Math.round((confirmedItems / totalItems) * 100)}%`, background: "var(--green)", borderRadius: "2px" }} />
+          <div className="case-progress" aria-hidden="true">
+            <span style={{ width: `${Math.round((confirmedItems / totalItems) * 100)}%` }} />
           </div>
         )}
       </Link>
-      <CaseActions
-        caseId={caseFile.id}
-        archived={stage === "archived"}
-        canDelete={caseFile.status !== "finalised"}
-      />
+      <CaseActions caseId={caseFile.id} archived={stage === "archived"} canDelete={caseFile.status !== "finalised"} />
     </article>
   );
 }
@@ -81,39 +71,36 @@ export default async function CasesPage() {
   for (const caseFile of cases) groups.find((group) => group.key === caseStage(caseFile))!.cases.push(caseFile);
 
   return (
-    <main className="demo-page" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-      <header className="shell nav" style={{ borderBottom: "1px solid var(--line)" }}>
-        <Link className="brand" href="/">FoundFlow</Link>
-        <Link className="button" href="/cases/new" style={{ minHeight: "40px" }}>+ New Case</Link>
-      </header>
-
-      <section className="shell" style={{ paddingBlock: "32px 40px", display: "grid", gap: "32px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-          <h1 style={{ fontSize: "1.6rem", fontWeight: 700, margin: 0 }}>Cases</h1>
-          <span className="muted" style={{ fontSize: "0.85rem" }}>{cases.length} case{cases.length !== 1 ? "s" : ""}</span>
+    <main className="page-stage">
+      <AppHeader />
+      <section id="main-content" className="page-content">
+        <div className="page-heading">
+          <div>
+            <p className="eyebrow">Case Management</p>
+            <h1>Cases</h1>
+            <p>Continue intake, review evidence and manage completed handovers.</p>
+          </div>
+          <Link className="button" href="/cases/new">New Case</Link>
         </div>
 
-        {groups.map((group) => (
-          <section key={group.key} aria-labelledby={`case-group-${group.key}`} style={{ display: "grid", gap: "14px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", borderBottom: "1px solid var(--line)", paddingBottom: "8px" }}>
-              <h2 id={`case-group-${group.key}`} style={{ fontSize: "1.05rem", margin: 0 }}>{group.title}</h2>
-              <span className="muted" style={{ fontSize: "0.78rem" }}>{group.cases.length}</span>
-            </div>
-            {group.cases.length === 0 ? (
-              <p className="muted" style={{ margin: 0, fontSize: "0.82rem" }}>No cases.</p>
-            ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 320px), 1fr))", gap: "16px" }}>
-                {group.cases.map((caseFile) => <CaseCard key={caseFile.id} caseFile={caseFile} stage={group.key} />)}
+        <div className="case-groups">
+          {groups.map((group) => (
+            <section key={group.key} className="case-group" aria-labelledby={`case-group-${group.key}`}>
+              <div className="case-group-heading">
+                <h2 id={`case-group-${group.key}`}>{group.title}</h2>
+                <span>{group.cases.length}</span>
               </div>
-            )}
-          </section>
-        ))}
+              {group.cases.length === 0 ? (
+                <p className="case-empty">No cases in this stage.</p>
+              ) : (
+                <div className="case-grid">
+                  {group.cases.map((caseFile) => <CaseCard key={caseFile.id} caseFile={caseFile} stage={group.key} />)}
+                </div>
+              )}
+            </section>
+          ))}
+        </div>
       </section>
-
-      <footer className="shell footer" style={{ borderTop: "1px solid var(--line)", paddingBlock: "20px", marginTop: "auto" }}>
-        <span>FoundFlow Intake Copilot</span>
-        <span>AI drafts. Staff decide.</span>
-      </footer>
     </main>
   );
 }

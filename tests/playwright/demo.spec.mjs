@@ -117,6 +117,9 @@ test("photo-linked demo completes the found-item workflow", async ({ page }) => 
   expect(verifierBox?.width).toBeGreaterThan(capturePanelBox?.width ?? Number.MAX_SAFE_INTEGER);
   const scanButton = page.locator(".capture-panel").getByRole("button", { name: "Scan Item Photos" });
   await expect(scanButton).toBeVisible();
+  await scanButton.click();
+  await expect(page.getByRole("progressbar", { name: "Photo scan progress" })).toHaveAttribute("value", "100");
+  await expect(page.getByRole("status").filter({ hasText: "Scan complete - 10 items detected" })).toBeVisible();
   await expect(page.locator(".review-panel").getByRole("button", { name: "Scan Item Photos" })).toHaveCount(0);
   const photosBox = await page.locator(".item-photos-section").boundingBox();
   const scanBox = await scanButton.boundingBox();

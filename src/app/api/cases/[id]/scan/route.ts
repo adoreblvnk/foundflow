@@ -1,6 +1,6 @@
 import { getCurrentUser } from "@/lib/auth";
-import { publicScanError, runAiScan } from "@/lib/ai-scan";
-import { createScanEvent } from "@/lib/scan-events";
+import { publicScanError, runAiScan, runDeterministicScanFixture } from "@/lib/ai-scan";
+import { createScanEvent, type ScanEvent } from "@/lib/scan-events";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -15,7 +15,12 @@ export async function POST(
   const { id } = await params;
   const encoder = new TextEncoder();
   const abortController = new AbortController();
+  const runScan = process.env.PLAYWRIGHT_TEST_MODE === "1" && process.env.PLAYWRIGHT_SCAN_FIXTURE === "1"
+    ? runDeterministicScanFixture
+    : runAiScan;
   let connected = true;
+  let lastProgress = 0;
+  let lastPhotoCount = 0;
   const disconnect = () => {
     connected = false;
     abortController.abort();
@@ -29,15 +34,20 @@ export async function POST(
         controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
       };
 
-      void runAiScan({
+      void runScan({
         caseId: id,
         username: user.username,
         signal: abortController.signal,
-        onProgress: send,
+        onProgress: (event: ScanEvent) => {
+          lastProgress = event.progress;
+          lastPhotoCount = event.photoCount;
+          send(event);
+        },
       }).catch((error) => {
         if (connected) {
           send(createScanEvent("error", {
-            photoCount: 0,
+            photoCount: lastPhotoCount,
+            progress: lastProgress,
             error: publicScanError(error),
           }));
         }

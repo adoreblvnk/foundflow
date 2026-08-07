@@ -1,12 +1,9 @@
 import { test, expect } from "playwright/test";
 
-const dataDir = "/tmp/foundflow-playwright-cli";
-
 async function seedAndLogin(page) {
-  process.env.DATA_DIR = dataDir;
-  const { seedDemoCase, closeDb } = await import("../../src/lib/db.ts");
-  const demoCase = await seedDemoCase();
-  closeDb();
+  const seedResponse = await page.request.post("/api/testing/seed-demo");
+  expect(seedResponse.ok()).toBe(true);
+  const demoCase = await seedResponse.json();
   await page.goto(`/cases/${demoCase.id}`);
   if (page.url().includes("/login")) {
     await page.getByLabel("Staff Identifier").fill("playwright-officer");
@@ -50,12 +47,38 @@ const successEvents = [
   { type: "analysis_stage_complete", progress: 55, label: "One AI analysis pass complete", photoCount: 1 },
   { type: "analysis_complete", progress: 75, label: "Photo analysis complete", photoCount: 1 },
   { type: "saving", progress: 90, label: "Saving the linked item draft", photoCount: 1 },
-  { type: "complete", progress: 100, label: "Photo scan complete", photoCount: 1, itemCount: 11 },
+  { type: "complete", progress: 100, label: "Photo scan complete", photoCount: 1, itemCount: 10 },
 ];
 
 test("scan stream requires an authenticated staff session", async ({ request }) => {
   const response = await request.post("/api/cases/not-a-case/scan");
   expect(response.status()).toBe(401);
+});
+
+test("production scan route streams authenticated milestones, headers and a persisted fixture", async ({ page }) => {
+  const demoCase = await seedAndLogin(page);
+  const streamed = await page.evaluate(async (caseId) => {
+    const response = await fetch(`/api/cases/${caseId}/scan`, { method: "POST" });
+    return { status: response.status, headers: Object.fromEntries(response.headers.entries()), body: await response.text() };
+  }, demoCase.id);
+  expect(streamed.status).toBe(200);
+  expect(streamed.headers["content-type"]).toContain("application/x-ndjson");
+  expect(streamed.headers["cache-control"]).toContain("no-store");
+  expect(streamed.headers["x-content-type-options"]).toBe("nosniff");
+
+  const events = streamed.body.trim().split("\n").map((line) => JSON.parse(line));
+  expect(events.map((event) => event.type)).toEqual(successEvents.map((event) => event.type));
+  expect(events.map((event) => event.progress)).toEqual([5, 20, 55, 75, 90, 100]);
+  expect(events.at(-1).itemCount).toBe(10);
+
+  const persisted = await page.evaluate(async (caseId) => {
+    const response = await fetch(`/api/cases/${caseId}`);
+    if (!response.ok) throw new Error(`Case API returned ${response.status}`);
+    return response.json();
+  }, demoCase.id);
+  expect(persisted.revision).toBe((demoCase.revision ?? 0) + 1);
+  expect(persisted.manifest).toHaveLength(demoCase.manifest.length);
+  expect(persisted.auditLogs.some((log) => log.action === "ai_analysis_triggered" && log.details.includes("deterministic Playwright scan fixture"))).toBe(true);
 });
 
 test("case workspace renders truthful monotonic streamed scan progress and refreshes", async ({ page }) => {
@@ -64,7 +87,7 @@ test("case workspace renders truthful monotonic streamed scan progress and refre
 
   const scanButton = page.getByRole("button", { name: "Scan Item Photos" });
   await scanButton.click();
-  await expect(page.getByRole("button", { name: "Scanning..." })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Scanning…" })).toBeDisabled();
   const progress = page.getByRole("progressbar", { name: "Photo scan progress" });
   await expect(progress).toHaveAttribute("value", "5");
   await expect(progress).toHaveAttribute("value", "20");
@@ -72,7 +95,7 @@ test("case workspace renders truthful monotonic streamed scan progress and refre
   await expect(progress).toHaveAttribute("value", "75");
   await expect(progress).toHaveAttribute("value", "90");
   await expect(progress).toHaveAttribute("value", "100");
-  await expect(page.getByRole("status").filter({ hasText: "Scan complete - 11 items detected" })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Scan complete - 10 items detected" })).toBeVisible();
   await expect(scanButton).toBeEnabled();
 
   const received = await page.evaluate(() => window.__scanEvents);
@@ -84,7 +107,7 @@ test("scan stream reports a recoverable provider failure without fake progress o
   await page.setViewportSize({ width: 360, height: 740 });
   await installScanStream(page, [
     ...successEvents.slice(0, 2),
-    { type: "error", progress: 100, label: "Photo scan could not be completed", photoCount: 1, error: "AI scan failed with all configured providers. Continue manually or try again." },
+    { type: "error", progress: 20, label: "Photo scan could not be completed", photoCount: 1, error: "AI scan failed with all configured providers. Continue manually or try again." },
   ]);
   await seedAndLogin(page);
 

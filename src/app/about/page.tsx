@@ -8,17 +8,17 @@ const sectionStyle = {
 
 export default function AboutPage() {
   return (
-    <main style={{ minHeight: "100vh", background: "var(--paper)" }}>
+    <main className="page-stage">
       <AppHeader />
 
-      <div style={{
+      <div id="main-content" className="page-content page-content-narrow work-surface" style={{
         width: "min(720px, calc(100% - 40px))",
         marginInline: "auto",
-        paddingBlock: "48px 80px",
+        paddingBlock: "32px 48px",
       }}>
         <section style={{ marginBottom: "48px" }}>
           <p className="eyebrow">About FoundFlow</p>
-          <h1 style={{ fontSize: "2.2rem", lineHeight: 1.1, letterSpacing: "-0.04em", marginBottom: "20px" }}>
+          <h1 style={{ fontSize: "2.2rem", lineHeight: 1.1, letterSpacing: "-0.025em", marginBottom: "20px" }}>
             Built by Team Adore for Launchpad 2026
           </h1>
           <p style={{ fontSize: "1.05rem", lineHeight: 1.7, color: "var(--muted)" }}>

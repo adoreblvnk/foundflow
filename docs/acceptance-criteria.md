@@ -53,7 +53,7 @@ FoundFlow's challenge MVP is accepted only when all criteria below pass using st
 - [x] Scan progress reports completed server stages over an authenticated no-store stream rather than elapsed-time estimates.
 - [x] The linked inventory presents parent-child order, source-photo links, review state, box coverage, and compact-screen actions without horizontal overflow.
 - [x] `/guide` documents intake, photography, scanning, review, completion, search, claim verification, and handover.
-- [x] A deterministic automated demo fills the complete workflow with synthetic data and records video and trace artifacts.
+- [x] A deterministic automated demo fills the complete workflow with synthetic data, submits the authenticated scan stream through a no-provider fixture, persists the draft, and records video and trace artifacts.
 - [x] Completed cases are locked against further mutation.
 
 

@@ -29,7 +29,9 @@ import {
   createClaimRecord,
   decideClaimRecord,
   seedDemoCase,
-  closeDb
+  closeDb,
+  replaceManifestFromScan,
+  CaseRevisionConflictError
 } from "../src/lib/db.ts";
 import type { Case, ManifestItem } from "../src/lib/db.ts";
 
@@ -47,7 +49,7 @@ import { addDecimals, isValidCurrencyCode, multiplyDecimal, normalizeDecimal } f
 import { buildConfirmedSearchItems } from "../src/lib/search.ts";
 import { caseContainsIdentityEvidence, evaluateClaimVerification } from "../src/lib/claim-policy.ts";
 import { ProviderFallbackError, runProviderFallback } from "../src/lib/provider-fallback.ts";
-import { loadPhotosConcurrently, runParallelScanStages } from "../src/lib/ai-scan.ts";
+import { assertUsableAiManifest, loadPhotosConcurrently, runParallelScanStages } from "../src/lib/ai-scan.ts";
 import { createScanEvent } from "../src/lib/scan-events.ts";
 import { buildLinkedInventoryRows } from "../src/lib/linked-inventory.ts";
 
@@ -70,6 +72,16 @@ test("AI provider fallback", async (t) => {
     ]);
 
     assert.deepStrictEqual(result, { providerName: "backup", value: "backup result" });
+  });
+
+  await t.test("treats an empty structured extraction as a provider failure", async () => {
+    const backupDraft = { items: [] };
+    const result = await runProviderFallback([
+      { name: "primary", run: async () => assertUsableAiManifest({} as Case, { items: [] }) },
+      { name: "backup", run: async () => backupDraft },
+    ]);
+    assert.strictEqual(result.providerName, "backup");
+    assert.strictEqual(result.value, backupDraft);
   });
 
   await t.test("reports failure only after every provider fails", async () => {
@@ -110,6 +122,22 @@ test("Parallel multi-photo scan orchestration", async (t) => {
     const loaded = await loading;
     assert.deepStrictEqual(loaded.map((photo) => photo.upload.id), ["photo-a", "photo-b", "photo-c"]);
     assert.deepStrictEqual(loaded.map((photo) => photo.data.toString()), ["photo-a.jpg", "photo-b.jpg", "photo-c.jpg"]);
+  });
+
+  await t.test("rejects the full scan when any expected source photo is missing", async () => {
+    const uploads = ["photo-a", "photo-b"].map((id) => ({
+      id,
+      filename: `${id}.jpg`,
+      originalName: `${id}.jpg`,
+      mimeType: "image/jpeg",
+      size: 10,
+      uploadedAt: "2026-08-04T00:00:00.000Z",
+      containerContext: "outer-item" as const,
+    }));
+    await assert.rejects(
+      loadPhotosConcurrently(uploads, async (filename) => filename === "photo-a.jpg" ? Buffer.from(filename) : null),
+      /One or more item photos could not be loaded/,
+    );
   });
 
   await t.test("starts the primary extraction and independent verifier concurrently", async () => {
@@ -266,6 +294,30 @@ test("Database Layer, Seeding & Isolation", async (t) => {
     const caseFile = await getCaseById("CT3A-20260721-DEMO");
     assert.ok(caseFile);
     assert.strictEqual(caseFile!.id, "CT3A-20260721-DEMO");
+  });
+
+  await t.test("rejects an AI manifest save when staff changes the case during scanning", async () => {
+    const before = await getCaseById("CT3A-20260721-DEMO");
+    assert.ok(before);
+    await updateCase(before!.id, { ...before!, notes: "Staff edit made while scan was running" });
+    await assert.rejects(
+      replaceManifestFromScan(
+        before!.id,
+        before!.revision ?? 0,
+        before!.uploads.map((upload) => upload.id),
+        before!.manifest,
+        "test-scanner",
+        "Synthetic scan commit",
+      ),
+      (error: unknown) => error instanceof CaseRevisionConflictError,
+    );
+    await assert.rejects(
+      updateCase(before!.id, { ...before!, notes: "Stale case overwrite" }),
+      (error: unknown) => error instanceof CaseRevisionConflictError,
+    );
+    const after = await getCaseById(before!.id);
+    assert.strictEqual(after?.notes, "Staff edit made while scan was running");
+    assert.strictEqual(after?.revision, (before!.revision ?? 0) + 1);
   });
 
   await t.test("should create and delete a non-finalised case", async () => {

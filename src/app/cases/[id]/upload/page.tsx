@@ -50,9 +50,9 @@ export default function UploadPage() {
   }
 
   return (
-    <main style={{ minHeight: "100vh", background: "var(--paper)" }}>
+    <main className="page-stage">
       <AppHeader />
-      <div style={{ width: "min(640px, calc(100% - 40px))", marginInline: "auto", paddingBlock: "24px 60px" }}>
+      <div id="main-content" className="workflow-shell work-surface">
         <StepIndicator currentStep={2} />
 
         <div style={{
@@ -63,7 +63,7 @@ export default function UploadPage() {
           marginTop: "24px",
         }}>
           <p className="eyebrow">Step 2 of 5</p>
-          <h1 style={{ fontSize: "1.8rem", letterSpacing: "-0.03em", margin: "0 0 8px" }}>
+          <h1 style={{ fontSize: "1.8rem", letterSpacing: "-0.025em", margin: "0 0 8px" }}>
             Add Item Photos
           </h1>
           <p style={{ fontSize: "0.9rem", color: "var(--muted)", margin: "0 0 24px", lineHeight: 1.5 }}>
@@ -102,7 +102,7 @@ export default function UploadPage() {
               disabled={isUploading}
               style={{ width: "100%", minHeight: "50px", fontSize: "0.95rem" }}
             >
-              {isUploading ? "Uploading..." : "Choose Image or Take Photo"}
+              {isUploading ? "Uploading…" : "Choose Image or Take Photo"}
             </button>
           </div>
 

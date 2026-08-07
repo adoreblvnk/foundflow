@@ -299,6 +299,12 @@ export async function handleUpdateItem(caseId: string, updatedItem: ManifestItem
       : null;
 
     const originalItem = caseFile.manifest[itemIndex];
+    const sourcePhotoChanged = originalItem.evidenceId !== parsed.evidenceId;
+    if (sourcePhotoChanged) {
+      parsed.regions = [];
+      parsed.status = "review";
+      parsed.reviewReason = "Source photo changed; redraw and confirm photo regions";
+    }
     const parsedItem: ManifestItem = { ...originalItem, ...parsed, id: updatedItem.id, source: "staff" };
     if (isCurrencyItem(parsedItem)) {
       parsed.itemType = "currency";

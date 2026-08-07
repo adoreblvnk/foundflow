@@ -73,15 +73,12 @@ export default function SearchPage() {
     return ITEM_CATEGORIES.find((c) => c.value === val)?.label || val;
   }
 
-  function getCategoryIcon(val: string) {
-    return ITEM_CATEGORIES.find((c) => c.value === val)?.icon || "📦";
-  }
 
   return (
-    <main style={{ minHeight: "100vh", background: "var(--paper)" }}>
+    <main className="page-stage">
       <AppHeader />
-      <div style={{ width: "min(820px, calc(100% - 40px))", marginInline: "auto", paddingBlock: "36px 60px" }}>
-        <h1 style={{ fontSize: "1.8rem", letterSpacing: "-0.03em", margin: "0 0 8px" }}>Search Items</h1>
+      <div id="main-content" className="page-content" style={{ maxWidth: "860px" }}>
+        <h1 style={{ fontSize: "1.8rem", letterSpacing: "-0.025em", margin: "0 0 8px" }}>Search Items</h1>
         <p style={{ fontSize: "0.88rem", color: "var(--muted)", margin: "0 0 24px" }}>
           Search staff-confirmed items from completed cases by date, location, finder, item type, or description.
         </p>
@@ -134,7 +131,7 @@ export default function SearchPage() {
               >
                 <option value="">All types</option>
                 {ITEM_CATEGORIES.map((cat) => (
-                  <option key={cat.value} value={cat.value}>{cat.icon} {cat.label}</option>
+                  <option key={cat.value} value={cat.value}>{cat.label}</option>
                 ))}
               </select>
             </div>
@@ -270,7 +267,6 @@ export default function SearchPage() {
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <span>{getCategoryIcon(item.category)}</span>
                         <strong style={{ fontSize: "0.9rem" }}>{item.label}</strong>
                         <span style={{ fontSize: "0.68rem", background: "var(--paper)", padding: "2px 6px", borderRadius: "4px", color: "var(--muted)" }}>
                           {getCategoryLabel(item.category)}
@@ -281,10 +277,10 @@ export default function SearchPage() {
                       )}
                     </div>
                     <div style={{ fontSize: "0.76rem", color: "var(--muted)", marginTop: "6px", display: "flex", gap: "14px", flexWrap: "wrap" }}>
-                      <span>📍 {item.location}</span>
-                      <span>📅 {new Date(item.foundTime).toLocaleDateString("en-SG")}</span>
-                      {item.foundBy && <span>👤 {item.foundBy}</span>}
-                      {item.currencyCode && <span>💰 {item.currencyCode} {item.currencyTotal}</span>}
+                      <span>Location: {item.location}</span>
+                      <span>Found: {new Date(item.foundTime).toLocaleDateString("en-SG")}</span>
+                      {item.foundBy && <span>Found by: {item.foundBy}</span>}
+                      {item.currencyCode && <span>Value: {item.currencyCode} {item.currencyTotal}</span>}
                     </div>
                     {item.visibleAttributes && (
                       <div style={{ fontSize: "0.72rem", color: "var(--muted)", marginTop: "3px" }}>

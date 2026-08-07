@@ -5,7 +5,7 @@ export const SCAN_EVENT_DETAILS = {
   analysis_complete: { progress: 75, label: "Photo analysis complete" },
   saving: { progress: 90, label: "Saving the linked item draft" },
   complete: { progress: 100, label: "Photo scan complete" },
-  error: { progress: 100, label: "Photo scan could not be completed" },
+  error: { progress: 0, label: "Photo scan could not be completed" },
 } as const;
 
 export type ScanEventType = keyof typeof SCAN_EVENT_DETAILS;
@@ -21,12 +21,12 @@ export type ScanEvent = {
 
 export function createScanEvent(
   type: ScanEventType,
-  details: Pick<ScanEvent, "photoCount"> & Partial<Pick<ScanEvent, "itemCount" | "error" | "label">>,
+  details: Pick<ScanEvent, "photoCount"> & Partial<Pick<ScanEvent, "itemCount" | "error" | "label" | "progress">>,
 ): ScanEvent {
   const definition = SCAN_EVENT_DETAILS[type];
   return {
     type,
-    progress: definition.progress,
+    progress: details.progress ?? definition.progress,
     label: details.label ?? definition.label,
     photoCount: details.photoCount,
     ...(details.itemCount === undefined ? {} : { itemCount: details.itemCount }),

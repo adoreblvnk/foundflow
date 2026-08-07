@@ -53,13 +53,13 @@ const reviewChecks = [
 
 export default function GuidePage() {
   return (
-    <main style={{ minHeight: "100vh", background: "var(--paper)" }}>
+    <main className="page-stage">
       <AppHeader />
 
-      <div style={{ width: "min(960px, calc(100% - 40px))", marginInline: "auto", paddingBlock: "48px 72px", display: "grid", gap: "48px" }}>
+      <section id="main-content" className="page-content" style={{ maxWidth: "1000px", display: "grid", gap: "40px" }}>
         <header style={{ maxWidth: "720px" }}>
           <p className="eyebrow">Staff guide</p>
-          <h1 style={{ fontSize: "clamp(2rem, 6vw, 3.5rem)", letterSpacing: "-0.055em", lineHeight: 1, margin: "0 0 18px" }}>
+          <h1 style={{ fontSize: "2.35rem", letterSpacing: "-0.025em", lineHeight: 1.12, margin: "0 0 18px" }}>
             From found item to verified handover
           </h1>
           <p style={{ color: "var(--muted)", fontSize: "1rem", lineHeight: 1.65, margin: 0 }}>
@@ -107,7 +107,7 @@ export default function GuidePage() {
           </section>
         </div>
 
-        <section aria-labelledby="scan-title" style={{ borderLeft: "4px solid var(--green)", padding: "4px 0 4px 18px", maxWidth: "760px" }}>
+        <section aria-labelledby="scan-title" className="work-surface" style={{ maxWidth: "760px", padding: "20px 22px" }}>
           <h2 id="scan-title" style={{ fontSize: "1.15rem", margin: "0 0 8px" }}>What the scan does</h2>
           <p style={{ color: "var(--muted)", fontSize: "0.88rem", lineHeight: 1.6, margin: 0 }}>
             The scan evaluates all uploaded photos as one case so it can propose cross-photo nesting and reduce duplicate records. Independent extraction and verification stages may run concurrently for speed. The progress bar reports completed server stages, not an estimated timer. A successful scan is still a draft until staff review.
@@ -121,7 +121,7 @@ export default function GuidePage() {
             The repository includes a deterministic browser walkthrough that fills the intake, review, completion and collection workflow with synthetic data. Run <code>npm run demo:automated</code> locally; it does not require a live AI provider.
           </p>
         </section>
-      </div>
+      </section>
     </main>
   );
 }

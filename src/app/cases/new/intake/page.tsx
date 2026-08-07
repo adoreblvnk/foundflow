@@ -1,141 +1,78 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import AppHeader from "@/components/AppHeader";
 import { getCurrentUser, isAuthenticated } from "@/lib/auth";
 import { handleCreateCase } from "@/app/cases/actions";
 import { INTAKE_ACKNOWLEDGEMENT_COOKIE } from "@/lib/intake";
 import { TERMINALS, AREAS } from "@/lib/constants";
 
-const fieldStyle = {
-  minHeight: "44px",
-  paddingInline: "12px",
-  borderRadius: "8px",
-  border: "1px solid var(--line)",
-  background: "var(--paper)",
-  fontSize: "0.95rem",
-};
-
 export default async function NewCaseIntakePage() {
   if (!(await isAuthenticated())) redirect("/login");
   const currentUser = await getCurrentUser();
   const cookieStore = await cookies();
-  if (cookieStore.get(INTAKE_ACKNOWLEDGEMENT_COOKIE)?.value !== currentUser?.username) {
-    redirect("/cases/new");
-  }
+  if (cookieStore.get(INTAKE_ACKNOWLEDGEMENT_COOKIE)?.value !== currentUser?.username) redirect("/cases/new");
 
   const currentIsoString = new Intl.DateTimeFormat("sv-SE", {
-    timeZone: "Asia/Singapore",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
+    timeZone: "Asia/Singapore", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
   }).format(new Date()).replace(" ", "T");
 
   return (
-    <main className="demo-page" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-      <header className="shell nav" style={{ borderBottom: "1px solid var(--line)" }}>
-        <div>
-          <Link className="brand" href="/">FoundFlow</Link>
-          <p className="muted" style={{ margin: "4px 0 0", fontSize: "0.82rem" }}>
-            New Case · <strong>{currentUser?.username}</strong>
-          </p>
+    <main className="page-stage">
+      <AppHeader />
+      <section id="main-content" className="workflow-shell work-surface">
+        <div className="workflow-head">
+          <div>
+            <p className="eyebrow">Step 1 of 5 · Case Intake</p>
+            <h1>Where and when found</h1>
+            <p>Record the outer item before adding photo evidence.</p>
+          </div>
+          <Link className="button button-secondary" href="/cases/new">Back</Link>
         </div>
-        <Link className="button button-secondary" href="/cases/new" style={{ minHeight: "40px" }}>
-          Back
-        </Link>
-      </header>
 
-      <section style={{
-        width: "min(580px, calc(100% - 40px))",
-        margin: "40px auto",
-        background: "var(--panel)",
-        border: "1px solid var(--line)",
-        borderRadius: "14px",
-        padding: "32px",
-      }}>
-        <p className="eyebrow">Step 1</p>
-        <h1 style={{ fontSize: "2rem", letterSpacing: "-0.04em", margin: "0 0 26px" }}>Where and when found</h1>
-
-        <form action={handleCreateCase} style={{ display: "grid", gap: "20px" }}>
-          {/* Terminal */}
-          <label style={{ display: "grid", gap: "6px", fontWeight: 600, fontSize: "0.88rem" }}>
-            <span>Terminal <span style={{ color: "var(--green)" }}>*</span></span>
-            <select name="terminal" required style={fieldStyle} defaultValue="">
-              <option value="" disabled>Select terminal...</option>
-              {TERMINALS.map((t) => (
-                <option key={t.value} value={t.value}>{t.label}</option>
-              ))}
+        <form action={handleCreateCase} className="intake-form">
+          <label>
+            <span>Terminal <b aria-label="required">*</b></span>
+            <select name="terminal" required defaultValue="" autoComplete="off">
+              <option value="" disabled>Select terminal…</option>
+              {TERMINALS.map((terminal) => <option key={terminal.value} value={terminal.value}>{terminal.label}</option>)}
             </select>
           </label>
-
-          {/* Area */}
-          <label style={{ display: "grid", gap: "6px", fontWeight: 600, fontSize: "0.88rem" }}>
-            <span>Area <span style={{ color: "var(--green)" }}>*</span></span>
-            <select name="area" required style={fieldStyle} defaultValue="">
-              <option value="" disabled>Select area...</option>
-              {AREAS.map((a) => (
-                <option key={a.value} value={a.value}>{a.label}</option>
-              ))}
+          <label>
+            <span>Area <b aria-label="required">*</b></span>
+            <select name="area" required defaultValue="" autoComplete="off">
+              <option value="" disabled>Select area…</option>
+              {AREAS.map((area) => <option key={area.value} value={area.value}>{area.label}</option>)}
             </select>
           </label>
-
-          {/* Specific location */}
-          <label style={{ display: "grid", gap: "6px", fontWeight: 600, fontSize: "0.88rem" }}>
+          <label className="full-row">
             Specific location
-            <input
-              name="specificLocation"
-              type="text"
-              placeholder="e.g. Beside Gate B5 charging station"
-              style={fieldStyle}
-            />
+            <input name="specificLocation" type="text" placeholder="Example: beside the Gate B5 charging station…" autoComplete="off" />
           </label>
-
-          {/* Found date/time */}
-          <label style={{ display: "grid", gap: "6px", fontWeight: 600, fontSize: "0.88rem" }}>
-            <span>Found date and time <span style={{ color: "var(--green)" }}>*</span></span>
-            <input name="foundTime" type="datetime-local" defaultValue={currentIsoString} required style={fieldStyle} />
+          <label>
+            <span>Found date and time <b aria-label="required">*</b></span>
+            <input name="foundTime" type="datetime-local" defaultValue={currentIsoString} required autoComplete="off" />
           </label>
-
-          {/* Outer item */}
-          <label style={{ display: "grid", gap: "6px", fontWeight: 600, fontSize: "0.88rem" }}>
-            <span>Outer item <span style={{ color: "var(--green)" }}>*</span></span>
-            <input
-              name="outerItemDescription"
-              type="text"
-              placeholder="e.g. Blue canvas backpack"
-              required
-              style={fieldStyle}
-            />
+          <label>
+            <span>Outer item <b aria-label="required">*</b></span>
+            <input name="outerItemDescription" type="text" placeholder="Example: blue canvas backpack…" required autoComplete="off" />
           </label>
-
-          {/* Found / handed in by */}
-          <label style={{ display: "grid", gap: "6px", fontWeight: 600, fontSize: "0.88rem" }}>
+          <label>
             Found or handed in by
-            <input name="foundBy" type="text" placeholder="e.g. Passenger, cleaner, staff" style={fieldStyle} />
+            <input name="foundBy" type="text" placeholder="Example: passenger, cleaner or staff…" autoComplete="off" />
           </label>
-
-          {/* Storage location */}
-          <label style={{ display: "grid", gap: "6px", fontWeight: 600, fontSize: "0.88rem" }}>
+          <label>
             Current storage location
-            <input name="storageLocation" type="text" placeholder="e.g. L&F Cabinet A3" style={fieldStyle} />
+            <input name="storageLocation" type="text" placeholder="Example: Lost & Found cabinet A3…" autoComplete="off" />
           </label>
-
-          {/* Staff notes */}
-          <label style={{ display: "grid", gap: "6px", fontWeight: 600, fontSize: "0.88rem" }}>
+          <label className="full-row">
             Staff notes
-            <textarea
-              name="notes"
-              placeholder="Optional internal notes"
-              rows={3}
-              style={{ ...fieldStyle, padding: "12px", fontFamily: "inherit", resize: "vertical" }}
-            />
+            <textarea name="notes" placeholder="Add optional internal notes…" rows={4} autoComplete="off" />
           </label>
-
-          <div style={{ display: "flex", gap: "12px", marginTop: "4px" }}>
-            <button className="button" type="submit" style={{ flex: 2 }}>Create Case</button>
-            <Link href="/cases" className="button button-secondary" style={{ flex: 1, minHeight: "46px" }}>Cancel</Link>
+          <div className="workflow-actions full-row">
+            <button className="button" type="submit">Create Case</button>
+            <Link href="/cases" className="button button-secondary">Cancel</Link>
           </div>
         </form>
       </section>

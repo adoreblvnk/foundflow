@@ -138,7 +138,7 @@ Open [http://localhost:3000](http://localhost:3000), sign in, and start from **L
 | `npm run demo:automated` | Headed paced walkthrough with video and trace artifacts |
 | `npm run test:e2e` | Live-AI browser verification |
 
-The automated demo uses only staged synthetic data and a temporary database under `/tmp`. Its video and trace are written to `test-results/automated-demo/`, and the HTML report is written to `playwright-report/demo/`. The fast headless demo covers the same workflow without deliberate pacing. On a headless Linux host, run `xvfb-run -a npm run demo:automated`.
+The automated demo uses only staged synthetic data and a temporary database under `/tmp`. In test mode, it exercises the authenticated production scan route with a deterministic pre-reviewed fixture, including NDJSON milestones and persistence, without contacting a live AI provider. Its video and trace are written to `test-results/automated-demo/`, and the HTML report is written to `playwright-report/demo/`. The fast headless demo covers the same workflow without deliberate pacing. On a headless Linux host, run `xvfb-run -a npm run demo:automated`.
 
 ---
 

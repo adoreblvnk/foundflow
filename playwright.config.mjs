@@ -32,6 +32,7 @@ export default defineConfig({
       LOGIN_USERNAME: "playwright-officer",
       LOGIN_PASSWORD: "foundflow-playwright-password",
       PLAYWRIGHT_TEST_MODE: "1",
+      PLAYWRIGHT_SCAN_FIXTURE: "1",
       DATA_DIR: dataDir,
     },
   },

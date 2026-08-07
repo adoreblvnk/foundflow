@@ -3,7 +3,7 @@ import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 import type { Case, EvidenceUpload, ManifestItem } from "./db.ts";
-import { getCaseById, updateCaseWithAudit } from "./db.ts";
+import { CaseRevisionConflictError, getCaseById, replaceManifestFromScan } from "./db.ts";
 import { getAgnesModelName, getAgnesProvider } from "./agnes.ts";
 import { multiplyDecimal, normalizeDecimal } from "./currency.ts";
 import { readEvidence } from "./evidence-storage.ts";
@@ -128,12 +128,17 @@ function throwIfAborted(signal?: AbortSignal): void {
 export async function loadPhotosConcurrently(
   uploads: EvidenceUpload[],
   reader: (filename: string) => Promise<Buffer | null> = readEvidence,
+  signal?: AbortSignal,
 ): Promise<LoadedPhoto[]> {
-  const loaded = await Promise.all(uploads.map(async (upload) => ({
-    upload,
-    data: await reader(upload.filename),
-  })));
-  return loaded.filter((photo): photo is LoadedPhoto => photo.data !== null);
+  const loaded = await Promise.all(uploads.map(async (upload) => {
+    throwIfAborted(signal);
+    const data = await reader(upload.filename);
+    throwIfAborted(signal);
+    return { upload, data };
+  }));
+  const missing = loaded.filter((photo) => photo.data === null).map((photo) => photo.upload.id);
+  if (missing.length > 0) throw new Error("One or more item photos could not be loaded. Check the evidence and try again.");
+  return loaded as LoadedPhoto[];
 }
 
 function extractionPrompt(caseFile: Case, photos: LoadedPhoto[]): string {
@@ -182,30 +187,50 @@ function imageContent(prompt: string, photos: LoadedPhoto[]): ContentPart[] {
   ];
 }
 
+export function assertUsableAiManifest(caseFile: Case, result: AiManifest, requireNested = false): AiManifest {
+  if (result.items.length === 0) throw new Error("Provider returned an empty item list");
+  const uploadIds = new Set(caseFile.uploads.map((upload) => upload.id));
+  const tempIds = new Set<string>();
+  for (const item of result.items) {
+    if (!uploadIds.has(item.evidenceId)) throw new Error("Provider returned an unsupported photo link");
+    if (tempIds.has(item.tempId)) throw new Error("Provider returned duplicate temporary item IDs");
+    tempIds.add(item.tempId);
+  }
+  for (const item of result.items) {
+    if (item.parentId && item.parentId !== "outer-item-root" && !tempIds.has(item.parentId)) {
+      throw new Error("Provider returned an unsupported parent item link");
+    }
+  }
+  if (requireNested && !result.items.some((item) => item.tempId !== "outer-item-root")) {
+    throw new Error("Verifier returned no nested item records");
+  }
+  return result;
+}
+
 function buildPrimaryAttempts(caseFile: Case, photos: LoadedPhoto[], signal?: AbortSignal) {
   const content = imageContent(extractionPrompt(caseFile, photos), photos);
   const attempts: Array<{ name: string; run: () => Promise<AiManifest> }> = [];
   if (process.env.OPENAI_API_KEY) {
     attempts.push({
       name: "OpenAI",
-      run: async () => (await generateObject({
+      run: async () => assertUsableAiManifest(caseFile, (await generateObject({
         model: openai(process.env.OPENAI_MODEL || "gpt-5.6-sol"),
         schema: aiManifestSchema,
         messages: [{ role: "user", content }],
         abortSignal: signal,
-      })).object,
+      })).object),
     });
   }
   const agnesProvider = getAgnesProvider();
   if (agnesProvider) {
     attempts.push({
       name: "Agnes AI",
-      run: async () => (await generateObject({
+      run: async () => assertUsableAiManifest(caseFile, (await generateObject({
         model: agnesProvider(getAgnesModelName()),
         schema: aiManifestSchema,
         messages: [{ role: "user", content }],
         abortSignal: signal,
-      })).object,
+      })).object),
     });
   }
   return attempts;
@@ -214,12 +239,12 @@ function buildPrimaryAttempts(caseFile: Case, photos: LoadedPhoto[], signal?: Ab
 function buildVerifier(caseFile: Case, photos: LoadedPhoto[], signal?: AbortSignal): (() => Promise<AiManifest>) | undefined {
   if (!process.env.OPENAI_API_KEY) return undefined;
   const content = imageContent(verificationPrompt(caseFile, photos), photos);
-  return async () => (await generateObject({
+  return async () => assertUsableAiManifest(caseFile, (await generateObject({
     model: openai(process.env.OPENAI_VERIFIER_MODEL || "gpt-5.6-sol"),
     schema: aiManifestSchema,
     messages: [{ role: "user", content }],
     abortSignal: signal,
-  })).object;
+  })).object, true);
 }
 
 function appendReviewReason(current: string | null, reason: string): string {
@@ -383,6 +408,35 @@ export interface RunAiScanOptions {
   signal?: AbortSignal;
 }
 
+export async function runDeterministicScanFixture(options: RunAiScanOptions): Promise<{ success: true; manifest: ManifestItem[] }> {
+  const caseFile = await getCaseById(options.caseId);
+  if (!caseFile) throw new Error("Case not found");
+  if (caseFile.status === "finalised") throw new Error("Cannot analyze a finalised case");
+  if (caseFile.uploads.length === 0) throw new Error("Add at least one item photo before running AI analysis.");
+
+  const report = async (event: ScanEvent) => {
+    throwIfAborted(options.signal);
+    await options.onProgress?.(event);
+    await new Promise((resolve) => setTimeout(resolve, 15));
+  };
+  const itemCount = caseFile.manifest.filter((item) => item.id !== "outer-item-root").length;
+  await report(createScanEvent("started", { photoCount: caseFile.uploads.length }));
+  await report(createScanEvent("photos_loaded", { photoCount: caseFile.uploads.length }));
+  await report(createScanEvent("analysis_stage_complete", { photoCount: caseFile.uploads.length, label: "1 of 2 parallel analysis passes complete" }));
+  await report(createScanEvent("analysis_complete", { photoCount: caseFile.uploads.length, label: "Parallel photo analysis complete" }));
+  await report(createScanEvent("saving", { photoCount: caseFile.uploads.length, itemCount }));
+  const updatedCase = await replaceManifestFromScan(
+    caseFile.id,
+    caseFile.revision ?? 0,
+    caseFile.uploads.map((upload) => upload.id),
+    caseFile.manifest,
+    options.username,
+    `Executed deterministic Playwright scan fixture. Preserved ${itemCount} nested item records.`,
+  );
+  await report(createScanEvent("complete", { photoCount: caseFile.uploads.length, itemCount }));
+  return { success: true, manifest: updatedCase.manifest };
+}
+
 export async function runAiScan(options: RunAiScanOptions): Promise<{ success: true; manifest: ManifestItem[] }> {
   const initialCase = await getCaseById(options.caseId);
   if (!initialCase) throw new Error("Case not found");
@@ -394,7 +448,7 @@ export async function runAiScan(options: RunAiScanOptions): Promise<{ success: t
     await options.onProgress?.(event);
   };
   await report(createScanEvent("started", { photoCount: initialCase.uploads.length }));
-  const photos = await loadPhotosConcurrently(initialCase.uploads);
+  const photos = await loadPhotosConcurrently(initialCase.uploads, readEvidence, options.signal);
   throwIfAborted(options.signal);
   if (photos.length === 0) throw new Error("No usable item photos are available for AI analysis.");
   await report(createScanEvent("photos_loaded", { photoCount: photos.length }));
@@ -424,31 +478,28 @@ export async function runAiScan(options: RunAiScanOptions): Promise<{ success: t
   });
   throwIfAborted(options.signal);
 
-  // Reload immediately before the only write so uploads and staff-owned edits made during the scan survive.
-  const latestCase = await getCaseById(options.caseId);
-  if (!latestCase) throw new Error("Case not found");
-  if (latestCase.status === "finalised") throw new Error("Cannot save a draft to a finalised case");
-  const mappedItems = mapAiDraft(latestCase, stages.value);
-  const mergedManifest = mergeAiDraftWithStaffItems(latestCase.manifest, mappedItems);
-  const validationError = validateManifestStructure({ ...latestCase, manifest: mergedManifest });
+  const mappedItems = mapAiDraft(initialCase, stages.value);
+  const mergedManifest = mergeAiDraftWithStaffItems(initialCase.manifest, mappedItems);
+  const validationError = validateManifestStructure({ ...initialCase, manifest: mergedManifest });
   if (validationError) throw new Error(`AI draft rejected: ${validationError}`);
+  const detectedItemCount = mappedItems.filter((item) => item.id !== "outer-item-root").length;
 
-  await report(createScanEvent("saving", { photoCount: photos.length, itemCount: mergedManifest.length }));
+  await report(createScanEvent("saving", { photoCount: photos.length, itemCount: detectedItemCount }));
   throwIfAborted(options.signal);
-  latestCase.manifest = mergedManifest;
-  await updateCaseWithAudit(
+  const updatedCase = await replaceManifestFromScan(
     options.caseId,
-    latestCase,
+    initialCase.revision ?? 0,
+    initialCase.uploads.map((upload) => upload.id),
+    mergedManifest,
     options.username,
-    "ai_analysis_triggered",
-    `Executed live ${stages.providerName} vision draft extraction${stages.strongVerificationApplied ? " with independent strong-model verification" : ""}. Discovered ${mappedItems.length - 1} nested item records.`,
+    `Executed live ${stages.providerName} vision draft extraction${stages.strongVerificationApplied ? " with independent strong-model verification" : ""}. Discovered ${detectedItemCount} nested item records.`,
   );
-  await report(createScanEvent("complete", { photoCount: photos.length, itemCount: mergedManifest.length }));
-  return { success: true, manifest: mergedManifest };
+  await report(createScanEvent("complete", { photoCount: photos.length, itemCount: detectedItemCount }));
+  return { success: true, manifest: updatedCase.manifest };
 }
 
 export function publicScanError(error: unknown): string {
-  if (error instanceof ScanAbortedError) return error.message;
+  if (error instanceof ScanAbortedError || error instanceof CaseRevisionConflictError) return error.message;
   if (error instanceof ProviderFallbackError || error instanceof AggregateError) {
     console.error("AI scan providers failed:", error);
     return "AI scan failed with all configured providers. Continue manually or try again.";
@@ -460,6 +511,7 @@ export function publicScanError(error: unknown): string {
     "Cannot save a draft to a finalised case",
     "Add at least one item photo before running AI analysis.",
     "No usable item photos are available for AI analysis.",
+    "One or more item photos could not be loaded. Check the evidence and try again.",
     "No AI provider configured. Set OPENAI_API_KEY or AGNES_API_KEY.",
   ]);
   if (safeMessages.has(message) || message.startsWith("AI draft rejected:")) return message;

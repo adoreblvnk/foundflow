@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import AppHeader from "@/components/AppHeader";
 import type { Case, ClaimPath, ClaimRecord } from "@/lib/db";
 import { caseContainsIdentityEvidence, evaluateClaimVerification } from "@/lib/claim-policy";
 import { handleCreateClaim, handleDecideClaim } from "./actions";
@@ -99,19 +100,21 @@ export default function ClaimWorkflow({ initialCase, currentUser }: { initialCas
   }
 
   return (
-    <main className="demo-page">
-      <header className="demo-header shell">
+    <main className="page-stage">
+      <AppHeader />
+      <header className="page-heading shell case-detail-heading">
         <div>
-          <Link className="brand" href="/cases">FoundFlow</Link>
-          <p>Collection claim · Case <strong>{initialCase.id}</strong> · Staff: <strong>{currentUser.username}</strong></p>
+          <p className="eyebrow">Collection Claim · Case {initialCase.id}</p>
+          <h1>Verify Ownership &amp; Handover</h1>
+          <p>Staff: <strong>{currentUser.username}</strong></p>
         </div>
         <Link className="button button-secondary" href={`/cases/${initialCase.id}`} style={{ minHeight: "40px" }}>Back to item</Link>
       </header>
 
-      <div className="claim-shell">
+      <div id="main-content" className="claim-shell">
         <section className="claim-summary">
           <p className="eyebrow">Item ready for collection</p>
-          <h1>{initialCase.outerItemDescription}</h1>
+          <h2>{initialCase.outerItemDescription}</h2>
           <dl>
             <div><dt>Found at</dt><dd>{initialCase.location}</dd></div>
             <div><dt>Found time</dt><dd>{new Date(initialCase.foundTime).toLocaleString("en-SG", { timeZone: "Asia/Singapore" })}</dd></div>

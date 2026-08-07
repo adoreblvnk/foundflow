@@ -36,7 +36,7 @@ export default function FinalisePage() {
 
   if (!caseFile) {
     return (
-      <main style={{ minHeight: "100vh", background: "var(--paper)" }}>
+      <main className="page-stage">
         <AppHeader />
         <div style={{ padding: "60px", textAlign: "center", color: "var(--muted)" }}>Loading...</div>
       </main>
@@ -65,9 +65,9 @@ export default function FinalisePage() {
   }
 
   return (
-    <main style={{ minHeight: "100vh", background: "var(--paper)" }}>
+    <main className="page-stage">
       <AppHeader />
-      <div style={{ width: "min(640px, calc(100% - 40px))", marginInline: "auto", paddingBlock: "24px 60px" }}>
+      <div id="main-content" className="workflow-shell work-surface">
         <StepIndicator currentStep={5} />
 
         <div style={{
@@ -78,8 +78,8 @@ export default function FinalisePage() {
           marginTop: "24px",
         }}>
           <p className="eyebrow">Step 5 of 5</p>
-          <h1 style={{ fontSize: "1.8rem", letterSpacing: "-0.03em", margin: "0 0 8px" }}>
-            {isFinalised ? "Case Completed ✓" : "Complete & Export"}
+          <h1 style={{ fontSize: "1.8rem", letterSpacing: "-0.025em", margin: "0 0 8px" }}>
+            {isFinalised ? "Case Completed" : "Complete & Export"}
           </h1>
 
           {/* Summary */}
@@ -120,9 +120,9 @@ export default function FinalisePage() {
 
           {/* Case info */}
           <div style={{ fontSize: "0.84rem", color: "var(--muted)", marginBottom: "24px", lineHeight: 1.7 }}>
-            <div>📍 <strong>Location:</strong> {caseFile.location}</div>
-            <div>📦 <strong>Item:</strong> {caseFile.outerItemDescription}</div>
-            <div>🆔 <strong>Case ID:</strong> {caseFile.id}</div>
+            <div><strong>Location:</strong> {caseFile.location}</div>
+            <div><strong>Item:</strong> {caseFile.outerItemDescription}</div>
+            <div><strong>Case ID:</strong> {caseFile.id}</div>
           </div>
 
           {/* Actions */}
@@ -130,7 +130,7 @@ export default function FinalisePage() {
             <>
               {unresolved > 0 && (
                 <div style={{ padding: "10px 14px", background: "#fff3cd", border: "1px solid #ffc107", borderRadius: "8px", fontSize: "0.82rem", color: "#856404", marginBottom: "16px" }}>
-                  ⚠️ {unresolved} item{unresolved !== 1 ? "s" : ""} still need review. Go back to resolve them.
+                  {unresolved} item{unresolved !== 1 ? "s" : ""} still need review. Go back to resolve them.
                 </div>
               )}
               <button

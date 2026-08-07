@@ -17,7 +17,7 @@ test("linked inventory preserves hierarchy, source links and compact layout", as
   const inventory = page.getByRole("region", { name: "Item List" });
   await expect(inventory).toBeVisible();
   await expect(inventory.getByLabel("Inventory summary")).toContainText(`${demoCase.manifest.length} records`);
-  await expect(inventory.getByText(/listed objects boxed/)).toBeVisible();
+  await expect(inventory.getByText(/photo-linked objects boxed/)).toBeVisible();
   await expect(inventory.getByRole("list", { name: "Photo-linked item hierarchy" }).getByRole("listitem")).toHaveCount(demoCase.manifest.length);
 
   const root = demoCase.manifest.find((item) => item.id === "outer-item-root");

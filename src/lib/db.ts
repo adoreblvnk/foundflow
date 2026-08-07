@@ -103,6 +103,7 @@ export interface ClaimRecord {
 
 export interface Case {
   id: string;
+  revision?: number;
   isDemo?: boolean;
   location: string;
   terminal?: string | null;
@@ -174,6 +175,7 @@ async function initializeSchema(db: DbClient): Promise<void> {
       finalisedBy TEXT,
       archivedAt TEXT,
       archivedBy TEXT,
+      revision INTEGER NOT NULL DEFAULT 0,
       createdAt TEXT NOT NULL
     )`, args: [] },
     { sql: `CREATE TABLE IF NOT EXISTS uploads (
@@ -283,6 +285,9 @@ async function initializeSchema(db: DbClient): Promise<void> {
   if (!caseColumns.some((column) => column.name === "storageLocation")) {
     await db.execute("ALTER TABLE cases ADD COLUMN storageLocation TEXT");
   }
+  if (!caseColumns.some((column) => column.name === "revision")) {
+    await db.execute("ALTER TABLE cases ADD COLUMN revision INTEGER NOT NULL DEFAULT 0");
+  }
 
   let columns = (await db.execute("PRAGMA table_info(manifest_items)")).rows as unknown as Array<{ name: string; type: string }>;
   const refresh = async () => {
@@ -371,7 +376,7 @@ function parseRegions(value: string | null | undefined): ImageRegion[] {
 interface CaseRow {
   id: string; isDemo: number; location: string; terminal: string | null; area: string | null; specificLocation: string | null;
   foundTime: string; foundBy: string; outerItemDescription: string;
-  notes: string; storageLocation: string | null; status: string; finalisedAt: string | null; finalisedBy: string | null; archivedAt: string | null; archivedBy: string | null; createdAt: string;
+  notes: string; storageLocation: string | null; status: string; finalisedAt: string | null; finalisedBy: string | null; archivedAt: string | null; archivedBy: string | null; revision: number; createdAt: string;
 }
 interface UploadRow {
   id: string; filename: string; originalName: string; mimeType: string; size: number;
@@ -479,6 +484,7 @@ export async function getCaseById(id: string): Promise<Case | undefined> {
 
   return {
     id: caseRow.id,
+    revision: Number(caseRow.revision ?? 0),
     isDemo: Boolean(caseRow.isDemo),
     location: caseRow.location,
     terminal: caseRow.terminal || null,
@@ -531,10 +537,15 @@ export async function createCase(caseData: Partial<Case> & { location: string; f
   return created;
 }
 
+function manifestInsertStatement(caseId: string, item: ManifestItem): Statement {
+  return { sql: `INSERT INTO manifest_items (id, caseId, label, parentId, quantity, quantityKnown, itemType, status, confidence, reviewReason, evidenceId, ocrText, visibleAttributes, currencyCode, denomination, currencyTotal, category, source, regions, condition, brand, colour, model, distinctiveFeatures, contentsInside, documentType, nameOnItem, lastFourChars, issuingCountry, expiryYear, jewelleryType, material, engraving, shape, lockStatus, wallpaperDescription, serialNumber, caseOrAccessories, privateMatchingDetails)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args: [item.id, caseId, item.label, item.parentId, item.quantity, item.quantityKnown === false ? 0 : 1, item.itemType ?? "property", item.status, item.confidence, item.reviewReason, item.evidenceId, item.ocrText || null, item.visibleAttributes || null, item.currencyCode || null, item.denomination ?? null, item.currencyTotal ?? null, item.category || "other", item.source || (item.id === "outer-item-root" ? "system" : "staff"), JSON.stringify(item.regions || []), item.condition ?? null, item.brand ?? null, item.colour ?? null, item.model ?? null, item.distinctiveFeatures ?? null, item.contentsInside ?? null, item.documentType ?? null, item.nameOnItem ?? null, item.lastFourChars ?? null, item.issuingCountry ?? null, item.expiryYear ?? null, item.jewelleryType ?? null, item.material ?? null, item.engraving ?? null, item.shape ?? null, item.lockStatus ?? null, item.wallpaperDescription ?? null, item.serialNumber ?? null, item.caseOrAccessories ?? null, item.privateMatchingDetails ?? null] };
+}
+
 function updateStatements(id: string, updatedCase: Case): Statement[] {
   const statements: Statement[] = [
-    { sql: `UPDATE cases SET location = ?, terminal = ?, area = ?, specificLocation = ?, foundTime = ?, foundBy = ?, outerItemDescription = ?, notes = ?, storageLocation = ?, status = ?, finalisedAt = ?, finalisedBy = ?, archivedAt = ?, archivedBy = ? WHERE id = ?`,
-      args: [updatedCase.location, updatedCase.terminal ?? null, updatedCase.area ?? null, updatedCase.specificLocation ?? null, updatedCase.foundTime, updatedCase.foundBy, updatedCase.outerItemDescription, updatedCase.notes, updatedCase.storageLocation ?? null, updatedCase.status, updatedCase.finalisedAt, updatedCase.finalisedBy, updatedCase.archivedAt ?? null, updatedCase.archivedBy ?? null, id] },
+    { sql: `UPDATE cases SET location = ?, terminal = ?, area = ?, specificLocation = ?, foundTime = ?, foundBy = ?, outerItemDescription = ?, notes = ?, storageLocation = ?, status = ?, finalisedAt = ?, finalisedBy = ?, archivedAt = ?, archivedBy = ?, revision = revision + 1 WHERE id = ? AND revision = ?`,
+      args: [updatedCase.location, updatedCase.terminal ?? null, updatedCase.area ?? null, updatedCase.specificLocation ?? null, updatedCase.foundTime, updatedCase.foundBy, updatedCase.outerItemDescription, updatedCase.notes, updatedCase.storageLocation ?? null, updatedCase.status, updatedCase.finalisedAt, updatedCase.finalisedBy, updatedCase.archivedAt ?? null, updatedCase.archivedBy ?? null, id, updatedCase.revision ?? 0] },
     { sql: "DELETE FROM uploads WHERE caseId = ?", args: [id] },
   ];
   for (const upload of updatedCase.uploads) {
@@ -543,20 +554,48 @@ function updateStatements(id: string, updatedCase: Case): Statement[] {
   }
   statements.push({ sql: "DELETE FROM manifest_items WHERE caseId = ?", args: [id] });
   for (const item of updatedCase.manifest) {
-    statements.push({ sql: `INSERT INTO manifest_items (id, caseId, label, parentId, quantity, quantityKnown, itemType, status, confidence, reviewReason, evidenceId, ocrText, visibleAttributes, currencyCode, denomination, currencyTotal, category, source, regions, condition, brand, colour, model, distinctiveFeatures, contentsInside, documentType, nameOnItem, lastFourChars, issuingCountry, expiryYear, jewelleryType, material, engraving, shape, lockStatus, wallpaperDescription, serialNumber, caseOrAccessories, privateMatchingDetails)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args: [item.id, id, item.label, item.parentId, item.quantity, item.quantityKnown === false ? 0 : 1, item.itemType ?? "property", item.status, item.confidence, item.reviewReason, item.evidenceId, item.ocrText || null, item.visibleAttributes || null, item.currencyCode || null, item.denomination ?? null, item.currencyTotal ?? null, item.category || "other", item.source || (item.id === "outer-item-root" ? "system" : "staff"), JSON.stringify(item.regions || []), item.condition ?? null, item.brand ?? null, item.colour ?? null, item.model ?? null, item.distinctiveFeatures ?? null, item.contentsInside ?? null, item.documentType ?? null, item.nameOnItem ?? null, item.lastFourChars ?? null, item.issuingCountry ?? null, item.expiryYear ?? null, item.jewelleryType ?? null, item.material ?? null, item.engraving ?? null, item.shape ?? null, item.lockStatus ?? null, item.wallpaperDescription ?? null, item.serialNumber ?? null, item.caseOrAccessories ?? null, item.privateMatchingDetails ?? null] });
+    statements.push(manifestInsertStatement(id, item));
   }
   return statements;
 }
 
-export async function updateCase(id: string, updatedCase: Case): Promise<Case> {
+async function applyCaseUpdate(
+  id: string,
+  updatedCase: Case,
+  audit?: { userId: string; action: string; details: string },
+): Promise<Case> {
   const db = await getDbInstance();
-  const existing = await db.execute({ sql: "SELECT 1 FROM cases WHERE id = ?", args: [id] });
-  if (existing.rows.length === 0) throw new Error(`Case ${id} not found`);
-  await db.batch(updateStatements(id, updatedCase), "write");
+  const transaction = await db.transaction("write");
+  try {
+    const existing = await transaction.execute({ sql: "SELECT revision FROM cases WHERE id = ?", args: [id] });
+    if (existing.rows.length === 0) throw new Error(`Case ${id} not found`);
+    if (Number(existing.rows[0].revision) !== (updatedCase.revision ?? 0)) throw new CaseRevisionConflictError();
+
+    const statements = updateStatements(id, updatedCase);
+    const caseUpdate = await transaction.execute(statements[0]);
+    if (Number(caseUpdate.rowsAffected) !== 1) throw new CaseRevisionConflictError();
+    for (const statement of statements.slice(1)) await transaction.execute(statement);
+    if (audit) {
+      await transaction.execute({
+        sql: "INSERT INTO audit_logs (id, caseId, timestamp, userId, action, details) VALUES (?, ?, ?, ?, ?, ?)",
+        args: [`log-${crypto.randomUUID()}`, id, new Date().toISOString(), audit.userId, audit.action, audit.details],
+      });
+    }
+    await transaction.commit();
+  } catch (error) {
+    if (!transaction.closed) await transaction.rollback();
+    throw error;
+  } finally {
+    transaction.close();
+  }
+
   const updated = await getCaseById(id);
   if (!updated) throw new Error("CRITICAL DATABASE ERROR: Failed to update and retrieve case.");
   return updated;
+}
+
+export async function updateCase(id: string, updatedCase: Case): Promise<Case> {
+  return applyCaseUpdate(id, updatedCase);
 }
 
 export async function deleteCaseRecord(id: string): Promise<boolean> {
@@ -566,15 +605,61 @@ export async function deleteCaseRecord(id: string): Promise<boolean> {
 }
 
 export async function updateCaseWithAudit(id: string, updatedCase: Case, userId: string, action: string, details: string): Promise<Case> {
+  return applyCaseUpdate(id, updatedCase, { userId, action, details });
+}
+
+export class CaseRevisionConflictError extends Error {
+  constructor() {
+    super("The case changed while you were working. Refresh and try again.");
+    this.name = "CaseRevisionConflictError";
+  }
+}
+
+export async function replaceManifestFromScan(
+  id: string,
+  expectedRevision: number,
+  expectedUploadIds: string[],
+  manifest: ManifestItem[],
+  userId: string,
+  details: string,
+): Promise<Case> {
   const db = await getDbInstance();
-  const existing = await db.execute({ sql: "SELECT 1 FROM cases WHERE id = ?", args: [id] });
-  if (existing.rows.length === 0) throw new Error(`Case ${id} not found`);
-  const statements = updateStatements(id, updatedCase);
-  statements.push({ sql: `INSERT INTO audit_logs (id, caseId, timestamp, userId, action, details) VALUES (?, ?, ?, ?, ?, ?)`,
-    args: [`log-${crypto.randomUUID()}`, id, new Date().toISOString(), userId, action, details] });
-  await db.batch(statements, "write");
+  const transaction = await db.transaction("write");
+  try {
+    const caseResult = await transaction.execute({ sql: "SELECT revision, status FROM cases WHERE id = ?", args: [id] });
+    const row = caseResult.rows[0] as unknown as { revision: number; status: string } | undefined;
+    if (!row) throw new Error(`Case ${id} not found`);
+    if (row.status !== "reviewing" || Number(row.revision) !== expectedRevision) throw new CaseRevisionConflictError();
+
+    const uploadResult = await transaction.execute({ sql: "SELECT id FROM uploads WHERE caseId = ? ORDER BY id", args: [id] });
+    const currentUploadIds = uploadResult.rows.map((upload) => String(upload.id)).sort();
+    const expectedIds = [...expectedUploadIds].sort();
+    if (currentUploadIds.length !== expectedIds.length || currentUploadIds.some((uploadId, index) => uploadId !== expectedIds[index])) {
+      throw new CaseRevisionConflictError();
+    }
+
+    const revisionUpdate = await transaction.execute({
+      sql: "UPDATE cases SET revision = revision + 1 WHERE id = ? AND revision = ? AND status = 'reviewing'",
+      args: [id, expectedRevision],
+    });
+    if (Number(revisionUpdate.rowsAffected) !== 1) throw new CaseRevisionConflictError();
+
+    await transaction.execute({ sql: "DELETE FROM manifest_items WHERE caseId = ?", args: [id] });
+    for (const item of manifest) await transaction.execute(manifestInsertStatement(id, item));
+    await transaction.execute({
+      sql: "INSERT INTO audit_logs (id, caseId, timestamp, userId, action, details) VALUES (?, ?, ?, ?, ?, ?)",
+      args: [`log-${crypto.randomUUID()}`, id, new Date().toISOString(), userId, "ai_analysis_triggered", details],
+    });
+    await transaction.commit();
+  } catch (error) {
+    if (!transaction.closed) await transaction.rollback();
+    throw error;
+  } finally {
+    transaction.close();
+  }
+
   const updated = await getCaseById(id);
-  if (!updated) throw new Error("CRITICAL DATABASE ERROR: Failed to update and retrieve case.");
+  if (!updated) throw new Error("CRITICAL DATABASE ERROR: Failed to retrieve the scanned case.");
   return updated;
 }
 
@@ -670,7 +755,7 @@ export async function seedDemoCase(): Promise<Case> {
     { sql: "DELETE FROM uploads WHERE caseId = ?", args: [id] },
     { sql: "DELETE FROM cases WHERE id = ?", args: [id] },
     { sql: `INSERT INTO cases (id, isDemo, location, foundTime, foundBy, outerItemDescription, notes, status, finalisedAt, finalisedBy, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [id, 1, "Changi Airport Terminal 3 Arrivals", createdAt, "Demo staff", "Black backpack", "Staged synthetic item for the FoundFlow demonstration. No passenger data is present.", "reviewing", null, null, createdAt] },
+      args: [id, 1, "Terminal 3 Arrivals Hall", createdAt, "Demo staff", "Black backpack", "Staged synthetic item for the FoundFlow demonstration. No passenger data is present.", "reviewing", null, null, createdAt] },
     { sql: `INSERT INTO uploads (id, caseId, filename, originalName, mimeType, size, uploadedAt, containerContext) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [evidenceId, id, evidenceFilename, "staged-found-item.webp", "image/webp", evidence.byteLength, "2026-07-21T09:31:00.000Z", "bag-contents"] },
   ];

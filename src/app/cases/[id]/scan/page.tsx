@@ -34,9 +34,9 @@ export default function ScanPage() {
   }
 
   return (
-    <main style={{ minHeight: "100vh", background: "var(--paper)" }}>
+    <main className="page-stage">
       <AppHeader />
-      <div style={{ width: "min(640px, calc(100% - 40px))", marginInline: "auto", paddingBlock: "24px 60px" }}>
+      <div id="main-content" className="workflow-shell work-surface">
         <StepIndicator currentStep={3} />
 
         <div style={{
@@ -48,7 +48,7 @@ export default function ScanPage() {
           textAlign: "center",
         }}>
           <p className="eyebrow">Step 3 of 5</p>
-          <h1 style={{ fontSize: "1.8rem", letterSpacing: "-0.03em", margin: "0 0 8px" }}>
+          <h1 style={{ fontSize: "1.8rem", letterSpacing: "-0.025em", margin: "0 0 8px" }}>
             Scan Item Photos
           </h1>
           <p style={{ fontSize: "0.9rem", color: "var(--muted)", margin: "0 0 32px", lineHeight: 1.5 }}>
@@ -70,9 +70,9 @@ export default function ScanPage() {
               }}
             >
               {isScanning ? (
-                <span>Scanning... please wait</span>
+                <span>Scanning… please wait</span>
               ) : (
-                <span>🔍 Scan Photos</span>
+                <span>Scan Photos</span>
               )}
             </button>
           )}

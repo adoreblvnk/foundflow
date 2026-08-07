@@ -19,6 +19,12 @@ test("changing an AI item's source does not retain boxes from the old photo", as
   await page.getByRole("button", { name: `Edit ${item.label}`, exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Edit Item" });
   await dialog.getByLabel("Source Photo").selectOption("staff-added");
+  const statusSelect = dialog.getByLabel("Status");
+  await expect(statusSelect).toBeDisabled();
+  await expect(statusSelect).toHaveValue("review");
+  await expect(dialog.getByText("A changed source must be saved as Needs Review until its photo regions are checked.")).toBeVisible();
+  await statusSelect.evaluate((element) => { element.disabled = false; });
+  await statusSelect.selectOption("confirmed");
   await dialog.getByRole("button", { name: "Save Changes" }).click();
 
   await expect(dialog).toHaveCount(0);

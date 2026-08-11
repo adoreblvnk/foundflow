@@ -46,8 +46,10 @@ jobs:
       - run: npm audit signatures
       - run: npm audit --audit-level=moderate
       - run: npm run test:security
+      - name: Prune platform-optional packages before SBOM generation
+        run: npm prune --omit=optional --ignore-scripts
       - name: Generate CycloneDX SBOM
-        run: npm sbom --sbom-format cyclonedx > foundflow.cdx.json
+        run: npm sbom --omit=optional --sbom-format cyclonedx > foundflow.cdx.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: foundflow-sbom-${{ github.sha }}

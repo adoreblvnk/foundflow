@@ -23,7 +23,7 @@ test("photo-linked demo completes the found-item workflow", async ({ page }) => 
   expect(seedResponse.ok()).toBe(true);
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Lost and Found" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Lost & found, clearly accounted for." })).toBeVisible();
   await expect(page.getByRole("link", { name: /Manage Cases/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /Search Records/ })).toBeVisible();
   await expect(page.getByText(/Photograph\. Scan\. Verify\./)).toHaveCount(0);

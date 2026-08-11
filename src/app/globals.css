@@ -235,15 +235,11 @@ h2 { margin-bottom: 24px; font-size: 1.6rem; line-height: 1.2; letter-spacing: -
 .app-header { position: sticky; top: 0; z-index: 100; background: #fff; box-shadow: inset 0 -3px 0 var(--purple), 0 2px 5px rgba(35, 25, 45, 0.08); }
 .app-header-inner { min-height: var(--header-height); display: flex; align-items: center; gap: 28px; }
 .brand-link { flex: none; }
-.brand-lockup { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+.brand-lockup { display: inline-flex; align-items: center; min-width: 0; }
 .brand-lockup > span { display: grid; line-height: 1.05; }
 .brand-lockup strong { color: #3f3945; font-size: 1.25rem; font-weight: 900; letter-spacing: -0.02em; }
 .brand-lockup small { margin-top: 4px; color: var(--muted); font-size: 0.66rem; font-weight: 700; letter-spacing: 0.035em; }
-.brand-mark { width: 38px; height: 38px; overflow: visible; }
-.brand-mark path { fill: none; stroke-width: 4; stroke-linecap: round; }
-.brand-mark path:nth-child(1) { stroke: #f05c35; }
-.brand-mark path:nth-child(2) { stroke: var(--magenta); }
-.brand-mark path:nth-child(3) { stroke: var(--purple); stroke-width: 3; }
+
 .app-nav { display: flex; align-self: stretch; align-items: stretch; margin-left: auto; }
 .app-nav a { position: relative; display: inline-flex; align-items: center; padding-inline: 13px; color: var(--ink-soft); font-size: 0.86rem; font-weight: 700; }
 .app-nav a:hover, .app-nav a.active { color: var(--purple); background: var(--purple-soft); }
@@ -394,7 +390,7 @@ h2 { margin-bottom: 24px; font-size: 1.6rem; line-height: 1.2; letter-spacing: -
   .app-header-inner { width: 100%; padding-inline: 12px; }
   .brand-lockup small { display: none; }
   .brand-lockup strong { font-size: 1.08rem; }
-  .brand-mark { width: 32px; height: 32px; }
+
   .app-header-action { min-height: 36px; padding-inline: 11px; font-size: 0.78rem; }
   .app-nav a { padding-inline: 10px; font-size: 0.78rem; }
   .portal-home { min-height: auto; padding-block: 28px 44px; }

@@ -19,11 +19,6 @@ function isActive(pathname: string, href: string) {
 export function FoundFlowBrand({ compact = false }: { compact?: boolean }) {
   return (
     <span className={`brand-lockup${compact ? " brand-lockup-compact" : ""}`}>
-      <svg className="brand-mark" viewBox="0 0 44 44" aria-hidden="true">
-        <path d="M8 23.5c0-8.6 6.4-15.5 14.3-15.5 6.1 0 11.3 4 13.4 9.7" />
-        <path d="M36 20.5C36 29.1 29.6 36 21.7 36 15.6 36 10.4 32 8.3 26.3" />
-        <path d="M12 14.5c6.2 1.1 13.4 5.2 20 14.8" />
-      </svg>
       <span>
         <strong>FoundFlow</strong>
         {!compact && <small>Lost &amp; Found Operations</small>}

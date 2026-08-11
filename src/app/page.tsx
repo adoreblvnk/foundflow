@@ -18,7 +18,6 @@ export default function Home() {
           <p className="portal-copy">
             Capture found items, link every listed object to photo evidence and keep staff in control from intake through collection.
           </p>
-          <p className="portal-version">Independent Launchpad 2026 prototype · Team Adore</p>
         </section>
 
         <section className="portal-panel" aria-labelledby="operations-heading">

@@ -252,19 +252,31 @@ h2 { margin-bottom: 24px; font-size: 1.6rem; line-height: 1.2; letter-spacing: -
 
 .portal-page { min-height: 100vh; background: linear-gradient(90deg, rgba(255,255,255,.93), rgba(251,246,252,.82)), url('/brand/foundflow-portal.webp') center / cover fixed; }
 .portal-main { min-height: calc(100vh - var(--header-height)); }
-.portal-home { width: min(1080px, calc(100% - 40px)); min-height: calc(100vh - var(--header-height)); margin-inline: auto; display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, 430px); align-items: center; gap: 74px; padding-block: 54px; }
-.portal-intro { max-width: 570px; }
-.portal-intro .brand-lockup { margin-bottom: 36px; }
-.portal-intro .brand-mark { width: 58px; height: 58px; }
-.portal-intro .brand-lockup strong { font-size: 1.8rem; }
-.portal-intro .brand-lockup small { font-size: 0.72rem; }
-.portal-title { margin: 0 0 18px; font-size: 2.7rem; line-height: 1.15; letter-spacing: -0.025em; text-transform: none; }
-.portal-copy { max-width: 54ch; color: var(--ink-soft); font-size: 1rem; line-height: 1.65; }
+.portal-home { width: min(1080px, calc(100% - 40px)); min-height: calc(100vh - var(--header-height) - 37px); margin-inline: auto; display: grid; grid-template-columns: minmax(0, 1fr) minmax(380px, 440px); align-items: center; gap: 76px; padding-block: 64px; }
+.portal-intro { max-width: 590px; }
+.portal-title { max-width: 12ch; margin: 0 0 20px; font-size: 3.25rem; line-height: 1.08; letter-spacing: -0.035em; text-wrap: balance; }
+.portal-copy { max-width: 56ch; margin: 0; color: var(--ink-soft); font-size: 1.04rem; line-height: 1.65; text-wrap: pretty; }
+.home-flow { display: grid; gap: 0; margin: 38px 0 0; padding: 0; list-style: none; }
+.home-flow li { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 14px; position: relative; padding: 0 0 24px; }
+.home-flow li:last-child { padding-bottom: 0; }
+.home-flow li:not(:last-child)::after { position: absolute; top: 31px; bottom: 4px; left: 16px; width: 1px; background: var(--line-strong); content: ""; }
+.home-flow li > span { display: grid; z-index: 1; width: 34px; height: 34px; place-items: center; border: 1px solid var(--purple); border-radius: 50%; background: var(--panel); color: var(--purple-dark); font-family: var(--font-mono), monospace; font-size: 0.76rem; font-weight: 700; }
+.home-flow li div { display: grid; gap: 3px; padding-top: 2px; }
+.home-flow strong { font-size: 0.92rem; }
+.home-flow small { max-width: 48ch; color: var(--muted); font-size: 0.8rem; line-height: 1.5; }
 .portal-panel { width: 100%; border-radius: 6px; background: #fff; box-shadow: var(--shadow-panel); padding: 30px; }
+.home-task-panel { padding: 32px; }
 .portal-panel-heading { margin-bottom: 22px; border-bottom: 1px solid var(--line); padding-bottom: 18px; }
 .portal-panel-heading h1, .portal-panel-heading h2 { margin: 0 0 6px; font-size: 1.5rem; }
 .portal-panel-heading p { margin: 0; color: var(--muted); font-size: 0.86rem; }
-.operation-list { display: grid; gap: 12px; }
+.home-primary-action { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 15px; min-height: 86px; border-radius: 4px; background: var(--purple); padding: 16px; color: #fff; transition: background-color 180ms ease, transform 180ms ease; }
+.home-primary-action:hover { background: var(--purple-dark); transform: translateY(-1px); }
+.home-primary-action .operation-icon { width: 42px; height: 42px; background: rgba(255,255,255,.16); font-size: 1.35rem; }
+.home-primary-action .operation-copy strong { color: #fff; font-size: 1rem; }
+.home-primary-action .operation-copy small { color: rgba(255,255,255,.84); }
+.home-primary-action .operation-arrow { color: #fff; }
+.home-secondary-heading { margin: 24px 0 10px; color: var(--muted); font-size: 0.76rem; font-weight: 700; }
+.operation-list { display: grid; gap: 10px; }
 .operation-link { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: 14px; min-height: 72px; border: 1px solid var(--line); border-radius: 4px; background: #fff; padding: 12px 14px; transition: border-color 180ms ease, background-color 180ms ease, transform 180ms ease; }
 .operation-link:hover { border-color: var(--purple); background: var(--purple-soft); transform: translateX(2px); }
 .operation-icon { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 4px; background: var(--purple); color: #fff; font-weight: 900; }
@@ -386,6 +398,7 @@ h2 { margin-bottom: 24px; font-size: 1.6rem; line-height: 1.2; letter-spacing: -
   .app-header-action { min-height: 36px; padding-inline: 11px; font-size: 0.78rem; }
   .app-nav a { padding-inline: 10px; font-size: 0.78rem; }
   .portal-home { min-height: auto; padding-block: 28px 44px; }
+  .home-flow { display: none; }
   .home-portal .portal-intro .brand-lockup { display: none; }
   .portal-footer { gap: 8px; padding: 14px 20px; }
   .portal-title { font-size: 2rem; letter-spacing: -0.02em; }
